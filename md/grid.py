@@ -71,7 +71,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
         cell_lengths, \
         gap_heights, bulk_height_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
-        vx_ch, den_ch, jx_ch, vir_ch,\
+        vx_ch, den_ch, jx_ch, vir_ch, temp_ch,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
         den_bulk_ch, Nf = itemgetter('cell_lengths',
@@ -86,6 +86,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
                                       'den_ch',
                                       'jx_ch',
                                       'vir_ch',
+                                      'temp_ch',
                                       'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
                                       'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
                                       'den_bulk_ch',
@@ -102,6 +103,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
         fluid_vy_avg = np.array(comm.gather(fluid_vy_avg, root=0))
 
         if rank == 0:
+
             print('Sampled time: {} {}'.format(np.int(time_array[-1]), Time.units))
             # Dimensions: (Nf)
             # Average velocity of each atom over all the tsteps in the slice
@@ -134,7 +136,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
             # Virial
             vir_ch_global = np.zeros_like(vx_ch_global)
             # Temperature
-            #v_t_global = np.zeros_like(vx_ch_global)
+            temp_global = np.zeros_like(vx_ch_global)
 
             # Dimensions: (time, Nx)
             # Surface Forces
@@ -162,7 +164,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
             den_ch_global = None
             jx_ch_global = None
             vir_ch_global = None
-            #v_t_global = None
+            temp_global = None
 
             surfU_fx_ch_global = None
             surfU_fy_ch_global = None
@@ -190,7 +192,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
         comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=jx_ch, recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
-        # comm.Gatherv(sendbuf=v_t_ch, recvbuf=(v_t_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=temp_ch, recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vir_ch, recvbuf=(vir_ch_global, sendcounts_chunk_fluid), root=0)
 
         comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
@@ -202,10 +204,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
         comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
 
         if rank == 0:
-
-            # if 'no-temp' not in sys.argv:
-            #     temp = ((mf*g_to_kg/sci.N_A) * v_t_global * A_per_fs_to_m_per_s**2) / sci.k       # Kelvin
-
+            
             # Write to netCDF file  ------------------------------------------
             outfile = f"{infile.split('.')[0]}_{Nx}x{Nz}_{slice}.nc"
             out = netCDF4.Dataset(outfile, 'w', format='NETCDF3_64BIT_OFFSET')
@@ -237,7 +236,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
             den_var = out.createVariable('Density', 'f4',  ('time', 'x', 'z'))
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
             vir_var = out.createVariable('Virial', 'f4', ('time', 'x', 'z'))
-            #temp_var =  out.createVariable('Temperature', 'f4', ('time', 'x', 'z'))
+            temp_var =  out.createVariable('Temperature', 'f4', ('time', 'x', 'z'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
             fy_U_var =  out.createVariable('Fy_Upper', 'f4',  ('time', 'x'))
@@ -267,7 +266,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
             den_var[:] = den_ch_global
             jx_var[:] = jx_ch_global
             vir_var[:] = vir_ch_global
-            #temp_var[:] = temp
+            temp_var[:] = temp_global
 
             fx_U_var[:] = surfU_fx_ch_global
             fy_U_var[:] = surfU_fy_ch_global

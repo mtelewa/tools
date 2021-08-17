@@ -120,6 +120,7 @@ class plot_from_ds:
 
         self.length_arrays = np.zeros([len(datasets), self.Nx])
         self.height_arrays = np.zeros([len(datasets), self.Nz])
+        self.height_arra
 
         for i in range(len(datasets)):
             self.length_arrays[i, :] = get_variables.derive_data(datasets[i], skip).length_array
@@ -140,12 +141,14 @@ class plot_from_ds:
 
         mpl.rcParams.update({'lines.markersize': 3})
 
-        Nz_mod = len(get_variables.derive_data(datasets[0], skip).velocity()[0])
+        height_array, vx_data, xdata_fit, fit_params = get_variables.derive_data(datasets[0], skip).velocity()
+
+        Nz_mod = len(get_variables.derive_data(datasets[0], skip).velocity()['height_array'])
         height_arrays_mod = np.zeros([len(datasets), Nz_mod])
         vx_chunkZ = np.zeros([len(datasets), Nz_mod])
 
         for i in range(len(datasets)):
-            height_arrays_mod[i, :] = get_variables.derive_data(datasets[i], skip).velocity()[0]
+            height_arrays_mod[i, :] = get_variables.derive_data(datasets[i], skip).velocity()['height_array']
             vx_chunkZ[i, :] = get_variables.derive_data(datasets[i], skip).velocity()[1]
             label=input('Label:')
             self.ax.plot(height_arrays_mod[i, :], vx_chunkZ[i, :],
@@ -366,11 +369,11 @@ class plot_from_ds:
                 self.ax.plot(self.height_arrays[i, :], tempZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'temp_time' in sys.argv:
-            tempT = np.zeros([len(datasets), len(self.time)-skip])
+            tempT = np.zeros([len(datasets), len(self.time)])
             self.ax.set_xlabel(labels[2])
             for i in range(len(datasets)):
                 tempT[i, :] = get_variables.derive_data(datasets[i], skip).temp()[2]
-                self.ax.plot(self.time, tempT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
+                self.ax.plot(self.time[:]*1e-6, tempT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
     def pgrad_mflowrate(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
 

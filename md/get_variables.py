@@ -70,7 +70,7 @@ class derive_data:
 
         # The length and height arrays for plotting
         self.length_array = np.arange(self.dx/2.0, self.Lx, self.dx) / 10           #nm
-        self.height_array = np.arange(dz/2.0, avg_gap_height, dz)/ 10.    #nm
+        self.height_array = np.arange(dz/2.0, avg_gap_height, dz) / 10.    #nm
 
         # If the bulk height is given
         try:
@@ -78,7 +78,6 @@ class derive_data:
         except KeyError:
             pass
 
-    # Dimensions: axis 0 : time , axis 1 : Nx , axis 2 : Nz --------------------
 
     def velocity(self):
         """
@@ -114,72 +113,16 @@ class derive_data:
         polynom = np.poly1d(coeffs_fit)
         xdata = np.linspace(height_array_mod[0], height_array_mod[-1], npoints)
 
-        return {'height_array': height_array_mod, 'vx_height': vx_chunkZ_mod,
+        return {'height_array_mod': height_array_mod, 'vx_height': vx_chunkZ_mod,
                 'xdata': xdata, 'fit_params': polynom(xdata)}
-
-    def vx_distrib(self):
-        """
-        Returns
-        -------
-        values: arr
-            fluid velocities averaged over time for each atom/molecule
-        probabilities : arr
-            probabilities of these velocities
-        """
-        fluid_vx = np.array(self.data.variables["Fluid_Vx"]) *  A_per_fs_to_m_per_s       # m/s
-        fluid_vy = np.array(self.data.variables["Fluid_Vy"]) *  A_per_fs_to_m_per_s       # m/s
-
-        values_x, probabilities_x = sq.get_err(fluid_vx)[0], sq.get_err(fluid_vx)[1]
-        values_y, probabilities_y = sq.get_err(fluid_vy)[0], sq.get_err(fluid_vy)[1]
-
-        values = [values_x, values_y]
-        probabilities = [probabilities_x, probabilities_y]
-
-        return {'values': values, 'probabilities': probabilities}
-
-    def slip_length(self):
-        """
-        Returns
-        -------
-        Ls: int
-            slip length in nm (obtained from extrapolation of the height at velocty of zero)
-        Vs : int
-            slip velocity in m/s (Slip velocty * Shear rate)
-        xdata: arr
-            Positions to inter/extrapolate
-        extrapolate: arr
-            Extrapolated data
-        """
-        dd = derive_data(self.infile,self.skip)
-        vels = dd.velocity()
-
-        npoints = len(vels['height_array'])
-        # Positions to inter/extrapolate<
-        xdata = np.linspace(-22, vels['height_array'][1], npoints)
-
-        # spline order: 1 linear, 2 quadratic, 3 cubic ...
-        order = 1
-        # do inter/extrapolation
-        extrapolate = InterpolatedUnivariateSpline(vels['height_array'], vels['fit_params'], k=order)
-        coeffs_extrapolate = np.polyfit(xdata, extrapolate(xdata), 1)
-
-        # Slip lengths (extrapolated)
-        roots = np.roots(coeffs_extrapolate)
-        Ls = np.abs(roots[-1])      #  m
-        print('Slip Length {} (nm) -----' .format(Ls))
-        # Slip velocity according to Navier boundary
-        Vs = Ls * sci.nano * shear_rate                               # m/s
-        print('Slip velocity: Navier boundary {} (m/s) -----'.format(Vs))
-
-        return {'Ls':Ls, 'Vs':Vs, 'xdata':xdata, 'extrapolated':extrapolate(xdata)}
 
 
     def mflux(self):
         """
         Returns
         -------
-        height_array_mod : height array with the zero-mean chunks removed.
-        vx_chunkZ_mod : velocity along the gap height with the zero-mean chunks
+        jx_chunkX : height array with the zero-mean chunks removed.
+        jx_t : velocity along the gap height with the zero-mean chunks
                         removed.
         """
 
@@ -204,7 +147,7 @@ class derive_data:
         jx_chunkX = np.mean(jx, axis=(0,2)) * (sci.angstrom/fs_to_ns) * (mf/sci.N_A) / (sci.angstrom**3)
         jx_chunkX_mod = jx_chunkX[jx_chunkX !=0]
 
-        return jx_chunkX_mod, jx_t, jx_stable, mflowrate_stable
+        return {'jx_chunkX': jx_chunkX_mod, 'jx_t': jx_t, 'jx_stable': jx_stable}
 
 
     def density(self):
@@ -217,60 +160,15 @@ class derive_data:
         """
 
         # Bulk Density ---------------------
-        density_Bulk = np.array(self.data.variables["Density_Bulk"])[self.skip:]
-        # density_Bulk = np.reshape(density_Bulk, (len(self.time),len(self.length_array)))
-
-        # bulk_density_avg = np.mean(density_Bulk, axis=(0,1))
-        den_chunkX = np.mean(density_Bulk, axis=0) * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        density_Bulk = np.array(self.data.variables["Density_Bulk"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        den_chunkX = np.mean(density_Bulk, axis=0)
 
         # Fluid Density ---------------------
-        density = np.array(self.data.variables["Density"])[self.skip:]
+        density = np.array(self.data.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
+        den_chunkZ = np.mean(density,axis=(0,1))     # g/cm^3
+        den_t = np.mean(density,axis=(1,2))    # g/cm^3
 
-        den_t = np.mean(density,axis=(1,2)) * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
-        den_chunkZ = np.mean(density,axis=(0,1)) * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
-
-        return den_chunkX, den_chunkZ, den_t
-
-
-    def sigwall(self):
-        """
-        Parameters
-        ----------
-        F<x|y|z>_<Upper|Lower> : The force
-        Returns
-        -------
-        sigxz_chunkX : Avg. Shear stress in the walls along the length
-        sigzz_chunkX : Avg. Normal stress in the walls along the length
-        sigxz_t : Avg. shear stress in the walls with time.
-        sigzz_t : Avg. normal stress in the walls with time.
-        """
-
-        # in Newtons
-        fx_Upper = np.array(self.data.variables["Fx_Upper"])[self.skip:] * kcalpermolA_to_N
-        fy_Upper = np.array(self.data.variables["Fy_Upper"])[self.skip:] * kcalpermolA_to_N
-        fz_Upper = np.array(self.data.variables["Fz_Upper"])[self.skip:] * kcalpermolA_to_N
-        fx_Lower = np.array(self.data.variables["Fx_Lower"])[self.skip:] * kcalpermolA_to_N
-        fy_Lower = np.array(self.data.variables["Fy_Lower"])[self.skip:] * kcalpermolA_to_N
-        fz_Lower = np.array(self.data.variables["Fz_Lower"])[self.skip:] * kcalpermolA_to_N
-
-        fx_wall = 0.5 * (fx_Upper - fx_Lower)
-        fy_wall = 0.5 * (fy_Upper - fy_Lower)
-        fz_wall = 0.5 * (fz_Upper - fz_Lower)
-
-        wall_A = self.Lx * self.Ly * 1e-20
-        chunk_A =  self.dx * self.Ly * 1e-20
-
-        sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / wall_A
-        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / chunk_A
-        # avg_sigxz_t = np.mean(sigxz_t)
-
-        sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / wall_A
-        sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / chunk_A
-
-        # print(sigzz_chunkX)
-
-        return sigxz_chunkX, sigzz_chunkX, sigxz_t, sigzz_t
-
+        return {'den_chunkX': den_chunkX, 'den_chunkZ': den_chunkZ, 'den_t': den_t}
 
     def virial(self):
         """
@@ -323,12 +221,110 @@ class derive_data:
 
         temp = np.array(self.data.variables["Temperature"])[self.skip:]
 
-        temp_t = np.sum(temp,axis=(1,2))
+
+        temp_t = np.mean(temp,axis=(1,2))
         tempX = np.mean(temp,axis=(0,2))
-        # # TODO:  FIX tempZ
         tempZ = np.mean(temp,axis=(0,1))
 
         return tempX, tempZ, temp_t
+
+
+    def sigwall(self):
+        """
+        Parameters
+        ----------
+        F<x|y|z>_<Upper|Lower> : The force
+        Returns
+        -------
+        sigxz_chunkX : Avg. Shear stress in the walls along the length
+        sigzz_chunkX : Avg. Normal stress in the walls along the length
+        sigxz_t : Avg. shear stress in the walls with time.
+        sigzz_t : Avg. normal stress in the walls with time.
+        """
+
+        # in Newtons
+        fx_Upper = np.array(self.data.variables["Fx_Upper"])[self.skip:] * kcalpermolA_to_N
+        fy_Upper = np.array(self.data.variables["Fy_Upper"])[self.skip:] * kcalpermolA_to_N
+        fz_Upper = np.array(self.data.variables["Fz_Upper"])[self.skip:] * kcalpermolA_to_N
+        fx_Lower = np.array(self.data.variables["Fx_Lower"])[self.skip:] * kcalpermolA_to_N
+        fy_Lower = np.array(self.data.variables["Fy_Lower"])[self.skip:] * kcalpermolA_to_N
+        fz_Lower = np.array(self.data.variables["Fz_Lower"])[self.skip:] * kcalpermolA_to_N
+
+        fx_wall = 0.5 * (fx_Upper - fx_Lower)
+        fy_wall = 0.5 * (fy_Upper - fy_Lower)
+        fz_wall = 0.5 * (fz_Upper - fz_Lower)
+
+        wall_A = self.Lx * self.Ly * 1e-20
+        chunk_A =  self.dx * self.Ly * 1e-20
+
+        sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / wall_A
+        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / chunk_A
+        # avg_sigxz_t = np.mean(sigxz_t)
+
+        sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / wall_A
+        sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / chunk_A
+
+        # print(sigzz_chunkX)
+
+        return sigxz_chunkX, sigzz_chunkX, sigxz_t, sigzz_t
+
+
+    def vx_distrib(self):
+        """
+        Returns
+        -------
+        values: arr
+            fluid velocities averaged over time for each atom/molecule
+        probabilities : arr
+            probabilities of these velocities
+        """
+        fluid_vx = np.array(self.data.variables["Fluid_Vx"]) *  A_per_fs_to_m_per_s       # m/s
+        fluid_vy = np.array(self.data.variables["Fluid_Vy"]) *  A_per_fs_to_m_per_s       # m/s
+
+        values_x, probabilities_x = sq.get_err(fluid_vx)[0], sq.get_err(fluid_vx)[1]
+        values_y, probabilities_y = sq.get_err(fluid_vy)[0], sq.get_err(fluid_vy)[1]
+
+        values = [values_x, values_y]
+        probabilities = [probabilities_x, probabilities_y]
+
+        return {'values': values, 'probabilities': probabilities}
+
+
+    def slip_length(self):
+        """
+        Returns
+        -------
+        Ls: int
+            slip length in nm (obtained from extrapolation of the height at velocty of zero)
+        Vs : int
+            slip velocity in m/s (Slip velocty * Shear rate)
+        xdata: arr
+            Positions to inter/extrapolate
+        extrapolate: arr
+            Extrapolated data
+        """
+        dd = derive_data(self.infile,self.skip)
+        vels = dd.velocity()
+
+        npoints = len(vels['height_array'])
+        # Positions to inter/extrapolate<
+        xdata = np.linspace(-22, vels['height_array'][1], npoints)
+
+        # spline order: 1 linear, 2 quadratic, 3 cubic ...
+        order = 1
+        # do inter/extrapolation
+        extrapolate = InterpolatedUnivariateSpline(vels['height_array'], vels['fit_params'], k=order)
+        coeffs_extrapolate = np.polyfit(xdata, extrapolate(xdata), 1)
+
+        # Slip lengths (extrapolated)
+        roots = np.roots(coeffs_extrapolate)
+        Ls = np.abs(roots[-1])      #  m
+        print('Slip Length {} (nm) -----' .format(Ls))
+        # Slip velocity according to Navier boundary
+        Vs = Ls * sci.nano * shear_rate                               # m/s
+        print('Slip velocity: Navier boundary {} (m/s) -----'.format(Vs))
+
+        return {'Ls':Ls, 'Vs':Vs, 'xdata':xdata, 'extrapolated':extrapolate(xdata)}
 
     def viscosity(self):
 

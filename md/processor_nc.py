@@ -23,6 +23,7 @@ size = comm.Get_size()
 
 # Constants
 fs_to_ns = 1e-6
+A_per_fs_to_m_per_s = 1e5
 
 # Set the Mass and no. of atoms per molecule for each fluid
 mCH2, mCH3, mCH_avg = 12, 13, 12.5
@@ -103,6 +104,10 @@ class traj_to_grid:
         # Array dimensions: (time, idx, dimesnion)
         coords_data = self.data.variables["f_position"]
         vels_data = self.data.variables["f_velocity"]
+        # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
+        # i.e. it is a snapshot of the system at this timestep.
+        # As opposed to averaged quantities which are the average of a few previous timesteps
+        vels_data_unavgd = self.data.variables["velocities"]     # Used for temp. calculation
 
         # In some trajectories, virial is not computed (faster simulation)
         try:
@@ -115,9 +120,6 @@ class traj_to_grid:
 
         forcesU = self.data.variables["f_fAtomU_avg"]
         forcesL = self.data.variables["f_fAtomL_avg"]
-        # # Velocities -----------------------------------
-        # if 'no-temp' not in sys.argv:
-        #     vels_data_unavgd = data.variables["velocities"]     # Used for temp. calculation
 
         # for i in range(self.Nslices):
         # Coordinates ---------------------------------------------
@@ -135,11 +137,20 @@ class traj_to_grid:
                                        vels[:, fluid_idx, 2]
 
         # For the velocity distribution
-        fluid_vx_avg = np.mean(fluid_vx, axis=0) / self.A_per_molecule
-        fluid_vy_avg = np.mean(fluid_vy, axis=0) / self.A_per_molecule
+        fluid_vx_avg = np.mean(fluid_vx, axis=0)
+        fluid_vy_avg = np.mean(fluid_vy, axis=0)
+
+        fluid_v = np.sqrt(fluid_vx**2 + fluid_vy**2 + fluid_vz**2)
 
         # For the Temperature
-        fluid_v = np.sqrt(fluid_vx**2 + fluid_vy**2 + fluid_vz**2) / self.A_per_molecule
+        vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
+
+        fluid_vx_t,fluid_vy_t,fluid_vz_t = vels_t[:, fluid_idx, 0], \
+                                           vels_t[:, fluid_idx, 1], \
+                                           vels_t[:, fluid_idx, 2]
+
+        fluid_v_t = np.sqrt(fluid_vx_t**2 + fluid_vy_t**2 + fluid_vz_t**2) / self.A_per_molecule
+
 
         # Fluid Virial Pressure ----------------------------------
         try:
@@ -329,6 +340,7 @@ class traj_to_grid:
         xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                             bounds_stable[1], bounds_stable[2])
 
+
         # -------------------------------------------------------
         # Cell Partition ---------------------------------------
         # -------------------------------------------------------
@@ -342,6 +354,7 @@ class traj_to_grid:
         den_ch = np.zeros_like(vx_ch)
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
+        temp_ch = np.zeros_like(vx_ch)
 
         N_Upper_mask = np.zeros([self.chunksize, self.Nx], dtype=np.float32)
         N_Lower_mask = np.zeros_like(N_Upper_mask)
@@ -407,15 +420,21 @@ class traj_to_grid:
         # Cell Averages ---------------------------------------
         # -----------------------------------------------------
                 # Velocities in the stable region
-                vx_ch[:, i, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
+                vx_ch[:, i, k] =  np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
 
                 # Density (whole fluid) ----------------------------
                 den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_fluid[i, 0, k]
 
-                # Mass flux (whole fluid)
+                # Mass flux (whole fluid) ----------------------------
                 jx_ch[:, i, k] = vx_ch[:, i, k] * den_ch[:, i, k]
+
                 # # TODO: compute mflowrate in the chunks
                 # mflowrate_ch[:, i, k] = vx_ch[:, i, k] *
+
+                # Temperature ----------------------------
+                temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * np.sum((fluid_v_t**2) * mask_fluid, axis=1) * \
+                                    A_per_fs_to_m_per_s**2)  / \
+                                    (3 * N_fluid_mask[:, i, k] * sci.k / self.A_per_molecule)  # Kelvin
 
                 # Virial pressure--------------------------------------
                 try:
@@ -423,7 +442,6 @@ class traj_to_grid:
                     W2_ch = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1)
                     W3_ch = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1)
                     vir_ch[:, i, k] = -(W1_ch + W2_ch + W3_ch) #/ vol[i,0,k]
-
                 except UnboundLocalError:
                     pass
 
@@ -451,6 +469,7 @@ class traj_to_grid:
                 'den_ch': den_ch,
                 'jx_ch' : jx_ch,
                 'vir_ch': vir_ch,
+                'temp_ch': temp_ch,
                 'surfU_fx_ch':surfU_fx_ch,
                 'surfU_fy_ch':surfU_fy_ch,
                 'surfU_fz_ch':surfU_fz_ch,
