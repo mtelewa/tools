@@ -1,3 +1,3 @@
 # Tools for MD analysis
 
-## install-guides
+## install-guide
