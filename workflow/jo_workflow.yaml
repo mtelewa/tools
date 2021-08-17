@@ -1,0 +1,153 @@
+name: "Lennard Jones fluid between moving gold walls"
+fws:
+- fw_id: 1
+  name: "Minimize"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_out:
+         data_file: A_minimized_cluster.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /work2/sims/lj-au-copy/01-minimize/min.LAMMPS
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in A_minimize_cluster.in
+
+- fw_id: 2
+  name: "Equilibrate NPT"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_in:
+         data_file: A_minimized_cluster.lammps
+      _files_out:
+         data_file: B_equilibrated_cluster.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /home/testuser/sandbox/fw_sample/infiles/Au-Grochola-JCP05.eam.alloy
+        - /home/testuser/sandbox/fw_sample/infiles/B_equilibrate_cluster.in
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash # apparently, per default /bin/sh is used
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in B_equilibrate_cluster.in # non-login shell does not set up module environment per default
+
+- fw_id: 3
+  name: "Equilibrate NVT"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_in:
+         data_file: B_equilibrated_cluster.lammps
+      _files_out:
+         data_file_cluster: C_melt_cluster.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /home/testuser/sandbox/fw_sample/infiles/Au-Grochola-JCP05.eam.alloy
+        - /home/testuser/sandbox/fw_sample/infiles/C_melt_cluster.in
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in C_melt_cluster.in
+
+- fw_id: 4
+  name: "Minimize substrate"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_out:
+         data_file: A_minimized_substrate.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /home/testuser/sandbox/fw_sample/infiles/Au-Grochola-JCP05.eam.alloy
+        - /home/testuser/sandbox/fw_sample/infiles/A_minimize_substrate.in
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in A_minimize_substrate.in
+
+- fw_id: 5
+  name: "Equilibrate substrate"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_in:
+         data_file: A_minimized_substrate.lammps
+      _files_out:
+         data_file_substrate: B_equilibrated_substrate.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /home/testuser/sandbox/fw_sample/infiles/Au-Grochola-JCP05.eam.alloy
+        - /home/testuser/sandbox/fw_sample/infiles/B_equilibrate_substrate.in
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash # apparently, per default /bin/sh is used
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in B_equilibrate_substrate.in
+
+- fw_id: 6
+  name: "Deposit"
+  spec:
+      _category: "bwcloud_noqueue"
+      _files_in:
+         data_file_substrate: B_equilibrated_substrate.lammps
+         data_file_cluster:   C_melt_cluster.lammps
+      _files_out:
+         data_file: D_deposited_droplet.lammps
+      _tasks:
+      - _fw_name: FileTransferTask
+        files:
+        - /home/testuser/sandbox/fw_sample/infiles/Au-Grochola-JCP05.eam.alloy
+        - /home/testuser/sandbox/fw_sample/infiles/D_deposit.in
+        dest: .
+        mode: copy
+        ignore_errors: False
+      - _fw_name: ScriptTask
+        shell_exe: /bin/bash # apparently, per default /bin/sh is used
+        script: source /etc/profile; module load LAMMPS; mpirun -n 4 lmp -in D_deposit.in
+      - _fw_name: AddFilesTask
+        identifiers:
+        - D_deposit.dump
+        paths:
+        - D_deposit.dump
+        compress: True
+        metadata:
+          type:     trajectory
+          velocity: -25
+          steps:    4000
+          timestep: 0.001
+      - _fw_name: AddFilesTask
+        identifiers:
+        - D_deposited_droplet.lammps
+        paths:
+        - D_deposited_droplet.lammps
+        compress: True
+        metadata:
+          type:     final configuration
+
+links:
+  1:
+  - 2
+  2:
+  - 3
+  4:
+  - 5
+  5:
+  - 6
+  3:
+  - 6
+
+metadata:
+  material:      gold
+  cluster_atoms: 3871
+cluster_temp: 1800

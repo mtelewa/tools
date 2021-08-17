@@ -1,0 +1,57 @@
+{
+    "spec": {
+        "_tasks": [
+            {
+                "files": [
+                    {
+                        "src": "/home/mohamed/tools/workflow/03-load/out/h.txt",
+                        "dest": "/home/mohamed/tools/workflow/04-flow/b"
+                    },
+                    {
+                        "src": "/home/mohamed/tools/workflow/03-load/out/comZ.txt",
+                        "dest": "/home/mohamed/tools/workflow/04-flow/b"
+                    }
+                ],
+                "mode": "copy",
+                "_fw_name": "FileTransferTask"
+            },
+            {
+                "script": [
+                    "lmp_mpi < /home/mohamed/tools/workflow/03-load/load.LAMMPS"
+                ],
+                "use_shell": true,
+                "_fw_name": "ScriptTask"
+            }
+        ]
+    },
+    "fw_id": 61,
+    "created_on": "2021-06-17T10:43:47.735266",
+    "updated_on": "2021-06-17T10:43:47.910635",
+    "launches": [
+        {
+            "fworker": {
+                "name": "Automatically generated Worker",
+                "category": "",
+                "query": "{}",
+                "env": {}
+            },
+            "fw_id": 61,
+            "launch_dir": "/home/mohamed/tools/workflow",
+            "host": "cmsquad35",
+            "ip": "172.22.201.93",
+            "trackers": [],
+            "action": null,
+            "state": "RUNNING",
+            "state_history": [
+                {
+                    "state": "RUNNING",
+                    "created_on": "2021-06-17T10:43:47.908442",
+                    "updated_on": "2021-06-17T10:43:47.908445"
+                }
+            ],
+            "launch_id": 44
+        }
+    ],
+    "state": "RUNNING",
+    "name": "Unnamed FW"
+}

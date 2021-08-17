@@ -1,0 +1,87 @@
+fws:
+- fw_id: 1
+  name: "Initialize"
+  spec:
+    _tasks:
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/01-initialize; mpirun -np 16 lmp_mpi -i initial.in
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/02-equilibrate/
+        src: /work2/hydrocarbon/simulations/workflow-test/01-initialize/out/data.init 
+      mode: copy
+
+- fw_id: 2
+  name: "Equilibrate"
+  spec:
+    _tasks:
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/02-equilibrate; mpirun -np 16 lmp_mpi -i equilib.in -v nve_fix 1 -v limit 1 -v berendsen_fix 1
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/03-load/
+        src: /work2/hydrocarbon/simulations/workflow-test/02-equilibrate/out/data.nvt
+      mode: copy
+
+- fw_id: 3
+  name: "Load the upper wall"
+  spec:
+    _tasks:
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/03-load; mpirun -np 16 lmp_mpi -i load.LAMMPS
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/04-flow/
+        src: /work2/hydrocarbon/simulations/workflow-test/03-load/out/data.force
+      mode: copy
+
+- fw_id: 4
+  name: "Define the bulk region"
+  spec:
+    _tasks:
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/03-load/out/
+        src: /work2/hydrocarbon/simulations/workflow-test/03-load/header.LAMMPS
+      mode: copy
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/03-load/out/; python get_com.py ; rm /work2/hydrocarbon/simulations/workflow-test/04-flow/header.LAMMPS
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/04-flow/
+        src: /work2/hydrocarbon/simulations/workflow-test/03-load/out/data.force
+      mode: copy
+    - _fw_name: FileTransferTask
+      files:
+      - dest: /work2/hydrocarbon/simulations/workflow-test/04-flow/
+        src: /work2/hydrocarbon/simulations/workflow-test/03-load/out/header.LAMMPS
+      mode: move
+
+- fw_id: 5
+  name: "Flow"
+  spec:
+    _tasks:
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/04-flow; mpirun -np 16 lmp_mpi -i flow.LAMMPS -v pump 1
+
+- fw_id: 6
+  name: "Analysis"
+  spec:
+    _tasks:
+    - _fw_name: ScriptTask
+      script: cd /work2/hydrocarbon/simulations/workflow-test/04-flow/out; python read_profile.py
+ 
+links:
+  1:
+  - 2
+  2:
+  - 3
+  3:
+  - 4
+  4:
+  - 5
+  5:
+  - 6
+  
+metadata: {}
+
