@@ -204,9 +204,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
         comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
 
         if rank == 0:
-            
+
             # Write to netCDF file  ------------------------------------------
-            outfile = f"{infile.split('.')[0]}_{Nx}x{Nz}_{slice}.nc"
+            outfile = f"{infile.split('.')[0]}_{Nx}x{Nz}_{slice:0>3}.nc"
             out = netCDF4.Dataset(outfile, 'w', format='NETCDF3_64BIT_OFFSET')
 
             out.createDimension('x', Nx)

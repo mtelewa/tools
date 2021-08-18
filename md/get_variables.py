@@ -54,23 +54,25 @@ class derive_data:
 
         # Box spatial dimensions ------------------------------------------
         dim = self.data.__dict__
-        self.Lx = dim["Lx"]      # A
-        self.Ly = dim["Ly"]      # A
+        self.Lx = dim["Lx"] / 10      # nm
+        self.Ly = dim["Ly"] / 10      # nm
         # Gap height (in each timestep)
-        self.h = np.array(self.data.variables["Height"])[self.skip:]
+        self.h = np.array(self.data.variables["Height"])[self.skip:] / 10      # nm
+        self.avg_gap_height = np.mean(self.h)
         # COM (in each timestep)
-        com = np.array(self.data.variables["COM"])[self.skip:]
+        com = np.array(self.data.variables["COM"])[self.skip:] / 10      # nm
 
+        # Number of chunks
         Nx = self.data.dimensions['x'].size
         Nz = self.data.dimensions['z'].size
 
+        # steps
         self.dx = self.Lx/ Nx
-        avg_gap_height = np.mean(self.h)
-        dz = avg_gap_height / Nz
+        dz = self.avg_gap_height / Nz
 
         # The length and height arrays for plotting
-        self.length_array = np.arange(self.dx/2.0, self.Lx, self.dx) / 10           #nm
-        self.height_array = np.arange(dz/2.0, avg_gap_height, dz) / 10.    #nm
+        self.length_array = np.arange(self.dx/2.0, self.Lx, self.dx)   #nm
+        self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)     #nm
 
         # If the bulk height is given
         try:
@@ -92,29 +94,25 @@ class derive_data:
         polynom(xdata): floats
             Fitting parameters for the velocity profile
         """
-        vx = np.array(self.data.variables["Vx"])[self.skip:] #* A_per_fs_to_m_per_s  # m/s
+        vx = np.array(self.data.variables["Vx"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
 
         vx_t = np.sum(vx, axis=(1,2))
         vx_chunkZ = np.mean(vx, axis=(0,1))
 
-        remove_chunks = np.where(vx_chunkZ == 0)[0]
+        # Remove chunks with no atoms
+        height_array_mod = self.height_array[vx_chunkZ !=0][1:-1]
+        vx_chunkZ_mod = vx_chunkZ[vx_chunkZ !=0][1:-1]
 
-        height_array_mod = np.delete(self.height_array, remove_chunks)
-        height_array_mod = height_array_mod[1:-1]
-
-        vx_chunkZ_mod = vx_chunkZ[vx_chunkZ !=0]
-        vx_chunkZ_mod = vx_chunkZ_mod[1:-1]
+        print(height_array_mod)
 
         # Fitting to a parabola
         coeffs_fit = np.polyfit(height_array_mod, vx_chunkZ_mod, 2)     #returns the polynomial coefficients
-
-        npoints = len(height_array_mod)
         # construct the polynomial
         polynom = np.poly1d(coeffs_fit)
-        xdata = np.linspace(height_array_mod[0], height_array_mod[-1], npoints)
+        xdata = np.linspace(height_array_mod[0], height_array_mod[-1], len(height_array_mod))
 
-        return {'height_array_mod': height_array_mod, 'vx_height': vx_chunkZ_mod,
-                'xdata': xdata, 'fit_params': polynom(xdata)}
+        return {'height_array_mod': height_array_mod, 'vx_data': vx_chunkZ_mod,
+                'xdata': xdata, 'fit_data': polynom(xdata)}
 
 
     def mflux(self):
@@ -306,14 +304,15 @@ class derive_data:
         dd = derive_data(self.infile,self.skip)
         vels = dd.velocity()
 
-        npoints = len(vels['height_array'])
+        npoints = len(vels['height_array_mod'])
         # Positions to inter/extrapolate<
-        xdata = np.linspace(-22, vels['height_array'][1], npoints)
+        xdata = np.linspace(0, vels['height_array_mod'][1], npoints)
 
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
         order = 1
         # do inter/extrapolation
-        extrapolate = InterpolatedUnivariateSpline(vels['height_array'], vels['fit_params'], k=order)
+        extrapolate = InterpolatedUnivariateSpline(vels['height_array_mod'], vels['fit_data'], k=order)
+        print(extrapolate(xdata))
         coeffs_extrapolate = np.polyfit(xdata, extrapolate(xdata), 1)
 
         # Slip lengths (extrapolated)
@@ -321,10 +320,10 @@ class derive_data:
         Ls = np.abs(roots[-1])      #  m
         print('Slip Length {} (nm) -----' .format(Ls))
         # Slip velocity according to Navier boundary
-        Vs = Ls * sci.nano * shear_rate                               # m/s
+        Vs = Ls * sci.nano * dd.shear_rate()['shear_rate']                               # m/s
         print('Slip velocity: Navier boundary {} (m/s) -----'.format(Vs))
 
-        return {'Ls':Ls, 'Vs':Vs, 'xdata':xdata, 'extrapolated':extrapolate(xdata)}
+        return {'Ls':Ls, 'Vs':Vs, 'xdata':xdata, 'extrapolated_data':extrapolate(xdata)}
 
     def viscosity(self):
 
@@ -339,25 +338,24 @@ class derive_data:
     def shear_rate(self):
 
         dd = derive_data(self.infile,self.skip)
+        vels = dd.velocity()
 
-        height_array_mod = dd.velocity()[0]
-        vx_chunkZ_mod = dd.velocity()[1]
-        coeffs_fit = np.polyfit(height_array_mod, vx_chunkZ_mod, 2)
+        coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_data'], 2)
 
         # Nearest point to the wall (to evaluate the shear rate at (For Posieuille flow))
-        z_wall = height_array_mod[1]
+        z_wall = vels['height_array_mod'][1]
         # In the bulk to measure viscosity
-        z_bulk = height_array_mod[20]
+        z_bulk = vels['height_array_mod'][20]
         # Centerline velocity (Poiseuille flow)
-        Uc = np.max(vx_chunkZ_mod)
+        Uc = np.max(vels['vx_data'])
         # velocity at the wall for evaluating slip
-        vx_wall = vx_chunkZ_mod[1]
+        vx_wall = vels['vx_data'][1]
         # Shear Rates
-        shear_rate = funcs.quad_slope(z_wall,coeffs_fit[0],coeffs_fit[1]) * 1e9      # S-1
-        shear_rate_bulk = funcs.quad_slope(z_bulk,coeffs_fit[0],coeffs_fit[1]) * 1e9      # S-1
-        # print('Shear rate (s^-1) -----')
-        # print(shear_rate)  # s^-1
-        return shear_rate, shear_rate_bulk
+        shear_rate = funcs.quad_slope(z_wall, coeffs_fit[0], coeffs_fit[1]) * 1e9      # S-1
+        shear_rate_bulk = funcs.quad_slope(z_bulk, coeffs_fit[0], coeffs_fit[1]) * 1e9      # S-1
+        # print('Shear rate {} (s^-1) -----'.format(shear_rate))
+
+        return {'shear_rate':shear_rate, 'shear_rate':shear_rate_bulk}
 
         # if len(height_array_mod) > 136:
         #     height_array_mod = height_array_mod[:-1]

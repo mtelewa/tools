@@ -6,7 +6,7 @@ import re
 import numpy as np
 import sys
 import os
-import get_variables
+from get_variables import derive_data as dd
 # import get_variables_210810 as get_variables
 import funcs
 import sample_quality as sq
@@ -96,7 +96,6 @@ class plot_from_txt:
 
             # popt, pcov = curve_fit(funcs.linear, xdata, ydata)
             # ax.plot(xdata, funcs.linear(xdata, *popt))
-
             # ax.errorbar(xdata, ydata1 , yerr=err1, ls=lt, fmt=mark, label= 'Expt. (Gehrig et al. 1978)', capsize=3, alpha=opacity)
 
         ax.legend()
@@ -113,18 +112,19 @@ class plot_from_ds:
         self.ax.xaxis.set_ticks_position('both')
         self.ax.yaxis.set_ticks_position('both')
 
-        self.Nx = len(get_variables.derive_data(datasets[0], skip).length_array)
-        self.Nz = len(get_variables.derive_data(datasets[0], skip).height_array)
-        self.time = get_variables.derive_data(datasets[0], skip).time
-        self.Ly = get_variables.derive_data(datasets[0], skip).Ly
+        self.Nx = len(dd(datasets[0], skip).length_array)
+        self.Nz = len(dd(datasets[0], skip).height_array)
+        self.Nz_mod = len(dd(datasets[0], skip).velocity()['height_array_mod'])
+        self.time = dd(datasets[0], skip).time
+        self.Ly = dd(datasets[0], skip).Ly
 
         self.length_arrays = np.zeros([len(datasets), self.Nx])
         self.height_arrays = np.zeros([len(datasets), self.Nz])
-        self.height_arra
-
+        self.height_arrays_mod = np.zeros([len(datasets), self.Nz_mod])
         for i in range(len(datasets)):
-            self.length_arrays[i, :] = get_variables.derive_data(datasets[i], skip).length_array
-            self.height_arrays[i, :] = get_variables.derive_data(datasets[i], skip).height_array
+            self.length_arrays[i, :] = dd(datasets[i], skip).length_array
+            self.height_arrays[i, :] = dd(datasets[i], skip).height_array
+            self.height_arrays_mod[i, :] = dd(datasets[i], skip).velocity()['height_array_mod']
 
         self.sigxz_t = np.zeros([len(datasets), len(self.time)])
         self.avg_sigxz_t = np.zeros([len(datasets)])
@@ -132,7 +132,7 @@ class plot_from_ds:
         self.viscosities = np.zeros([len(datasets)])
 
         pump_length = 0.2 * np.max(self.length_arrays)
-        smoothed_pump_length = pump_length * 15/8
+        # smoothed_pump_length = pump_length * 15/8
 
     def vx_height(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
 
@@ -141,38 +141,33 @@ class plot_from_ds:
 
         mpl.rcParams.update({'lines.markersize': 3})
 
-        height_array, vx_data, xdata_fit, fit_params = get_variables.derive_data(datasets[0], skip).velocity()
-
-        Nz_mod = len(get_variables.derive_data(datasets[0], skip).velocity()['height_array'])
-        height_arrays_mod = np.zeros([len(datasets), Nz_mod])
-        vx_chunkZ = np.zeros([len(datasets), Nz_mod])
+        vx_chunkZ = np.zeros([len(datasets), self.Nz_mod])
 
         for i in range(len(datasets)):
-            height_arrays_mod[i, :] = get_variables.derive_data(datasets[i], skip).velocity()['height_array']
-            vx_chunkZ[i, :] = get_variables.derive_data(datasets[i], skip).velocity()[1]
+            vx_chunkZ[i, :] = dd(datasets[i], skip).velocity()['vx_data']
             label=input('Label:')
-            self.ax.plot(height_arrays_mod[i, :], vx_chunkZ[i, :],
+            self.ax.plot(self.height_arrays_mod[i, :], vx_chunkZ[i, :],
                                  ls=' ', label=label, marker='o', alpha=opacity)
 
             # Plot the fits
             if 'fit' in sys.argv:
                 # popt, pcov = curve_fit(funcs.quadratic, xdata, ydata)
                 #     ax.plot(xdata, ydata, *popt))
-                x1 = get_variables.derive_data(datasets[i], skip).velocity()[2]
-                y1 = get_variables.derive_data(datasets[i], skip).velocity()[3]
+                x1 = dd(datasets[i], skip).velocity()['xdata']
+                y1 = dd(datasets[i], skip).velocity()['fit_data']
 
                 self.ax.plot(x1, y1)
 
             # Plot the extrapolated lines
             if 'extrapolate' in sys.argv:
-                x2 = get_variables.derive_data(datasets[i], skip).slip_length()[2]
-                y2 = get_variables.derive_data(datasets[i], skip).slip_length()[3]
+                x2 = dd(datasets[i], skip).slip_length()['xdata']
+                y2 = dd(datasets[i], skip).slip_length()['extrapolated_data']
 
                 self.ax.set_ylim(bottom = 0)
                 self.ax.plot(x2, y2, color='sienna')
 
             if 'inset' in sys.argv:
-                popt2, pcov2 = curve_fit(funcs.quadratic, height_arrays_mod[0][1:-1], vx_chunkZ[0, :][1:-1])
+                popt2, pcov2 = curve_fit(funcs.quadratic, self.height_arrays_mod[0][1:-1], vx_chunkZ[0, :][1:-1])
 
                 inset_ax = fig.add_axes([0.6, 0.48, 0.2, 0.28]) # X, Y, width, height
                 inset_ax.plot(height_arrays_mod[0][-31:-1], vx_chunkZ[0, :][-31:-1] , ls= ' ', marker=mark,
@@ -181,12 +176,12 @@ class plot_from_ds:
 
             # plot vertical lines for the walls
             if 'walls' in sys.argv:
-                ax.axvline(x=0, color='k', linestyle='dashed', lw=1)
+                self.ax.axvline(x=0, color='k', linestyle='dashed', lw=1)
                 if len(datasets) == 1:
-                    ax.axvline(x= heights[0][-1], color= 'k', linestyle='dashed', lw=1)
+                    self.ax.axvline(x= self.height_arrays_mod[0][-1], color= 'k', linestyle='dashed', lw=1)
                 else:
                     for i in range(len(datasets)):
-                        ax.axvline(x= heights[i][-1], color= line_colors[i], linestyle='dashed', lw=1)
+                        ax.axvline(x= self.height_arrays[i][-1], color= line_colors[i], linestyle='dashed', lw=1)
 
             # print('Velocity at the wall %g m/s at a distance %g nm from the wall' %(vx_wall,z_wall))
             # line_colors.append(ax.lines[j].get_color())
@@ -196,8 +191,8 @@ class plot_from_ds:
         self.ax.set_ylabel('Probability')
 
         for i in range(len(datasets)):
-            values = get_variables.derive_data(datasets[i], skip).vx_distrib()[0]
-            probabilities = get_variables.derive_data(datasets[i], skip).vx_distrib()[1]
+            values = dd(datasets[i], skip).vx_distrib()[0]
+            probabilities = dd(datasets[i], skip).vx_distrib()[1]
 
             self.ax.plot(values, probabilities, ls=' ', marker='o',label=input('Label:'), alpha=opacity)
 
@@ -210,7 +205,7 @@ class plot_from_ds:
             mflowrate = np.zeros([len(datasets), self.Nx])
 
             for i in range(len(datasets)):
-                mflowrate[i, :] = get_variables.derive_data(datasets[i], skip).mflux()[3]
+                mflowrate[i, :] = dd(datasets[i], skip).mflux()[3]
                 self.ax.plot(self.length_arrays[i, :], mflowrate[i, :], ls=lt, marker='o',label=input('Label:'), alpha=opacity)
 
         if 'mflowrate_time' in sys.argv:
@@ -219,7 +214,7 @@ class plot_from_ds:
             mflowrate_avg = np.zeros([len(datasets)])
 
             for i in range(len(datasets)):
-                mflowrate_t[i, :] = get_variables.derive_data(datasets[i], skip).mflux()[3]
+                mflowrate_t[i, :] = dd(datasets[i], skip).mflux()[3]
                 mflowrate_avg[i] = np.mean(mflowrate_t[i])
                 self.ax.plot(self.time*1e-6,  mflowrate_t[i, :], ls='-', marker=' ',label=input('Label:'), alpha=0.5)
 
@@ -233,7 +228,7 @@ class plot_from_ds:
             jx = np.zeros([len(datasets), self.Nx])
 
             for i in range(len(datasets)):
-                jx[i, :] = get_variables.derive_data(datasets[i], skip).mflux()[0]
+                jx[i, :] = dd(datasets[i], skip).mflux()[0]
                 self.ax.plot(self.length_arrays[i, :], jx[i, :], ls=lt, marker='o',label=input('Label:'), alpha=opacity)
 
         if 'jx_time' in sys.argv:
@@ -242,7 +237,7 @@ class plot_from_ds:
             jx_avg = np.zeros([len(datasets)])
 
             for i in range(len(datasets)):
-                jx_t[i, :] = get_variables.derive_data(datasets[i], skip).mflux()[2]
+                jx_t[i, :] = dd(datasets[i], skip).mflux()[2]
                 jx_avg[i] = np.mean(jx_t[i])
                 self.ax.plot(self.time*1e-6,  jx_t[i, :], ls='-', marker=' ',label=input('Label:'), alpha=0.5)
 
@@ -255,14 +250,14 @@ class plot_from_ds:
             denX = np.zeros([len(datasets), self.Nx])
             self.ax.set_xlabel(labels[1])
             for i in range(len(datasets)):
-                denX[i, :] = get_variables.derive_data(datasets[i], skip).density()[0]
+                denX[i, :] = dd(datasets[i], skip).density()[0]
                 self.ax.plot(self.length_arrays[i, :][1:-1], denX[i, :][1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_height' in sys.argv:
             denZ = np.zeros([len(datasets), self.Nz])
             self.ax.set_xlabel(labels[0])
             for i in range(len(datasets)):
-                denZ[i, :] = get_variables.derive_data(datasets[i], skip).density()[1]
+                denZ[i, :] = dd(datasets[i], skip).density()[1]
                 self.ax.plot(self.height_arrays[i, :], denZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_time' in sys.argv:
@@ -270,7 +265,7 @@ class plot_from_ds:
             bulk_den_avg = np.zeros_like(gap_height_avg)
             self.ax.set_xlabel(labels[2])
             for i in range(len(datasets)):
-                denT[i, :] = get_variables.derive_data(datasets[i], skip).density()[2]
+                denT[i, :] = dd(datasets[i], skip).density()[2]
                 bulk_den_avg[i] = np.mean(denT[i])
                 self.ax.plot(self.time*1e-6, denT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
@@ -285,8 +280,8 @@ class plot_from_ds:
             vir_chunkX = np.zeros([len(datasets), self.Nx])
 
             for i in range(len(datasets)):
-                sigzz_chunkX[i, :] = get_variables.derive_data(datasets[i], skip).sigwall()[1]
-                vir_chunkX[i, :] = get_variables.derive_data(datasets[i], skip).virial()[0]
+                sigzz_chunkX[i, :] = dd(datasets[i], skip).sigwall()[1]
+                vir_chunkX[i, :] = dd(datasets[i], skip).virial()[0]
 
             if 'virial' in sys.argv:
                 for i in range(len(datasets)):
@@ -319,7 +314,7 @@ class plot_from_ds:
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
 
                 for i in range(len(datasets)):
-                    self.sigxz_t[i, :] =  get_variables.derive_data(datasets[i], skip).sigwall()[2]
+                    self.sigxz_t[i, :] =  dd(datasets[i], skip).sigwall()[2]
                     self.avg_sigxz_t[i] = np.mean(sigxz_t[i, :])
                     self.ax.plot(self.time*1e-6,  self.sigxz_t[i, :], ls='-', marker=' ',label=input('Label:'), alpha=0.5)
                     self.ax.axhline(y= self.avg_sigxz_t[i], color=color[i], linestyle='dashed')
@@ -330,8 +325,8 @@ class plot_from_ds:
             vir_t = np.zeros([len(datasets), len(self.time)])
 
             for i in range(len(datasets)):
-                sigzz_t[i, :] = get_variables.derive_data(datasets[i], skip).sigwall()[3]
-                vir_t[i, :] = get_variables.derive_data(datasets[i], skip).virial()[1]
+                sigzz_t[i, :] = dd(datasets[i], skip).sigwall()[3]
+                vir_t[i, :] = dd(datasets[i], skip).virial()[1]
 
             if 'virial' in sys.argv:
                 for i in range(len(datasets)):
@@ -358,21 +353,21 @@ class plot_from_ds:
             tempX = np.zeros([len(datasets), self.Nx])
             self.ax.set_xlabel(labels[1])
             for i in range(len(datasets)):
-                tempX[i, :] = get_variables.derive_data(datasets[i], skip).temp()[0]
+                tempX[i, :] = dd(datasets[i], skip).temp()[0]
                 self.ax.plot(self.length_arrays[i, :], tempX[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'temp_height' in sys.argv:
             tempZ = np.zeros([len(datasets), self.Nz])
             self.ax.set_xlabel(labels[0])
             for i in range(len(datasets)):
-                tempZ[i, :] = get_variables.derive_data(datasets[i], skip).temp()[1]
+                tempZ[i, :] = dd(datasets[i], skip).temp()[1]
                 self.ax.plot(self.height_arrays[i, :], tempZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'temp_time' in sys.argv:
             tempT = np.zeros([len(datasets), len(self.time)])
             self.ax.set_xlabel(labels[2])
             for i in range(len(datasets)):
-                tempT[i, :] = get_variables.derive_data(datasets[i], skip).temp()[2]
+                tempT[i, :] = dd(datasets[i], skip).temp()[2]
                 self.ax.plot(self.time[:]*1e-6, tempT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
     def pgrad_mflowrate(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
@@ -387,11 +382,11 @@ class plot_from_ds:
         shear_rates = np.zeros([len(datasets)])
 
         for i in range(len(datasets)):
-            self.pGrad[i] = get_variables.derive_data(datasets[i], skip).virial()[2]
-            mflowrate_avg[i] = np.mean(get_variables.derive_data(datasets[i], skip).mflux()[3])
-            shear_rates[i] = get_variables.derive_data(datasets[i], skip).shear_rate()[0]
-            self.viscosities[i] = get_variables.derive_data(datasets[i], skip).viscosity()     # mPa.s
-            bulk_den_avg[i] = np.mean(get_variables.derive_data(datasets[i], skip).density()[2])
+            self.pGrad[i] = dd(datasets[i], skip).virial()[2]
+            mflowrate_avg[i] = np.mean(dd(datasets[i], skip).mflux()[3])
+            shear_rates[i] = dd(datasets[i], skip).shear_rate()[0]
+            self.viscosities[i] = dd(datasets[i], skip).viscosity()     # mPa.s
+            bulk_den_avg[i] = np.mean(dd(datasets[i], skip).density()[2])
 
         mflowrate_hp =  ((bulk_den_avg*1e3) * (self.Ly*1e-10) * 1e3 * 1e-9 / (12 * (mu*1e6))) \
                                     * pGrad*1e6*1e9 * (avg_gap_height*1e-10)**3
@@ -428,8 +423,8 @@ class plot_from_ds:
         self.ax.set_ylabel(labels[12])
 
         for i in range(len(datasets)):
-            self.pGrad[i] = get_variables.derive_data(datasets[i], skip).virial()[2]
-            self.viscosities[i] = get_variables.derive_data(datasets[i], skip).viscosity()
+            self.pGrad[i] = dd(datasets[i], skip).virial()[2]
+            self.viscosities[i] = dd(datasets[i], skip).viscosity()
 
         self.ax.plot(self.pGrad, self.viscosities, ls=lt, marker='o', alpha=opacity)
 
@@ -441,8 +436,8 @@ class plot_from_ds:
         slip = np.zeros([len(datasets)])
 
         for i in range(len(datasets)):
-            self.pGrad[i] = get_variables.derive_data(datasets[i], skip).virial()[2]
-            slip[i] = get_variables.derive_data(datasets[i], skip).slip_length()[0]
+            self.pGrad[i] = dd(datasets[i], skip).virial()[2]
+            slip[i] = dd(datasets[i], skip).slip_length()[0]
 
         self.ax.plot(self.pGrad, slip, ls=lt, marker='o', alpha=opacity)
 
@@ -456,8 +451,8 @@ class plot_from_ds:
         gap_height_avg = np.zeros([len(datasets)])
 
         for i in range(len(datasets)):
-            gap_height[i, :] = get_variables.derive_data(datasets[i], skip).h
-            gap_height_avg[i] = np.mean(gap_height[i])
+            gap_height[i, :] = dd(datasets[i], skip).h
+            gap_height_avg[i] = dd(datasets[i], skip).avg_gap_height
 
             self.ax.plot(self.time*1e-6, gap_height[i, :], ls='-', marker=' ', alpha=opacity)
 

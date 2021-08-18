@@ -132,6 +132,7 @@ class traj_to_grid:
         # Velocities ------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
 
+        # Velocity of each atom
         fluid_vx, fluid_vy, fluid_vz = vels[:, fluid_idx, 0], \
                                        vels[:, fluid_idx, 1], \
                                        vels[:, fluid_idx, 2]
@@ -139,8 +140,6 @@ class traj_to_grid:
         # For the velocity distribution
         fluid_vx_avg = np.mean(fluid_vx, axis=0)
         fluid_vy_avg = np.mean(fluid_vy, axis=0)
-
-        fluid_v = np.sqrt(fluid_vx**2 + fluid_vy**2 + fluid_vz**2)
 
         # For the Temperature
         vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
@@ -271,6 +270,7 @@ class traj_to_grid:
                                     ylength=Ly, length=avg_gap_height_conv))
 
         # Mass flux in the pump region
+        # Velocity of each molecule
         vels_pump = fluid_vx * pump_region / self.A_per_molecule
         mflux_pump = (np.sum(vels_pump, axis=1) * (sci.angstrom/fs_to_ns) * \
                      (self.mf/sci.N_A)) / (pump_vol * (sci.angstrom)**3)      # g/m2.ns
@@ -318,6 +318,8 @@ class traj_to_grid:
         dim = np.array([self.Nx, self.Ny, self.Nz])
 
         # Whole cell --------------------------------------------
+        # The minimum position has to be added to have equal Number of solid
+        # atoms in each chunk
         bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i] + fluid_min[i]
                         for i in range(3)]
         xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])

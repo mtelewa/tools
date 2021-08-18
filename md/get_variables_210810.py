@@ -19,6 +19,7 @@ ang_to_cm = 1e-8
 A_per_fs_to_m_per_s = 1e5
 g_to_kg = 1e-3
 pa_to_Mpa = 1e-6
+fs_to_ns = 1e-6
 kcalpermolA_to_N = 6.947694845598684e-11
 
 class derive_data:
