@@ -103,8 +103,6 @@ class derive_data:
         height_array_mod = self.height_array[vx_chunkZ !=0][1:-1]
         vx_chunkZ_mod = vx_chunkZ[vx_chunkZ !=0][1:-1]
 
-        print(height_array_mod)
-
         # Fitting to a parabola
         coeffs_fit = np.polyfit(height_array_mod, vx_chunkZ_mod, 2)     #returns the polynomial coefficients
         # construct the polynomial

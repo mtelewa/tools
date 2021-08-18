@@ -166,14 +166,6 @@ class plot_from_ds:
                 self.ax.set_ylim(bottom = 0)
                 self.ax.plot(x2, y2, color='sienna')
 
-            if 'inset' in sys.argv:
-                popt2, pcov2 = curve_fit(funcs.quadratic, self.height_arrays_mod[0][1:-1], vx_chunkZ[0, :][1:-1])
-
-                inset_ax = fig.add_axes([0.6, 0.48, 0.2, 0.28]) # X, Y, width, height
-                inset_ax.plot(height_arrays_mod[0][-31:-1], vx_chunkZ[0, :][-31:-1] , ls= ' ', marker=mark,
-                            alpha=opacity, label=label)
-                inset_ax.plot(height_arrays_mod[0][-31:-1], funcs.quadratic(height_arrays_mod[0], *popt2)[-31:-1])
-
             # plot vertical lines for the walls
             if 'walls' in sys.argv:
                 self.ax.axvline(x=0, color='k', linestyle='dashed', lw=1)
@@ -182,6 +174,15 @@ class plot_from_ds:
                 else:
                     for i in range(len(datasets)):
                         ax.axvline(x= self.height_arrays[i][-1], color= line_colors[i], linestyle='dashed', lw=1)
+
+            if 'inset' in sys.argv:
+                popt2, pcov2 = curve_fit(funcs.quadratic, self.height_arrays_mod[0][1:-1], vx_chunkZ[0, :][1:-1])
+
+                inset_ax = fig.add_axes([0.6, 0.48, 0.2, 0.28]) # X, Y, width, height
+                inset_ax.plot(height_arrays_mod[0][-31:-1], vx_chunkZ[0, :][-31:-1] , ls= ' ', marker=mark,
+                            alpha=opacity, label=label)
+                inset_ax.plot(height_arrays_mod[0][-31:-1], funcs.quadratic(height_arrays_mod[0], *popt2)[-31:-1])
+
 
             # print('Velocity at the wall %g m/s at a distance %g nm from the wall' %(vx_wall,z_wall))
             # line_colors.append(ax.lines[j].get_color())
@@ -454,7 +455,8 @@ class plot_from_ds:
             gap_height[i, :] = dd(datasets[i], skip).h
             gap_height_avg[i] = dd(datasets[i], skip).avg_gap_height
 
-            self.ax.plot(self.time*1e-6, gap_height[i, :], ls='-', marker=' ', alpha=opacity)
+            self.ax.plot(self.time*1e-6, gap_height[i, :], ls='-', marker=' ', alpha=opacity, label=input('Label:'))
+            self.ax.axhline(y= gap_height_avg, color= 'k', linestyle='dashed', lw=1)
 
     def weight(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
         self.ax.set_xlabel(labels[1])

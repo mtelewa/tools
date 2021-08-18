@@ -332,16 +332,15 @@ class traj_to_grid:
 
         # Bulk --------------------------------------------
         bulkRangeZ = np.arange(dim[2] + 1) / dim[2] * bulk_height + bulkStartZ
-        bounds_bulk = [bounds[0], bounds[1], bulkRangeZ]
+        bounds_bulk = [bounds_fluid[0], bounds_fluid[1], bulkRangeZ]
         xx_bulk, yy_bulk, zz_bulk, vol_bulk_cell = utils.bounds(bounds_bulk[0],
                                                    bounds_bulk[1], bounds_bulk[2])
 
         # Stable --------------------------------------------
         stableRangeX = np.arange(dim[0] + 1) / dim[0] * stable_length + stableStartX
-        bounds_stable = [stableRangeX, bounds[1], bounds[2]]
+        bounds_stable = [stableRangeX, bounds_fluid[1], bounds_fluid[2]]
         xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                             bounds_stable[1], bounds_stable[2])
-
 
         # -------------------------------------------------------
         # Cell Partition ---------------------------------------
@@ -480,26 +479,6 @@ class traj_to_grid:
                 'surfL_fz_ch':surfL_fz_ch,
                 'den_bulk_ch':den_bulk_ch,
                 'Nf': Nf}
-
-
-
-# # The unaveraged velocities
-# vels_t = np.array(vels_data_unavgd[start:end]).astype(np.float32)
-#
-# fluid_vx_t,fluid_vy_t,fluid_vz_t = vels_t[:, fluid_idx, 0], \
-#                                    vels_t[:, fluid_idx, 1], \
-#                                    vels_t[:, fluid_idx, 2]
-#
-# fluid_v_t = np.sqrt(fluid_vx_t**2 + fluid_vy_t**2 + fluid_vz_t**2) / self.A_per_molecule
-#
-# # Velocity in the fluid
-# v_t_ch = np.zeros([chunksize, Nx, Nz], dtype=np.float32)
-#
-# # Unavgd velocities--------------------------------------
-# if 'no-temp' not in sys.argv:
-#     v_t_ch[:, i, k] = np.sum((fluid_v_t**2) * mask_fluid, axis=1) / \
-#                              (3 * N_fluid_mask[:, i, k] / self.A_per_molecule)
-
 
 # # Correction for the converging-diverging channel ---------------------------------------
 #
