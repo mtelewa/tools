@@ -139,9 +139,7 @@ class derive_data:
         vs = dd.velocity()['vx_data'][0]
         pgrad = dd.virial()['pGrad']
 
-        print((1 / (2 * mu)))
-
-        v_hydrodynamic = ( (1 / (2 * mu)) * -pgrad * (z**2 - h*z) + vs)
+        v_hydrodynamic = ( (1 / (2 * mu)) * -pgrad * (z**2 - h*z) ) + vs
 
         return {'v_hydro': v_hydrodynamic}
 
@@ -205,8 +203,6 @@ class derive_data:
         sigxz_avg = np.mean(dd.sigwall()['sigxz_t'])
         mu = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate']            # mPa.S
         mu_bulk = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate_bulk']            # mPa.S
-
-        print(mu_bulk)
 
         print('Viscosity is {} (mPa.s) -----'.format(mu))
 
@@ -366,15 +362,15 @@ class derive_data:
         fy_Lower = np.array(self.data_x.variables["Fy_Lower"])[self.skip:] * kcalpermolA_to_N
         fz_Lower = np.array(self.data_x.variables["Fz_Lower"])[self.skip:] * kcalpermolA_to_N
 
-        fx_wall = 0.5 * (fx_Upper - fx_Lower)
+        fx_wall = 0.5 * (fx_Upper + fx_Lower)
         fy_wall = 0.5 * (fy_Upper - fy_Lower)
         fz_wall = 0.5 * (fz_Upper - fz_Lower)
 
         wall_A = self.Lx * self.Ly * 1e-18
         chunk_A =  self.dx * self.Ly * 1e-18
 
-        sigxz_t = np.sum(fx_Upper,axis=1) * pa_to_Mpa / wall_A
-        sigxz_chunkX = np.mean(fx_Upper,axis=0) * pa_to_Mpa / chunk_A
+        sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / wall_A
+        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / chunk_A
 
         sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / wall_A
         sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / chunk_A

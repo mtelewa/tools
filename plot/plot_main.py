@@ -247,7 +247,6 @@ class plot_from_ds:
                 print(self.ax.lines[i].get_color())
 
             for i in range (len(self.ax.lines)):
-                print(i)
                 self.ax.axhline(y=mflowrate_avg[i]*1e18, color= self.ax.lines[i].get_color(), linestyle='dashed', lw=1)
 
 

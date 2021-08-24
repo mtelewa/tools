@@ -90,7 +90,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
                                       'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
                                       'den_bulk_ch',
-                                      'Nf')(init.get_chunks(stable_start, stable_end, pump_start, pump_end))
+                                      'Nf')(init.get_chunks(stable_start,
+                                        stable_end, pump_start, pump_end))
 
 
         # Number of elements in the send buffer
