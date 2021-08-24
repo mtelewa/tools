@@ -18,6 +18,8 @@ module load netcdf4-python/1.5.0
 printenv
 
 cd ${MOAB_SUBMITDIR}
-mpirun --bind-to core --map-by core -report-bindings python /home/ka/ka_iam-cms/ka_lr1762/tools/mpi_netcdf_postproc.py flow.nc 144 1 1000 lj 
+mpirun --bind-to core --map-by core -report-bindings $HOME/tools/md/proc.py flow.nc 144 1 1000 pentane 
+cdo mergetime flow_144x1_*.nc flow_144x1.nc ; rm flow_144x1_*
+mpirun --bind-to core --map-by core -report-bindings $HOME/tools/md/proc.py flow.nc 1 144 1000 pentane
+cdo mergetime flow_1x144_*.nc flow_1x144.nc ; rm flow_1x144_*
 
-mpirun --bind-to core --map-by core -report-bindings python /home/ka/ka_iam-cms/ka_lr1762/tools/mpi_netcdf_postproc.py flow.nc 1 144 1000 lj
