@@ -79,10 +79,20 @@ class traj_to_grid:
         return fluid_idx, solid_start, Nf
 
 
-    def get_chunks(self):
+    def get_chunks(self, stable_start, stable_end, pump_start, pump_end):
         """
         Partitions the box into regions (solid and fluid) as well as chunks in
         those regions
+        Parameters
+        ----------
+        stable_start: float
+                Multiple of Lx, where the stable region (for sampling) starts
+        stable_end: float
+            Multiple of Lx, where the stable region (for sampling) ends
+        pump_start: float
+                Multiple of Lx, where the pump region (pertrubation field) starts
+        pump_end: float
+                Multiple of Lx, where the stable region (pertrubation field) ends
         Returns
         ----------
         Thermodynamic quantities (arrays) with different shapes. The 4 shapes are
@@ -263,7 +273,7 @@ class traj_to_grid:
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
         # Pump --------------------------------------------
-        pumpStartX, pumpEndX = 0 * Lx, 0.2 * Lx
+        pumpStartX, pumpEndX = pump_start * Lx, pump_end * Lx
         pump_length, pump_region, pump_xcoords, pump_vol, pump_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_xcoords, fluid_xcoords, pumpStartX, pumpEndX,
@@ -297,7 +307,7 @@ class traj_to_grid:
             pass
 
         # Stable ---------------------------------
-        stableStartX, stableEndX = 0.4 * Lx, 0.8 * Lx
+        stableStartX, stableEndX = stable_start * Lx, stable_end * Lx
         stable_length, stable_region, stable_xcoords, stable_vol, stable_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_xcoords, fluid_xcoords, stableStartX, stableEndX,

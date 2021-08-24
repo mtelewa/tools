@@ -31,6 +31,14 @@ def get_parser():
                     help='Number of time steps in a single slice')
     parser.add_argument('fluid', metavar='Fluid', action='store', type=str,
                     help='The fluid in the simulation')
+    parser.add_argument('stable_start', metavar='stable_start', action='store', type=str,
+                    help='Multiple of Lx, where the stable region (for sampling) starts')
+    parser.add_argument('stable_end', metavar='stable_end', action='store', type=str,
+                    help='Multiple of Lx, where the stable region (for sampling) ends')
+    parser.add_argument('pump_start', metavar='pump_start', action='store', type=str,
+                    help='Multiple of Lx, where the pump region (pertrubation field) starts')
+    parser.add_argument('pump_end', metavar='pump_end', action='store', type=str,
+                    help='Multiple of Lx, where the pump region (pertrubation field) ends')
 
     return parser
 
@@ -49,4 +57,5 @@ if __name__ == "__main__":
     if args.fluid=='heptane':
         mf, A_per_molecule = 100.21, 7
 
-    grid.make_grid(args.infile, args.Nx, args.Nz, args.slice_size, mf, A_per_molecule)
+    grid.make_grid(args.infile, args.Nx, args.Nz, args.slice_size, mf, A_per_molecule,
+                    args.stable_start, args.stable_end, args.pump_start, args.pump_end)

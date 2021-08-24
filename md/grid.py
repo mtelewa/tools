@@ -15,7 +15,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -90,7 +90,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule):
                                       'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
                                       'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
                                       'den_bulk_ch',
-                                      'Nf')(init.get_chunks())
+                                      'Nf')(init.get_chunks(stable_start, stable_end, pump_start, pump_end))
 
 
         # Number of elements in the send buffer
