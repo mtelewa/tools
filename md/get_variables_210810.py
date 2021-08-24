@@ -22,6 +22,8 @@ pa_to_Mpa = 1e-6
 fs_to_ns = 1e-6
 kcalpermolA_to_N = 6.947694845598684e-11
 
+mf, A_per_molecule = 72.15, 5
+
 class derive_data:
 
     def __init__(self, infile, skip):
@@ -326,10 +328,12 @@ class derive_data:
 
         dd = derive_data(self.infile,self.skip)
         sigxz_avg = np.mean(dd.sigwall()[2])
-        shear_rate = dd.velocity()[2]
+        print(sigxz_avg)
+        shear_rate = dd.shear_rate()[0]
         mu = sigxz_avg * 1e9 / shear_rate            # mPa.S
-        # print('Viscosity (mPa.s) -----')
-        # print(mu)       # mPa.s
+        print(shear_rate)
+        print('Viscosity (mPa.s) -----')
+        print(mu)       # mPa.s
         return mu
 
     def shear_rate(self):

@@ -263,7 +263,7 @@ class traj_to_grid:
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
         # Pump --------------------------------------------
-        pumpStartX, pumpEndX = 0.4 * Lx, 0.6 * Lx
+        pumpStartX, pumpEndX = 0 * Lx, 0.2 * Lx
         pump_length, pump_region, pump_xcoords, pump_vol, pump_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_xcoords, fluid_xcoords, pumpStartX, pumpEndX,
@@ -456,7 +456,6 @@ class traj_to_grid:
 
                 # Density (bulk) -----------------------------------
                 den_bulk_ch[:, i] = (N_bulk_mask[:, i, k] / self.A_per_molecule) / vol_bulk_cell[i, 0, 0]
-
 
         return {'cell_lengths': cell_lengths_updated,
                 'gap_heights': gap_heights,
