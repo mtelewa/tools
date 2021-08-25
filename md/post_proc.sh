@@ -66,6 +66,6 @@ if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
   mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc
   mv ${infile}_1x${Nchunks}_000.nc ${infile}_1x${Nchunks}.nc
 else
-  cdo mergetime $infile_${Nchunks}x1_*.nc $infile_${Nchunks}x1.nc ; rm $infile_${Nchunks}x1_*
-  cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}"_*
+  cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
+  cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
 fi
