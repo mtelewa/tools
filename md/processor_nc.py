@@ -382,9 +382,9 @@ class traj_to_grid:
             for k in range(self.Nz):
         # Fluid -----------------------------------------
                 maskx_fluid = utils.region(fluid_xcoords, fluid_xcoords,
-                                        xx[i, 0, k], xx[i+1, 0, k])['mask']
+                                        xx_fluid[i, 0, k], xx_fluid[i+1, 0, k])['mask']
                 maskz_fluid = utils.region(fluid_zcoords, fluid_zcoords,
-                                        zz[i, 0, k], zz[i, 0, k+1])['mask']
+                                        zz_fluid[i, 0, k], zz_fluid[i, 0, k+1])['mask']
                 mask_fluid = np.logical_and(maskx_fluid, maskz_fluid)
 
                 # Count particles in the fluid cell
