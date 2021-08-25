@@ -206,17 +206,18 @@ class derive_data:
         """
 
         # Bulk Density ---------------------
-        density_Bulk = np.array(self.data.variables["Density_Bulk"]) * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        density_Bulk = np.array(self.data.variables["Density_Bulk"]) # g/cm^3
         density_Bulk = np.reshape(density_Bulk, (len(self.time_whole),len(self.length_array)))[self.skip:]
 
         # bulk_density_avg = np.mean(density_Bulk, axis=(0,1))
         den_chunkX = np.mean(density_Bulk, axis=0)
 
         # Fluid Density ---------------------
-        density = np.array(self.data.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        density = np.array(self.data.variables["Density"])[self.skip:] # g/cm^3
 
         den_t = np.mean(density,axis=(1,2))
         den_chunkZ = np.mean(density,axis=(0,1))
+        print(len(den_chunkZ))
 
         return den_chunkX, den_chunkZ, den_t
 

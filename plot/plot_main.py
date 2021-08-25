@@ -268,10 +268,12 @@ class plot_from_ds:
             jx_avg = np.zeros([len(datasets_x)])
 
             for i in range(len(datasets_x)):
-                jx_t[i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()[2]
+                jx_t[i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['']
                 jx_avg[i] = np.mean(jx_t[i])
                 self.ax.plot(self.time*1e-6,  jx_t[i, :], ls='-', marker=' ',label=input('Label:'), alpha=0.5)
 
+            for i in range (len(self.ax.lines)):
+                self.ax.axhline(y=jx_avg[i]*1e18, color= self.ax.lines[i].get_color(), linestyle='dashed', lw=1)
 
     def density(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
 
@@ -281,14 +283,14 @@ class plot_from_ds:
             denX = np.zeros([len(datasets_x), self.Nx])
             self.ax.set_xlabel(labels[1])
             for i in range(len(datasets_x)):
-                denX[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()[0]
+                denX[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkX']
                 self.ax.plot(self.length_arrays[i, :][1:-1], denX[i, :][1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_height' in sys.argv:
             denZ = np.zeros([len(datasets_z), self.Nz])
             self.ax.set_xlabel(labels[0])
             for i in range(len(datasets_z)):
-                denZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()[1]
+                denZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkZ']
                 self.ax.plot(self.height_arrays[i, :], denZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_time' in sys.argv:
@@ -296,7 +298,7 @@ class plot_from_ds:
             bulk_den_avg = np.zeros_like(gap_height_avg)
             self.ax.set_xlabel(labels[2])
             for i in range(len(datasets_x)):
-                denT[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()[2]
+                denT[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_t']
                 bulk_den_avg[i] = np.mean(denT[i])
                 self.ax.plot(self.time*1e-6, denT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
