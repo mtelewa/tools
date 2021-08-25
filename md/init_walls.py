@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import os
-import re
-import sys
+import os, re, sys
 import warnings
 import scipy.constants as sci
 import logging
@@ -31,15 +29,15 @@ offset = 5.0               # Initial offset bet. solid and liquid to avoid atoms
 Boffset = 1.0			   # Initial offset bet. the block and the simulation box
 ls = 4.08                  # Lattice spacing for fcc gold
 
-rootdir = os.getcwd()
-
-
-def initialize_walls(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY, tolZ):
-
+def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY, tolZ):
+    """
+    Initializes a simulation box with specified dimensions and fluid mass density
+    The script writes the "geometry.lt" which is then imported by "system.lt" in moltemplate.
+    """
     #derived dimensions
-    unitlengthX = ls * np.sqrt(6) / 2
+    unitlengthX = ls * np.sqrt(6) / 2.
     xlength = nUnitsX * unitlengthX				# Block length
-    unitlengthY = ls * np.sqrt(2) / 2
+    unitlengthY = ls * np.sqrt(2) / 2.
     ylength = nUnitsY * unitlengthY        	    # Block width
     unitlengthZ = round(ls * np.sqrt(3))
     zlength = h + 2*offset + Boffset + 2*t 	# Block height (starts from -Boffset)
@@ -61,7 +59,6 @@ def initialize_walls(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, 
     surfUEndZ = surfUStartZ + t
 
     # No. of fluid atoms in each direction
-
     # TODO: Fix the Nfluid to be exactly whats obtained from the previous eq.
     Nx, Ny = 0, 0
 
@@ -184,31 +181,51 @@ def initialize_walls(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, 
                  (Boffset*-1),zlength,Nx,tolX,Ny,tolY,Nz,tolZ,(fluidStartZ+Boffset),
                  #19
                 name,Nz-1)
-    in_f=open('geometry.lt','w')
+    in_f=open('moltemp/geometry.lt','w')
     in_f.write(in_script)
     in_f.close()
 
-    # Modify the header ----------
 
-    fout = open("../blocks/header2.LAMMPS", "w+")
 
-    for line in open('../blocks/header.LAMMPS','r').readlines():
-      line = re.sub(r'h index.+',r'h index %g' %h, line)
-      line = re.sub(r'nUnitsX index.+',r'nUnitsX index %g' %nUnitsX, line)
-      line = re.sub(r'nUnitsY index.+',r'nUnitsY index %g' %nUnitsY, line)
-      fout.write(line)
+def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
+    """
+    Initializes a simulation box with specified dimensions and fluid mass density
+    The script modifies the Lammps input file "init.LAMMPS".
+    """
 
-    os.rename("../blocks/header2.LAMMPS", "../blocks/header.LAMMPS")
+    xlength= nUnitsX * ls * np.sqrt(6) /2.				    # Block length
+    ylength= nUnitsY * ls * np.sqrt(2) /2.         	    # Block width
+    zlength= h + 2*offset + Boffset + 2*t 	                # Block height (starts from -Boffset)
 
-if __name__ == '__main__':
-    main(sys.argv[1:])
+    gapHeight = h + 2*offset
+    totalboxHeight = zlength + Boffset
+    Nfluid = round(sci.N_A * density * xlength * ylength * gapHeight * 1.e-24 / mFluid)  # No. of fluid atoms
 
-    file= open('args.txt', 'a')
-    file.write('Parameters : {}'.format(sys.argv[1:]))
-    file.close()
+    # print('lx=%g,ly=%g,lz=%g' %(xlength,ylength,zlength))
+    #print('Nf=%g' %Nfluid)
 
-    # for line in fileinput.input("args.txt", inplace=True):
-    #     if line.split()[0]=='Parameters':
-    #         print(' ', end='')
-    #     else:
-    #         print('{}'.format(line), end='')
+    # Regions
+    #---------
+    # Fluid region
+    fluidStartZ = t + offset          # Lower bound in the Z-direction
+    fluidEndZ = h + fluidStartZ       # Upper bound for initialization
+    # Upper wall region
+    surfUStartZ = fluidEndZ + offset
+    surfUEndZ = surfUStartZ + t
+
+    # Modify the 'init.LAMMPS' ----------
+    for line in open('init.LAMMPS','r').readlines():
+        line = re.sub(r'create_atoms    1 random.+',
+                      r'create_atoms    1 random %g 206649 fluid' %Nfluid, line)
+        line = re.sub(r'region          box block.+',
+                      r'region          box block 0.0 %.2f 0.0 %.2f %.2f %.2f units box' %(xlength, ylength, -Boffset, zlength), line)
+        line = re.sub(r'region          fluid block.+',
+                      r'region          fluid block 0.0 INF 0.0 INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
+        line = re.sub(r'region          surfL block.+',
+                      r'region          surfL block INF INF INF INF -1e-5 %.2f units box' %(t), line)
+        line = re.sub(r'region          surfU block.+',
+                      r'region          surfU block INF INF INF INF %.2f %.2f units box' %(surfUStartZ, surfUEndZ), line)
+        fout = open("init2.LAMMPS", "a")
+        fout.write(line)
+
+    os.rename("init2.LAMMPS", "init.LAMMPS")

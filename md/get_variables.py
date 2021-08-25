@@ -16,8 +16,6 @@ import netCDF4
 import sys, os, re
 import sample_quality as sq
 import funcs
-# import MDAnalysis
-# from MDAnalysis.analysis import rdf
 import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 
@@ -292,8 +290,6 @@ class derive_data:
         # Fluid Density ---------------------
         density = np.array(self.data_z.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
         den_chunkZ = np.mean(density,axis=(0,1))     # g/cm^3
-        # den_chunkZ_mod = den_chunkZ[den_chunkZ !=0]
-        print(den_chunkZ)
 
         den_t = np.mean(density,axis=(1,2))    # g/cm^3
 
