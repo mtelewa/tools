@@ -21,6 +21,20 @@ import funcs
 import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 
+
+if 'lj' in sys.argv:
+    mf, A_per_molecule = 39.948, 1
+elif 'propane' in sys.argv:
+    mf, A_per_molecule = 44.09, 3
+elif 'pentane' in sys.argv:
+    mf, A_per_molecule = 72.15, 5
+elif 'heptane' in sys.argv:
+    mf, A_per_molecule = 100.21, 7
+else:
+    raise NameError('The fluid is not defined!')
+
+# print(mf)
+
 # Converions
 ang_to_cm = 1e-8
 A_per_fs_to_m_per_s = 1e5
@@ -29,8 +43,6 @@ pa_to_Mpa = 1e-6
 kcalpermolA_to_N = 6.947694845598684e-11
 fs_to_ns = 1e-6
 
-
-mf, A_per_molecule = 72.15, 5
 
 class derive_data:
     """
@@ -239,16 +251,19 @@ class derive_data:
         jx_stable = np.array(self.data_x.variables["mflux_stable"])[self.skip:]
         avg_jx_stable = np.mean(jx_stable)
 
+        mflowrate_stable = np.array(self.data_x.variables["mflow_rate_stable"])[self.skip:]
+        avg_mflowrate_stable = np.mean(mflowrate_stable)
+
         jx_pump = np.array(self.data_x.variables["mflux_pump"])[self.skip:]
         avg_jx_pump = np.mean(jx_pump)
 
-        mflowrate_stable = np.array(self.data_x.variables["mflow_rate_stable"])[self.skip:]
-        avg_mflowrate = np.mean(mflowrate_stable)
+        mflowrate_pump = np.array(self.data_x.variables["mflow_rate_pump"])[self.skip:]
+        avg_mflowrate_pump = np.mean(mflowrate_pump)
 
-        print('Average mass flux in the stable region is {} g/m2.ns \
-             \nAverage mass flow rate in the stable region is {} g/ns \
-             \nAverage mass flux in the pump region is {} g/m2.ns' \
-             .format(avg_jx_stable, avg_mflowrate, avg_jx_pump))
+        print(f'Average mass flux in the stable region is {avg_jx_stable} g/m2.ns \
+              \nAverage mass flow rate in the stable region is {avg_mflowrate_stable} g/ns \
+              \nAverage mass flux in the pump region is {avg_jx_pump} g/m2.ns \
+              \nAverage mass flow rate in the pump region is {avg_mflowrate_pump} g/m2.ns')
 
         # Mass flux (whole simulation domain)
         jx = np.array(self.data_x.variables["Jx"])[self.skip:]
@@ -275,8 +290,11 @@ class derive_data:
         den_chunkX = np.mean(density_Bulk, axis=0)
 
         # Fluid Density ---------------------
-        density = np.array(self.data_x.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
+        density = np.array(self.data_z.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
         den_chunkZ = np.mean(density,axis=(0,1))     # g/cm^3
+        # den_chunkZ_mod = den_chunkZ[den_chunkZ !=0]
+        print(den_chunkZ)
+
         den_t = np.mean(density,axis=(1,2))    # g/cm^3
 
         return {'den_chunkX': den_chunkX, 'den_chunkZ': den_chunkZ, 'den_t': den_t}
