@@ -89,14 +89,13 @@ def initialize_walls(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, 
         density = Nfluid / (sci.N_A * xlength * ylength * gapHeight * 1.e-24 / mFluid)
         warnings.warn("For the chosen density, atoms will be outside the box otherwise there will be overlap. \n\
                Density was reduced to %.2f" %density)
-    print(Nx,Ny,Nz)
 
     new_Nfluid = Nx * Ny * Nz
     diff = Nfluid - new_Nfluid
 
     # Nx = 34 # heptane
     # Nx= 59  # propane
-    Nz = 8   # propane
+    # Nz = 8   # propane
 
     Nfluid_mod = Nx * Ny * Nz
     diff2 = Nfluid - Nfluid_mod
