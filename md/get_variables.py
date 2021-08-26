@@ -79,6 +79,9 @@ class derive_data:
 
         # Time
         self.time =  np.array(self.data_x.variables["Time"])[self.skip:]
+        if not self.time.size:
+            raise ValueError('The array is empty! Reduce the skipped timesteps.')
+
 
         # Box spatial dimensions ------------------------------------------
         dim = self.data_x.__dict__

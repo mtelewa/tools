@@ -1,8 +1,0 @@
-#!/bin/bash
-
-#MOAB -l nodes=1:ppn=16
-#MOAB -l walltime=1:00:00
-#MOAB -N FW_job
-
-cd /home/mohamed/tools/workflow/fws-queue-test
-rlaunch -w /home/mohamed/tools/workflow/fws-queue-test/my_fworker.yaml -l /home/mohamed/.fireworks/launchpad_kit_cluster.yaml singleshot
