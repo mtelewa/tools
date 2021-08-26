@@ -577,7 +577,7 @@ if __name__ == "__main__":
         # plt.yticks(np.arange(30, 80, step=10))  # Set label locations.
 
         pds.ax.set_rasterized(True)
-        pds.fig.savefig(sys.argv[-1] , format='png')
+        pds.fig.savefig(sys.argv[-1]+'.png' , format='png')
 
 
     # # Name the output files according to the input

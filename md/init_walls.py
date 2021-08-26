@@ -220,7 +220,7 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
         line = re.sub(r'region          box block.+',
                       r'region          box block 0.0 %.2f 0.0 %.2f %.2f %.2f units box' %(xlength, ylength, -Boffset, zlength), line)
         line = re.sub(r'region          fluid block.+',
-                      r'region          fluid block 0.0 INF 0.0 INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
+                      r'region          fluid block INF INF INF INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
         line = re.sub(r'region          surfL block.+',
                       r'region          surfL block INF INF INF INF -1e-5 %.2f units box' %(t), line)
         line = re.sub(r'region          surfU block.+',
