@@ -17,9 +17,59 @@ module load netcdf4-python/1.5.0
 
 printenv
 
+## check if $SCRIPT_FLAGS is "set"
+if [ -n "${SCRIPT_FLAGS}" ] ; then
+   ## but if positional parameters are already present
+   ## we are going to ignore $SCRIPT_FLAGS
+   if [ -z "${*}"  ] ; then
+      set -- ${SCRIPT_FLAGS}
+   fi
+fi
+
+while getopts ":h:i:N:f:s:e:p:x:" option; do
+  case "$option" in
+    h) echo "$usage"
+       exit
+       ;;
+    i) infile="$OPTARG"
+    ;;
+    N) Nchunks="$OPTARG"
+    ;;
+    f) fluid="$OPTARG"
+    ;;
+    s) stable_start="$OPTARG"
+    ;;
+    e) stable_end="$OPTARG"
+    ;;
+    p) pump_start="$OPTARG"
+    ;;
+    x) pump_end="$OPTARG"
+    ;;
+    :) printf "missing argument for -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+   \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+  esac
+done
+# call the shift command at the end of the processing loop to remove options that
+# have already been handled from $@
+shift $((OPTIND - 1))
+
+
 cd ${MOAB_SUBMITDIR}
-mpirun --bind-to core --map-by core -report-bindings $HOME/tools/md/proc.py flow.nc 144 1 1000 pentane 
-cdo mergetime flow_144x1_*.nc flow_144x1.nc ; rm flow_144x1_*
-mpirun --bind-to core --map-by core -report-bindings $HOME/tools/md/proc.py flow.nc 1 144 1000 pentane
-cdo mergetime flow_1x144_*.nc flow_1x144.nc ; rm flow_1x144_*
+
+mpirun --bind-to core --map-by core -report-bindings proc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun --bind-to core --map-by core -report-bindings proc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+
+if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
+  mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc
+  mv ${infile}_1x${Nchunks}_000.nc ${infile}_1x${Nchunks}.nc
+else
+  cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
+  cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
+fi
 
