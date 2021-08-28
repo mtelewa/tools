@@ -107,7 +107,12 @@ class derive_data:
 
         # If the bulk height is given
         try:
-            self.bulk_height = np.array(self.data_x.variables["Bulk_Height"])[self.skip:]
+            self.bulk_height = np.array(self.data_x.variables["Bulk_Height"])[self.skip:] / 10
+            avg_bulk_height = np.mean(self.bulk_height)
+            dz_bulk = avg_bulk_height / Nz
+
+            bulkStart = self.bulk_height[0] + (dz_bulk/2.0)
+            self.bulk_height_array = np.arange(bulkStart, self.bulk_height[0]+avg_bulk_height , dz_bulk)     #nm
         except KeyError:
             pass
 
@@ -311,12 +316,14 @@ class derive_data:
         """
 
         totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
-        chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.bulk_height)     # A^3
+        chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.bulk_height) * 10     # A^3
 
-        vir = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+        vir_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+        vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
 
-        vir_t = np.sum(vir, axis=(1,2)) / (3 * totVi)
-        vir_chunkX = np.mean(vir, axis=(0,2)) / (3 * chunk_vol)
+        vir_t = np.sum(vir_x, axis=(1,2)) / (3 * totVi)
+        vir_chunkX = np.mean(vir_x, axis=(0,2)) / (3 * chunk_vol)
+        vir_chunkZ = np.mean(vir_z, axis=(0,1)) / (3 * chunk_vol)
 
         # # TODO: The first and last chunk shall not be input
         # press-driven region length
@@ -336,7 +343,8 @@ class derive_data:
         print(f"The measured pressure difference is {pDiff:.2f} MPa with an error of {pDiff_err:.2f} MPa.\
         \nThe pressure gradient is {pGrad:.2f} MPa/nm")
 
-        return {'vir_chunkX': vir_chunkX , 'vir_t': vir_t, 'pGrad': pGrad}
+        return {'vir_chunkX': vir_chunkX , 'vir_chunkZ': vir_chunkZ,
+                'vir_t': vir_t, 'pGrad': pGrad}
 
 
     def temp(self):
@@ -349,7 +357,6 @@ class derive_data:
         """
 
         temp = np.array(self.data_x.variables["Temperature"])[self.skip:]
-
 
         temp_t = np.mean(temp,axis=(1,2))
         tempX = np.mean(temp,axis=(0,2))
