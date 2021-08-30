@@ -303,10 +303,14 @@ class derive_data:
 
         return {'den_chunkX': den_chunkX, 'den_chunkZ': den_chunkZ, 'den_t': den_t}
 
-    def virial(self):
+    def virial(self, pump_size):
         """
         Parameters
         ----------
+        parameters
+        ----------
+        pump_size: float
+            multiple of the box length that represents the size of the pump
 
         Returns
         -------
@@ -318,20 +322,23 @@ class derive_data:
         totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
         chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.avg_bulk_height) * 10     # A^3
 
-        vir_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-        vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+        vir_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
+        vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
 
         vir_t = np.sum(vir_x, axis=(1,2)) / (3 * totVi)
-        vir_chunkX = np.mean(vir_x, axis=(0,2)) / (3 * chunk_vol)
-        vir_chunkZ = np.mean(vir_z, axis=(0,1)) / (3 * chunk_vol)
+        vir_chunkX = np.mean(vir_x, axis=(0,2))
+        vir_chunkZ = np.mean(vir_z, axis=(0,1))
 
-        # # TODO: The first and last chunk shall not be input
         # press-driven region length
-        pd_length = 0.8 * self.Lx       # nm
+        pd_length = self.Lx - pump_size*self.Lx      # nm
+
+        out_chunk = np.argmax(vir_chunkX)
+        in_chunk = np.argmin(vir_chunkX)
 
         # Chunk 29 is at the outlet of the pump
-        vir_out = np.array(self.data_x.variables["Virial"])[self.skip:,29] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
-        vir_in = np.array(self.data_x.variables["Virial"])[self.skip:,-2] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
+        vir_out = np.array(self.data_x.variables["Virial"])[self.skip:,out_chunk] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
+        vir_in = np.array(self.data_x.variables["Virial"])[self.skip:,in_chunk] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
+
         pDiff = np.mean(vir_out) - np.mean(vir_in)
         pGrad = pDiff / pd_length       # MPa/nm
 

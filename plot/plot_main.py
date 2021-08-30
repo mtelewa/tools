@@ -303,9 +303,10 @@ class plot_from_ds:
 
             if 'virial' in sys.argv:
                 for i in range(len(datasets_x)):
-                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
+                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial(np.float
+                                            (input('pump size:')))['vir_chunkX']
                     self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], vir_chunkX[1:-1],
-                                ls=lt, marker=None, label=input('Label:'), alpha=opacity)
+                                ls=lt, marker='o', label=input('Label:'), alpha=opacity)
 
             if 'sigwall' in sys.argv:
                 for i in range(len(datasets_x)):
@@ -315,7 +316,8 @@ class plot_from_ds:
 
             if 'both' in sys.argv:
                 for i in range(len(datasets_x)):
-                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
+                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial(np.float
+                                            (input('pump size:')))['vir_chunkX']
                     self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], vir_chunkX[1:-1],
                                 ls=lt, marker='o', label=input('Label:'), alpha=opacity)
                 for i in range(len(datasets_x)):
