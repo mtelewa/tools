@@ -17,4 +17,4 @@ module load mpi/openmpi/3.1-gnu-7.3
 printenv
 
 cd ${MOAB_SUBMITDIR}
-mpirun --bind-to core --map-by core -report-bindings lmp_mpi -in $(pwd)/flow.LAMMPS -v norton 1 -v pDiff 5e6
+mpirun --bind-to core --map-by core -report-bindings lmp_mpi -in $(pwd)/flow.LAMMPS -v ff 1 -v pDiff 5e6
