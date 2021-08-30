@@ -289,13 +289,12 @@ class traj_to_grid:
 
         # Bulk --------------------------------------------
         avg_surfL_end_conv = np.mean(comm.allgather(np.mean(surfL_end_conv)))
-        bulkStartZ = (0.4 * avg_gap_height_conv) + avg_surfL_end_conv
-        bulkEndZ = (0.6 * avg_gap_height_conv) + avg_surfL_end_conv
+        bulkStartZ, bulkEndZ = 0.4 * Lz, 0.6 * Lz
         bulk_height, bulk_region, bulk_zcoords, bulk_vol, bulk_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_zcoords, fluid_zcoords, bulkStartZ, bulkEndZ,
                                             ylength=Ly, length=Lx))
-        bulk_height_time = 0.2 * gap_height_conv
+        bulk_height_time = 0.2 * (surfU_end - surfL_begin)
 
         try:
             # Voronoi volumes of atoms in the bulk region in each timestep

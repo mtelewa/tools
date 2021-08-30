@@ -123,11 +123,13 @@ class plot_from_ds:
         self.length_arrays = np.zeros([len(datasets_x), self.Nx])
         self.height_arrays = np.zeros([len(datasets_z), self.Nz])
         self.height_arrays_mod = np.zeros([len(datasets_z), self.Nz_mod])
+        self.bulk_height_arrays = np.zeros([len(datasets_z), self.Nz])
         for i in range(len(datasets_x)):
             self.length_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).length_array
         for i in range(len(datasets_z)):
             self.height_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).height_array
             self.height_arrays_mod[i, :] = dd(datasets_x[i], datasets_z[i], skip).velocity()['height_array_mod']
+            self.bulk_height_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).bulk_height_array
 
         # self.sigxz_t = np.zeros([len(datasets), len(self.time)])
         # self.avg_sigxz_t = np.zeros([len(datasets)])
@@ -280,23 +282,23 @@ class plot_from_ds:
         self.ax.set_ylabel(labels[3])
 
         if 'den_length' in sys.argv:
-            denX = np.zeros([len(datasets_x), self.Nx])
             self.ax.set_xlabel(labels[1])
+            denX = np.zeros([len(datasets_x), self.Nx])
             for i in range(len(datasets_x)):
                 denX[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkX']
                 self.ax.plot(self.length_arrays[i, :][1:-1], denX[i, :][1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_height' in sys.argv:
-            denZ = np.zeros([len(datasets_z), self.Nz])
             self.ax.set_xlabel(labels[0])
+            denZ = np.zeros([len(datasets_z), self.Nz])
             for i in range(len(datasets_z)):
                 denZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkZ']
                 self.ax.plot(self.height_arrays[i, :], denZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_time' in sys.argv:
+            self.ax.set_xlabel(labels[2])
             denT = np.zeros([len(datasets_x), self.time])
             bulk_den_avg = np.zeros_like(gap_height_avg)
-            self.ax.set_xlabel(labels[2])
             for i in range(len(datasets_x)):
                 denT[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_t']
                 bulk_den_avg[i] = np.mean(denT[i])
@@ -347,9 +349,18 @@ class plot_from_ds:
                 sigxz_chunkX = np.zeros([len(datasets_x), self.Nx])
 
                 for i in range(len(datasets_x)):
-                    sigxz_chunkX[i, :] =  dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_chunkX']
+                    sigxz_chunkX[i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_chunkX']
                     self.ax.plot(self.length_arrays[i, :][1:-1],  sigxz_chunkX[i, :][1:-1],
                                 ls='-', marker=' ',label=input('Label:'), alpha=0.5)
+
+        if 'press_height' in sys.argv:
+            self.ax.set_xlabel(labels[0])
+            vir_chunkZ = np.zeros([len(datasets_z), self.Nz])
+
+            for i in range(len(datasets_z)):
+                vir_chunkZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkZ']
+                self.ax.plot(self.bulk_height_arrays[i, :][1:-1], vir_chunkZ[i, :][1:-1],
+                            ls=lt, marker=None, label=input('Label:'), alpha=opacity)
 
         if 'press_time' in sys.argv:
             self.ax.set_xlabel(labels[2])
@@ -396,13 +407,13 @@ class plot_from_ds:
             self.ax.set_xlabel(labels[1])
             for i in range(len(datasets_x)):
                 tempX[i, :] = dd(datasets_x[i], datasets_z[i], skip).temp()[0]
-                self.ax.plot(self.length_arrays[i, :], tempX[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
+                self.ax.plot(self.length_arrays[i, :][1:-1], tempX[i, :][1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'temp_height' in sys.argv:
             tempZ = np.zeros([len(datasets_z), self.Nz])
             self.ax.set_xlabel(labels[0])
             for i in range(len(datasets_z)):
-                tempZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).temp()[1]
+                tempZ[i, :] = dd(datasets_z[i], datasets_z[i], skip).temp()[1]
                 self.ax.plot(self.height_arrays[i, :], tempZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'temp_time' in sys.argv:
@@ -533,7 +544,7 @@ if __name__ == "__main__":
         if 'den_length' in sys.argv or 'den_height' in sys.argv or 'den_time' in sys.argv:
             pds.density()
 
-        if 'press_length' in sys.argv or 'press_time' in sys.argv:
+        if 'press_length' in sys.argv or 'press_height' in sys.argv or 'press_time' in sys.argv:
             pds.press()
 
         if 'temp_length' in sys.argv or 'temp_height' in sys.argv or 'temp_time' in sys.argv:

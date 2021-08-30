@@ -108,11 +108,11 @@ class derive_data:
         # If the bulk height is given
         try:
             self.bulk_height = np.array(self.data_x.variables["Bulk_Height"])[self.skip:] / 10
-            avg_bulk_height = np.mean(self.bulk_height)
-            dz_bulk = avg_bulk_height / Nz
+            self.avg_bulk_height = np.mean(self.bulk_height)
+            dz_bulk = self.avg_bulk_height / Nz
 
             bulkStart = self.bulk_height[0] + (dz_bulk/2.0)
-            self.bulk_height_array = np.arange(bulkStart, self.bulk_height[0]+avg_bulk_height , dz_bulk)     #nm
+            self.bulk_height_array = np.arange(bulkStart, self.bulk_height[0]+self.avg_bulk_height , dz_bulk)     #nm
         except KeyError:
             pass
 
@@ -316,7 +316,7 @@ class derive_data:
         """
 
         totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
-        chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.bulk_height) * 10     # A^3
+        chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.avg_bulk_height) * 10     # A^3
 
         vir_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
         vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
