@@ -116,28 +116,15 @@ class plot_from_ds:
 
         self.Nx = len(dd(datasets_x[0], datasets_z[0], skip).length_array)
         self.Nz = len(dd(datasets_x[0], datasets_z[0], skip).height_array)
-        self.Nz_mod = len(dd(datasets_x[0], datasets_z[0], skip).velocity()['height_array_mod'])
+
         self.time = dd(datasets_x[0], datasets_z[0], skip).time
         self.Ly = dd(datasets_x[0], datasets_z[0], skip).Ly
-
-        self.length_arrays = np.zeros([len(datasets_x), self.Nx])
-        self.height_arrays = np.zeros([len(datasets_z), self.Nz])
-        self.height_arrays_mod = np.zeros([len(datasets_z), self.Nz_mod])
-        self.bulk_height_arrays = np.zeros([len(datasets_z), self.Nz])
-        for i in range(len(datasets_x)):
-            self.length_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).length_array
-        for i in range(len(datasets_z)):
-            self.height_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).height_array
-            self.height_arrays_mod[i, :] = dd(datasets_x[i], datasets_z[i], skip).velocity()['height_array_mod']
-            self.bulk_height_arrays[i, :] = dd(datasets_x[i], datasets_z[i], skip).bulk_height_array
 
         # self.sigxz_t = np.zeros([len(datasets), len(self.time)])
         # self.avg_sigxz_t = np.zeros([len(datasets)])
         self.pGrad = np.zeros([len(datasets_x)])
         self.viscosities = np.zeros([len(datasets_z)])
 
-        pump_length = 0.2 * np.max(self.length_arrays)
-        # smoothed_pump_length = pump_length * 15/8
 
     def vx_height(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
 
@@ -146,12 +133,17 @@ class plot_from_ds:
 
         mpl.rcParams.update({'lines.markersize': 3})
 
-        vx_chunkZ = np.zeros([len(datasets_z), self.Nz_mod])
+        # vx_chunkZ = np.zeros([len(datasets_z), self.Nz])
 
         for i in range(len(datasets_z)):
-            vx_chunkZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).velocity()['vx_data']
+            vx_chunkZ = dd(datasets_x[i], datasets_z[i], skip).velocity()['vx_data']
+
+            # Remove chunks with no atoms
+            height_array_mod = dd(datasets_x[i], datasets_z[i], skip).height_array[vx_chunkZ !=0]
+            vx_chunkZ_mod = vx_chunkZ[vx_chunkZ !=0]
+
             label=input('Label:')
-            self.ax.plot(self.height_arrays_mod[i, :], vx_chunkZ[i, :],
+            self.ax.plot(height_array_mod, vx_chunkZ_mod,
                                  ls=' ', label=label, marker='o', alpha=opacity)
 
             # Plot the fits
@@ -166,7 +158,7 @@ class plot_from_ds:
             if 'hydro' in sys.argv:
                 v_hydro = dd(datasets_x[i], datasets_z[i], skip).hydrodynamic()['v_hydro']
 
-                self.ax.plot(self.height_arrays_mod[i, :], v_hydro,
+                self.ax.plot(self.height_arrays[i, :], v_hydro,
                                      ls='-', label=label, marker='x', alpha=opacity)
 
             # Plot the extrapolated lines
@@ -188,13 +180,15 @@ class plot_from_ds:
             # plot vertical lines for the walls
             if 'walls' in sys.argv:
                 if len(datasets_z) == 1:
-                    self.ax.axvline(x= self.height_arrays_mod[0][0], color='k',
+                    height_array_mod = dd(datasets_x[0], datasets_z[0], skip).height_array[vx_chunkZ !=0]
+                    self.ax.axvline(x= height_array_mod[0], color='k',
                                                         linestyle='dashed', lw=1)
-                    self.ax.axvline(x= self.height_arrays_mod[0][-1], color= 'k',
+                    self.ax.axvline(x= height_array_mod[-1], color= 'k',
                                                         linestyle='dashed', lw=1)
                 else:
                     for i in range(len(datasets_z)):
-                        ax.axvline(x= self.height_arrays[i][-1], color= line_colors[i],
+                        height_array_mod = dd(datasets_x[i], datasets_z[i], skip).height_array[vx_chunkZ !=0]
+                        ax.axvline(x= height_arrays[i][-1], color= line_colors[i],
                                                         linestyle='dashed', lw=1)
 
             if 'inset' in sys.argv:
@@ -231,21 +225,19 @@ class plot_from_ds:
 
         if 'mflowrate_length' in sys.argv:
             self.ax.set_xlabel(labels[1])
-            mflowrate = np.zeros([len(datasets_x), self.Nx])
 
             for i in range(len(datasets_x)):
-                mflowrate[i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['mflowrate_stable']
-                self.ax.plot(self.length_arrays[i, :], mflowrate[i, :], ls=lt, marker='o',label=input('Label:'), alpha=opacity)
+                mflowrate = dd(datasets_x[i], datasets_z[i], skip).mflux()['mflowrate_stable']
+                self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array, mflowrate, ls=lt, marker='o',label=input('Label:'), alpha=opacity)
 
         if 'mflowrate_time' in sys.argv:
             self.ax.set_xlabel(labels[2])
-            mflowrate_t = np.zeros([len(datasets_x), len(self.time)])
             mflowrate_avg = np.zeros([len(datasets_x)])
 
             for i in range(len(datasets_x)):
                 mflowrate_t[i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['mflowrate_stable']
                 mflowrate_avg[i] = np.mean(mflowrate_t[i])
-                self.ax.plot(self.time*1e-6,  mflowrate_t[i, :]*1e18, ls='-', marker=' ',label=input('Label:'), alpha=0.5)
+                self.ax.plot(self.time*1e-6,  mflowrate_t*1e18, ls='-', marker=' ',label=input('Label:'), alpha=0.5)
                 print(self.ax.lines[i].get_color())
 
             for i in range (len(self.ax.lines)):
@@ -258,11 +250,10 @@ class plot_from_ds:
 
         if 'jx_length' in sys.argv:
             self.ax.set_xlabel(labels[1])
-            jx = np.zeros([len(datasets_x), self.Nx])
 
             for i in range(len(datasets_x)):
-                jx[i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()[0]
-                self.ax.plot(self.length_arrays[i, :], jx[i, :], ls=lt, marker='o',label=input('Label:'), alpha=opacity)
+                jx = dd(datasets_x[i], datasets_z[i], skip).mflux()[0]
+                self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array, jx, ls=lt, marker='o',label=input('Label:'), alpha=opacity)
 
         if 'jx_time' in sys.argv:
             self.ax.set_xlabel(labels[2])
@@ -283,26 +274,24 @@ class plot_from_ds:
 
         if 'den_length' in sys.argv:
             self.ax.set_xlabel(labels[1])
-            denX = np.zeros([len(datasets_x), self.Nx])
+
             for i in range(len(datasets_x)):
-                denX[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkX']
-                self.ax.plot(self.length_arrays[i, :][1:-1], denX[i, :][1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
+                denX = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkX']
+                self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], denX[1:-1], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_height' in sys.argv:
             self.ax.set_xlabel(labels[0])
-            denZ = np.zeros([len(datasets_z), self.Nz])
             for i in range(len(datasets_z)):
-                denZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkZ']
-                self.ax.plot(self.height_arrays[i, :], denZ[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
+                denZ = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkZ']
+                self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).height_array[1:-1], denZ, ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
         if 'den_time' in sys.argv:
             self.ax.set_xlabel(labels[2])
-            denT = np.zeros([len(datasets_x), self.time])
             bulk_den_avg = np.zeros_like(gap_height_avg)
             for i in range(len(datasets_x)):
-                denT[i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_t']
+                denT = dd(datasets_x[i], datasets_z[i], skip).density()['den_t']
                 bulk_den_avg[i] = np.mean(denT[i])
-                self.ax.plot(self.time*1e-6, denT[i, :], ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
+                self.ax.plot(self.time*1e-6, denT, ls=lt, label=input('Label:'), marker=mark, alpha=opacity)
 
 
     def press(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
@@ -311,55 +300,52 @@ class plot_from_ds:
 
         if 'press_length' in sys.argv:
             self.ax.set_xlabel(labels[1])
-            sigzz_chunkX = np.zeros([len(datasets_x), self.Nx])
-            vir_chunkX = np.zeros([len(datasets_x), self.Nx])
-
-            for i in range(len(datasets_x)):
-                sigzz_chunkX[i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_chunkX']
-                vir_chunkX[i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
 
             if 'virial' in sys.argv:
                 for i in range(len(datasets_x)):
-                    self.ax.plot(self.length_arrays[i, :][1:-1], vir_chunkX[i, :][1:-1],
+                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
+                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], vir_chunkX[1:-1],
                                 ls=lt, marker=None, label=input('Label:'), alpha=opacity)
 
             if 'sigwall' in sys.argv:
                 for i in range(len(datasets_x)):
-                    self.ax.plot(self.length_arrays[i, :][1:-1], sigzz_chunkX[i, :][1:-1],
+                    sigzz_chunkX = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_chunkX']
+                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], sigzz_chunkX[1:-1],
                                 ls=lt, marker='o', label=input('Label:'), alpha=opacity)
+
             if 'both' in sys.argv:
                 for i in range(len(datasets_x)):
-                    self.ax.plot(self.length_arrays[i, :][1:-1], vir_chunkX[i, :][1:-1],
+                    vir_chunkX = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
+                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], vir_chunkX[1:-1],
                                 ls=lt, marker='o', label=input('Label:'), alpha=opacity)
                 for i in range(len(datasets_x)):
-                    self.ax.plot(self.length_arrays[i, :][1:-1], sigzz_chunkX[i, :][1:-1],
-                                ls='-', marker='x', label=input('Label:'), alpha=opacity)
+                    sigzz_chunkX = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_chunkX']
+                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1], sigzz_chunkX[1:-1],
+                                ls=' ', marker='x', label=input('Label:'), alpha=opacity)
 
             if 'inset' in sys.argv:
                 inset_ax = fig.add_axes([0.62, 0.57, 0.2, 0.28]) # X, Y, width, height
                 inset_ax.axvline(x=0, color='k', linestyle='dashed')
                 inset_ax.axvline(x=0.2*np.max(lengths), color='k', linestyle='dashed')
                 inset_ax.set_ylim(220, 280)
-                inset_ax.plot(self.length_arrays[0][1:29], vir_chunkX[0, :][1:29] , ls= lt, color=ax.lines[0].get_color(), marker=None, alpha=opacity, label=label)
-                inset_ax.plot(self.length_arrays[0][1:29], vir_chunkX[1, :][1:29] , ls= ' ', color=ax.lines[1].get_color(), marker='x', alpha=opacity, label=label)
+                inset_ax.plot(dd(datasets_x[0], datasets_z[0], skip).length_array[0][1:29], vir_chunkX[0, :][1:29] , ls= lt, color=ax.lines[0].get_color(), marker=None, alpha=opacity, label=label)
+                inset_ax.plot(dd(datasets_x[0], datasets_z[0], skip).length_array[0][1:29], vir_chunkX[1, :][1:29] , ls= ' ', color=ax.lines[1].get_color(), marker='x', alpha=opacity, label=label)
 
             if 'sigxz' in sys.argv:
                 self.ax.set_xlabel(labels[1])
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-                sigxz_chunkX = np.zeros([len(datasets_x), self.Nx])
 
                 for i in range(len(datasets_x)):
-                    sigxz_chunkX[i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_chunkX']
-                    self.ax.plot(self.length_arrays[i, :][1:-1],  sigxz_chunkX[i, :][1:-1],
+                    sigxz_chunkX = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_chunkX']
+                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1],  sigxz_chunkX[1:-1],
                                 ls='-', marker=' ',label=input('Label:'), alpha=0.5)
 
         if 'press_height' in sys.argv:
             self.ax.set_xlabel(labels[0])
-            vir_chunkZ = np.zeros([len(datasets_z), self.Nz])
 
             for i in range(len(datasets_z)):
-                vir_chunkZ[i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkZ']
-                self.ax.plot(self.bulk_height_arrays[i, :][1:-1], vir_chunkZ[i, :][1:-1],
+                vir_chunkZ = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkZ']
+                self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).bulk_height_array[1:-1], vir_chunkZ[1:-1],
                             ls=lt, marker=None, label=input('Label:'), alpha=opacity)
 
         if 'press_time' in sys.argv:
@@ -500,11 +486,10 @@ class plot_from_ds:
         self.ax.set_xlabel(labels[2])
         self.ax.set_ylabel(labels[0])
 
-        gap_height = np.zeros([len(datasets_x), len(self.time)])
         gap_height_avg = np.zeros([len(datasets_x)])
 
         for i in range(len(datasets_x)):
-            gap_height[i, :] = dd(datasets_x[i], datasets_z[i], skip).h
+            gap_height = dd(datasets_x[i], datasets_z[i], skip).h
             gap_height_avg[i] = dd(datasets_x[i], datasets_z[i], skip).avg_gap_height
 
             self.ax.plot(self.time*1e-6, gap_height[i, :], ls='-', marker=' ', alpha=opacity, label=input('Label:'))
@@ -579,10 +564,12 @@ if __name__ == "__main__":
                          label= lab, fontsize= 8, rotation= rot)
 
         if 'draw-vlines' in sys.argv:
+            total_length = np.max(dd(datasets_x[0], datasets_z[0], skip).Lx)
             pds.ax.axvline(x= 0, color='k', linestyle='dashed', lw=1)
-            pds.ax.axvline(x= heights[1][-1], color= self.ax.lines[2].get_color(), linestyle='dashed', lw=1)
-            pds.ax.axvline(x= heights[2][-1], color= self.ax.lines[4].get_color(), linestyle='dashed', lw=1)
-            pds.ax.axvline(x= 0.2*np.max(lengths), color='k', linestyle='dashed')
+
+            for i in range(len(pds.ax.lines)-1):
+                pos=np.float(input('vertical line pos:'))
+                pds.ax.axvline(x= pos*total_length, color=pds.ax.lines[i].get_color(), linestyle='dashed', lw=1)
 
         # Adjust ticks
         # plt.yticks(np.arange(30, 80, step=10))  # Set label locations.

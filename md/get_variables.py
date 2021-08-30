@@ -145,7 +145,7 @@ class derive_data:
         polynom = np.poly1d(coeffs_fit)
         xdata = np.linspace(height_array_mod[0], height_array_mod[-1], len(height_array_mod))
 
-        return {'height_array_mod': height_array_mod, 'vx_data': vx_chunkZ_mod,
+        return {'height_array_mod': height_array_mod, 'vx_data': vx_chunkZ,
                 'xdata': xdata, 'fit_data': polynom(xdata)}
 
     def hydrodynamic(self):
@@ -467,7 +467,6 @@ if __name__ == "__main__":
 # T = 300
 # viscosity = (vol/(Kb*T)) * np.trapz(sq.acf(sigxz_t_pa[:10]), time[:10])
 # np.savetxt("tau_acf.txt", np.c_[time[:10], sq.acf(sigxz_t_pa[:10])],delimiter="  ",header="time       var")
-
 
 
 
