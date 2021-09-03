@@ -25,7 +25,7 @@ atm_to_pa= 101325
 # GEOMETRY
 #---------
 t = 7.0                    # Thickness of gold layer
-offset = 5.0               # Initial offset bet. solid and liquid to avoid atoms/molecules overlapping
+offset = 5.0              # Initial offset bet. solid and liquid to avoid atoms/molecules overlapping
 Boffset = 1.0			   # Initial offset bet. the block and the simulation box
 ls = 4.08                  # Lattice spacing for fcc gold
 
@@ -90,98 +90,112 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     new_Nfluid = Nx * Ny * Nz
     diff = Nfluid - new_Nfluid
 
-    # Nx = 34 # heptane
-    # Nx= 59  # propane
-    # Nz = 8   # propane
-
+    ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
+    # if new_Nfluid/Nfluid <= 98:
+    #     Nz+=1
+    #     Nx-=1
+    #
     Nfluid_mod = Nx * Ny * Nz
     diff2 = Nfluid - Nfluid_mod
-
-    ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
 
     print('Created %g molecules by moltemplate' %new_Nfluid)
     print('Created %g molecules after modification' %Nfluid_mod)
 
-    add_molecules,remove_molecules=0,0
+    add_molecules,remove_molecules = 0,0
     add_molecules_mod = 0
 
     if diff > 0:
         while add_molecules < diff:
             add_molecules+=1
-        logger.warning(" ===> Add {0} Molecules to reach the required density".format(add_molecules))
+        logger.warning(f" ===> Add {add_molecules} Molecules to reach the required density")
 
         while add_molecules_mod < diff2:
             add_molecules_mod+=1
-        logger.warning(" ===> Add {0} Molecules after modification".format(add_molecules_mod))
+        logger.warning(f" ===> Add {add_molecules_mod} Molecules after modification")
 
     elif diff < 0:
         while remove_molecules < abs(diff):
             remove_molecules+=1
-        logger.warning(" ===> Remove {0} Molecules to reach the required density".format(remove_molecules))
+        logger.warning(f" ===> Remove {remove_molecules} Molecules to reach the required density")
 
     else:
-        print('Created {} molecules corresponds to bulk density of {} g/cm^3 successfully!'.format(new_Nfluid,density))
+        print(f'Created {new_Nfluid} molecules corresponds to bulk density of {density} g/cm^3 successfully!')
 
-    # a = tolZ*Nz
 
-    in_script= " # System moltemplate file\n\
+
+    if 'fluid_walls' in sys.argv:
+
+        in_script= f" # System moltemplate file\n\
+        #------------------------\n\
+        \n\
+        # import molecule building block file \n\
+        import '{name}.lt' \n\
+        \n\
+        # Replicate the pentane, the value in [] is the no. of replicas (a) \n\
+        # the value in () is the offset (b) between replicas. \n\
+        # To avoid atoms creation outside of the box, a*b < xhi. Same for y and z. \n\
+        mol = new {name}   [{Nx}].move({tolX},0,0) \n\
+                           [{Ny}].move(0,{tolY},0) \n\
+                           [{Nz}].move(0,0,{tolZ}) \n\
+        # delete mol[14][0-9][0-8] \n\
+        \n\
+        # import wall building block file \n\
+        import 'gold.lt' \n\
+        \n\
+        solidU = new gold  [{nUnitsX}].move({unitlengthX},0,0) \n\
+                           [{nUnitsY}].move(0,{unitlengthY},0) \n\
+                           [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
+        \n\
+        solidL = new gold [{nUnitsX}].move({unitlengthX},0,0)\n\
+                          [{nUnitsY}].move(0,{unitlengthY},0) \n\
+                          [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
+        \n\
+        # Shift the Upper layer from the origin in the z-direction. \n\
+        solidU[*][*][*].move(0.0,0.0,{(surfUStartZ+Boffset)}) \n\
+        \n\
+        # Shift the fluid atoms from the box center \n\
+        mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
+        \n\
+        # The lower layer is not shifted \n\
+        solidL[*][*][*].move(0.0,0.0,{Boffset}) \n\
+        \n\
+        write_once('Data Boundary'){{ \n\
+         0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
+         0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
+        {(Boffset*-1)}  {zlength}   zlo zhi \n\
+        }}\n"
+
+    # elif 'fluid_only' in sys.argv:
+
+    in_script= f" # System moltemplate file\n\
     #------------------------\n\
     \n\
-    # import molecule building block file \n\
-    import '{19}.lt' \n\
+    # import molecule building block file\n\
+    import '{name}.lt' \n\
     \n\
-    # Replicate the pentane, the value in [] is the no. of replicas (a) \n\
-    # the value in () is the offset (b) between replicas. \n\
-    # To avoid atoms creation outside of the box, a*b < xhi. Same for y and z. \n\
-    mol = new {19}   [{12}].move({13},0,0) \n\
-                     [{14}].move(0,{15},0) \n\
-                     [{16}].move(0,0,{17}) \n\
-    #                    ^          ^ ^ ^ \n\
-    #                    Nf      offsetX,offsetY,offsetZ \n\
-    # delete mol[14][0-9][0-8] \n\
-    # import wall building block file \n\
-    import 'gold.lt' \n\
+    mol = new {name}   [{Nx}].move({tolX},0,0) \n\
+                       [{Ny}].move(0,{tolY},0) \n\
+                       [{Nz}].move(0,0,{tolZ}) \n\
     \n\
-    solidU = new gold  [{0}].move({1},0,0) \n\
-                       [{2}].move(0,{3},0) \n\
-                       [{4}].move(0,0,{5}) \n\
-    #                    ^        ^ ^ ^ \n\
-    #                    Ns      unitX,unitY,unitZ \n\
+    # import wall building block file\n\
+    import 'gold_all.lt'  \n\
+    # import 'gold_nw.lt' \n\
+    # import 'gold_w.lt' \n\
     \n\
-    solidL = new gold [{0}].move({1},0,0)\n\
-                      [{2}].move(0,{3},0) \n\
-                      [{4}].move(0,0,{5}) \n\
-    \n\
-    # Shift the Upper layer from the origin in the z-direction. \n\
-    solidU[*][*][*].move(0.0,0.0,{6}) \n\
-    #                             ^ \n\
-    #                        surfUStartZ+Boffset \n\
+    gold = new au   \n\
+    # gold_nw = new au_nw \n\
+    # gold_w = new au_w \n\
     \n\
     # Shift the fluid atoms from the box center \n\
-    mol[*][*][*].move({13},{7},{18}) \n\
-    #                         ^ \n\
-    #                    fluidStartZ+Boffset \n\
-    \n\
-    # The lower layer is not shifted \n\
-    solidL[*][*][*].move(0.0,0.0,{7}) \n\
-    #                             ^ \n\
-    #                           Boffset \n\
+    mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
     \n\
     write_once('Data Boundary'){{ \n\
-     0    {8}    xlo xhi \n\
-     0    {9}    ylo yhi \n\
-    {10}  {11}   zlo zhi \n\
-    }}\n".format( #0            #1          #2          #3
-                 nUnitsX,unitlengthX,nUnitsY,unitlengthY,
-                   #4           #5              #6              #7
-                nUnitsZ,unitlengthZ,(surfUStartZ+Boffset),Boffset,
-                            #8                          #9
-                 (nUnitsX*unitlengthX),(nUnitsY*unitlengthY),
-                        #10     #11   #12  #13 #14 #15 #16 #17    #18
-                 (Boffset*-1),zlength,Nx,tolX,Ny,tolY,Nz,tolZ,(fluidStartZ+Boffset),
-                 #19
-                name,Nz-1)
-    in_f=open('moltemp/geometry.lt','w')
+     0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
+     0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
+    {(Boffset*-1)}  {zlength}   zlo zhi \n\
+    }}"
+
+    in_f=open('geometry.lt','w')
     in_f.write(in_script)
     in_f.close()
 
@@ -215,6 +229,10 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
 
     # Modify the 'init.LAMMPS' ----------
     for line in open('init.LAMMPS','r').readlines():
+        line = re.sub(r'variable       xlength equal.+',
+                      r'variable       xlength equal %.2f' %xlength, line)
+        line = re.sub(r'variable       zlength equal.+',
+                      r'variable       zlength equal %.2f' %zlength, line)
         line = re.sub(r'create_atoms    1 random.+',
                       r'create_atoms    1 random %g 206649 fluid' %Nfluid, line)
         line = re.sub(r'region          box block.+',
