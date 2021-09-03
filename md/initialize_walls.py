@@ -32,6 +32,7 @@ def get_parser():
     parser.add_argument('density', metavar='rho_fluid', action='store', type=float,
                     help='The fluid density in (g/cm^3)')
     parser.add_argument('name', metavar='fluid', action='store', help='The molecule name')
+    # parser.parse_args(['--fluid_only','--fluid_walls'])
 
     # sub-command
     subparsers = parser.add_subparsers(help='choose initialization code', dest='code')
@@ -66,7 +67,7 @@ if __name__ == "__main__":
                                      mFluid, tolX, tolY, tolZ)
         q = input('run moltemp: ')
         if q == 'y':
-            subprocess.call(['cd moltemp ; ./setup.sh'], shell=True)
+            subprocess.call(['./setup.sh'], shell=True)
 
     else:
         init_walls.init_lammps(args.nUnitsX, args.nUnitsY, args.nUnitsZ,
