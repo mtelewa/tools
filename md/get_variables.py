@@ -18,7 +18,7 @@ import sample_quality as sq
 import funcs
 import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
-
+from scipy.stats import pearsonr
 
 if 'lj' in sys.argv:
     mf, A_per_molecule = 39.948, 1
@@ -94,11 +94,11 @@ class derive_data:
         com = np.array(self.data_x.variables["COM"])[self.skip:] / 10      # nm
 
         # Number of chunks
-        Nx = self.data_x.dimensions['x'].size
+        self.Nx = self.data_x.dimensions['x'].size
         Nz = self.data_z.dimensions['z'].size
 
         # steps
-        self.dx = self.Lx/ Nx
+        self.dx = self.Lx/ self.Nx
         dz = self.avg_gap_height / Nz
 
         # The length and height arrays for plotting
@@ -145,7 +145,7 @@ class derive_data:
         polynom = np.poly1d(coeffs_fit)
         xdata = np.linspace(height_array_mod[0], height_array_mod[-1], len(height_array_mod))
 
-        return {'height_array_mod': height_array_mod, 'vx_data': vx_chunkZ,
+        return {'height_array_mod': height_array_mod, 'vx_data': vx_chunkZ, 'vx_chunkZ_mod':vx_chunkZ_mod,
                 'xdata': xdata, 'fit_data': polynom(xdata)}
 
     def hydrodynamic(self):
@@ -153,11 +153,13 @@ class derive_data:
         dd = derive_data(self.infile_x, self.infile_z, self.skip)
         z = dd.velocity()['height_array_mod']
         h = dd.avg_gap_height
+        # viscosity near the walls
         mu = dd.viscosity()['mu']
-        vs = dd.velocity()['vx_data'][0]
+        # slip velocity
+        vs = dd.velocity()['vx_chunkZ_mod'][0]
         pgrad = dd.virial()['pGrad']
 
-        v_hydrodynamic = ( (1 / (2 * mu)) * -pgrad * (z**2 - h*z) ) + vs
+        v_hydrodynamic = ( (1 / (2 * mu)) * pgrad * (z**2 - h*z) ) #+ (vs)
 
         return {'v_hydro': v_hydrodynamic}
 
@@ -201,10 +203,10 @@ class derive_data:
         # Check that slip lengths are the same at both walls
         np.testing.assert_allclose(Ls_left, Ls_right, atol=0.1)
 
-        print('Slip Length {} (nm) -----' .format(Ls_left))
+        # print('Slip Length {} (nm) -----' .format(Ls_left))
         # Slip velocity according to Navier boundary
         Vs = Ls_left * sci.nano * dd.shear_rate()['shear_rate']                               # m/s
-        print('Slip velocity: Navier boundary {} (m/s) -----'.format(Vs))
+        # print('Slip velocity: Navier boundary {} (m/s) -----'.format(Vs))
 
         return {'root_left':root_left, 'root_right':root_right, 'Vs':Vs,
                 'xdata_left':xdata_left, 'xdata_right':xdata_right,
@@ -303,7 +305,7 @@ class derive_data:
 
         return {'den_chunkX': den_chunkX, 'den_chunkZ': den_chunkZ, 'den_t': den_t}
 
-    def virial(self, pump_size):
+    def virial(self, pump_size=0.2):
         """
         Parameters
         ----------
@@ -322,36 +324,141 @@ class derive_data:
         totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
         chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.avg_bulk_height) * 10     # A^3
 
-        vir_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
+        # Remove first and last chunks in the x-direction
+        vir_x = np.array(self.data_x.variables["Virial"])[self.skip:,1:-1] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
         vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
 
         vir_t = np.sum(vir_x, axis=(1,2)) / (3 * totVi)
         vir_chunkX = np.mean(vir_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_z, axis=(0,1))
 
-        # press-driven region length
+        # Block sampling of the virial and calculating the uncertainty
+        vir_blocks = sq.block_ND(len(self.time), vir_x, self.Nx-2, 100)
+        vir_err =  sq.get_err(vir_blocks)['uncertainty']
+
+        # pressure gradient ---------------------------------------
         pd_length = self.Lx - pump_size*self.Lx      # nm
-
-        out_chunk = np.argmax(vir_chunkX)
-        in_chunk = np.argmin(vir_chunkX)
-
-        # Chunk 29 is at the outlet of the pump
-        vir_out = np.array(self.data_x.variables["Virial"])[self.skip:,out_chunk] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
-        vir_in = np.array(self.data_x.variables["Virial"])[self.skip:,in_chunk] * sci.atm * pa_to_Mpa / (3 * chunk_vol)
-
+        # Virial pressure at the inlet and the outlet of the pump
+        out_chunk, in_chunk = np.argmax(vir_chunkX), np.argmin(vir_chunkX)
+        # timeseries of the output and input chunks
+        vir_out, vir_in = vir_x[:, out_chunk], vir_x[:, in_chunk]
+        # Pressure Difference  between inlet and outlet
         pDiff = np.mean(vir_out) - np.mean(vir_in)
-        pGrad = pDiff / pd_length       # MPa/nm
+        # Pressure gradient in the simulation domain
+        pGrad = - pDiff / pd_length       # MPa/nm
 
-        blocks_out, blocks_in = sq.block_1D_arr(vir_out, 100), sq.block_1D_arr(vir_in, 100)
-        vir_out_err, vir_in_err = sq.get_err(blocks_out)[2], sq.get_err(blocks_in)[2]
+        # Uncertainty of the measured pDiff
+        blocks_out, blocks_in = sq.block_1D(vir_out, 100), sq.block_1D(vir_in, 100)
+        vir_out_err, vir_in_err = sq.get_err(blocks_out)['uncertainty'], \
+                                  sq.get_err(blocks_in)['uncertainty']
 
-        pDiff_err = np.sqrt(vir_in_err**2 + vir_out_err**2)
+        # Propagation of uncertainty
+        pDiff_err = np.sqrt(vir_in_err**2 + vir_out_err**2 - 2*np.cov(blocks_out, blocks_in)[0,1])
 
-        print(f"The measured pressure difference is {pDiff:.2f} MPa with an error of {pDiff_err:.2f} MPa.\
+        # Pearson correlation coefficient (Gaussian distributed variables)
+        # Check: https://machinelearningmastery.com/how-to-use-correlation-to-understand-the-relationship-between-variables/
+        corr, _ = pearsonr(blocks_out, blocks_in)
+
+        print(f"The measured pressure difference is {pDiff:.2f} MPa \
+        \n with an uncerainty of {pDiff_err} MPa \
         \nThe pressure gradient is {pGrad:.2f} MPa/nm")
 
-        return {'vir_chunkX': vir_chunkX , 'vir_chunkZ': vir_chunkZ,
-                'vir_t': vir_t, 'pGrad': pGrad}
+        return {'vir_chunkX': vir_chunkX , 'vir_chunkZ': vir_chunkZ, 'vir_err':vir_err,
+                'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff, 'pDiff_err':pDiff_err}
+
+
+    def sigwall(self, pump_size=0.2):
+        """
+        Parameters
+        ----------
+        F<x|y|z>_<Upper|Lower> : The force
+        Returns
+        -------
+        sigxz_chunkX : Avg. Shear stress in the walls along the length
+        sigzz_chunkX : Avg. Normal stress in the walls along the length
+        sigxz_t : Avg. shear stress in the walls with time.
+        sigzz_t : Avg. normal stress in the walls with time.
+        """
+
+        wall_A = self.Lx * self.Ly * 1e-18
+        chunk_A =  self.dx * self.Ly * 1e-18
+
+        # in Newtons (Remove the last chunck)
+        fx_Upper = np.array(self.data_x.variables["Fx_Upper"])[self.skip:,:-1] * kcalpermolA_to_N
+        fy_Upper = np.array(self.data_x.variables["Fy_Upper"])[self.skip:,:-1] * kcalpermolA_to_N
+        fz_Upper = np.array(self.data_x.variables["Fz_Upper"])[self.skip:,:-1] * kcalpermolA_to_N
+        fx_Lower = np.array(self.data_x.variables["Fx_Lower"])[self.skip:,:-1] * kcalpermolA_to_N
+        fy_Lower = np.array(self.data_x.variables["Fy_Lower"])[self.skip:,:-1] * kcalpermolA_to_N
+        fz_Lower = np.array(self.data_x.variables["Fz_Lower"])[self.skip:,:-1] * kcalpermolA_to_N
+
+        fx_wall = 0.5 * (fx_Upper + fx_Lower)
+        fy_wall = 0.5 * (fy_Upper - fy_Lower)
+        fz_wall = 0.5 * (fz_Upper - fz_Lower)
+
+        # Block sampling of the virial and calculating the uncertainty
+        fz_Upper_blocks = sq.block_ND(len(self.time), fz_Upper, self.Nx-1, 100)
+        fz_Lower_blocks = sq.block_ND(len(self.time), fz_Lower, self.Nx-1, 100)
+        fz_Upper_err = sq.get_err(fz_Upper_blocks)['uncertainty']
+        fz_Lower_err = sq.get_err(fz_Lower_blocks)['uncertainty']
+
+
+        cov_in_chunk = np.zeros(self.Nx-1)
+        for i in range(self.Nx-1):
+            cov_in_chunk[i] = np.cov(fz_Upper_blocks[:,i], fz_Lower_blocks[:,i])[0,1]
+
+        fz_err = np.sqrt(fz_Upper_err**2 + fz_Lower_err**2 - 2*cov_in_chunk)
+        sigzz_err = fz_err * pa_to_Mpa / chunk_A
+
+        # print(fz_err)
+
+        sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / wall_A
+        sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / wall_A
+
+        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / chunk_A
+        sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / chunk_A
+
+        # pressure gradient ----------------------------
+        pd_length = self.Lx - pump_size*self.Lx      # nm
+
+        out_chunk, in_chunk = np.argmax(sigzz_chunkX), np.argmin(sigzz_chunkX)
+
+        upper_out, lower_out = fz_Upper[:,out_chunk] * pa_to_Mpa / chunk_A ,\
+                               fz_Lower[:,out_chunk] * pa_to_Mpa / chunk_A
+        upper_in, lower_in = fz_Upper[:,in_chunk] * pa_to_Mpa / chunk_A ,\
+                             fz_Lower[:,in_chunk] * pa_to_Mpa / chunk_A
+
+        sigzz_wall_out, sigzz_wall_in = 0.5 * (upper_out - lower_out), \
+                                        0.5 * (upper_in - lower_in)
+
+        pDiff = np.mean(sigzz_wall_out) - np.mean(sigzz_wall_in)
+        pGrad = - pDiff / pd_length       # MPa/nm
+
+        # Uncertainty of the measured pDiff
+        blocksU_out, blocksU_in = sq.block_1D(upper_out, 100), sq.block_1D(upper_in, 100)
+        blocksL_out, blocksL_in = sq.block_1D(lower_out, 100), sq.block_1D(lower_in, 100)
+
+        sigzzU_out_err, sigzzU_in_err = sq.get_err(blocksU_out)['uncertainty'] ,  \
+                                        sq.get_err(blocksU_in)['uncertainty']
+        sigzzL_out_err, sigzzL_in_err = sq.get_err(blocksL_out)['uncertainty'] ,  \
+                                        sq.get_err(blocksL_in)['uncertainty']
+
+        sig_A, sig_B, sig_C, sig_D = sigzzU_out_err, sigzzU_in_err, sigzzL_out_err, sigzzL_in_err
+        covAB = np.cov(blocksU_out, blocksU_in)[0,1]
+        covAC = np.cov(blocksU_out, blocksL_out)[0,1]
+        covAD = np.cov(blocksU_out, blocksL_in)[0,1]
+        covBC = np.cov(blocksU_in, blocksL_out)[0,1]
+        covBD = np.cov(blocksU_in, blocksL_in)[0,1]
+        covCD = np.cov(blocksL_out, blocksL_in)[0,1]
+
+        pDiff_err = np.sqrt(sig_A**2 + sig_B**2 + sig_C**2 + sig_D**2 - 2*covAB -
+                            2*covAC - 2*covAD - 2*covBC - 2*covBD - 2*covCD)
+
+        print(f"The measured pressure difference is {pDiff:.2f} MPa \
+        \n with an uncerainty of {pDiff_err} MPa \
+        \nThe pressure gradient is {pGrad:.2f} MPa/nm")
+
+        return {'sigxz_chunkX':sigxz_chunkX, 'sigzz_chunkX':sigzz_chunkX, 'sigzz_err': sigzz_err,
+                'sigxz_t':sigxz_t, 'sigzz_t':sigzz_t, 'pDiff':pDiff, 'pDiff_err':pDiff_err}
 
 
     def temp(self):
@@ -371,51 +478,12 @@ class derive_data:
 
         return tempX, tempZ, temp_t
 
-
-    def sigwall(self):
-        """
-        Parameters
-        ----------
-        F<x|y|z>_<Upper|Lower> : The force
-        Returns
-        -------
-        sigxz_chunkX : Avg. Shear stress in the walls along the length
-        sigzz_chunkX : Avg. Normal stress in the walls along the length
-        sigxz_t : Avg. shear stress in the walls with time.
-        sigzz_t : Avg. normal stress in the walls with time.
-        """
-
-        # in Newtons
-        fx_Upper = np.array(self.data_x.variables["Fx_Upper"])[self.skip:] * kcalpermolA_to_N
-        fy_Upper = np.array(self.data_x.variables["Fy_Upper"])[self.skip:] * kcalpermolA_to_N
-        fz_Upper = np.array(self.data_x.variables["Fz_Upper"])[self.skip:] * kcalpermolA_to_N
-        fx_Lower = np.array(self.data_x.variables["Fx_Lower"])[self.skip:] * kcalpermolA_to_N
-        fy_Lower = np.array(self.data_x.variables["Fy_Lower"])[self.skip:] * kcalpermolA_to_N
-        fz_Lower = np.array(self.data_x.variables["Fz_Lower"])[self.skip:] * kcalpermolA_to_N
-
-        fx_wall = 0.5 * (fx_Upper + fx_Lower)
-        fy_wall = 0.5 * (fy_Upper - fy_Lower)
-        fz_wall = 0.5 * (fz_Upper - fz_Lower)
-
-        wall_A = self.Lx * self.Ly * 1e-18
-        chunk_A =  self.dx * self.Ly * 1e-18
-
-        sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / wall_A
-        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / chunk_A
-
-        sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / wall_A
-        sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / chunk_A
-
-        return {'sigxz_chunkX':sigxz_chunkX, 'sigzz_chunkX':sigzz_chunkX,
-                'sigxz_t':sigxz_t, 'sigzz_t':sigzz_t}
-
-
     def shear_rate(self):
 
         dd = derive_data(self.infile_x, self.infile_z, self.skip)
         vels = dd.velocity()
 
-        coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_data'], 2)
+        coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 2)
 
         # Nearest point to the wall (to evaluate the shear rate at (For Posieuille flow))
         z_wall = vels['height_array_mod'][0]
@@ -430,8 +498,8 @@ class derive_data:
         # and at a height in the bulk
         shear_rate_bulk = funcs.quad_slope(z_bulk, coeffs_fit[0], coeffs_fit[1]) * 1e9      # S-1
 
-        print(f"Shear rate at the walls is {shear_rate:e} (s^-1) -----  \
-              \nShear rate in the bulk is {shear_rate_bulk:e} (s^-1) -----")
+        # print(f"Shear rate at the walls is {shear_rate:e} (s^-1) -----  \
+        #       \nShear rate in the bulk is {shear_rate_bulk:e} (s^-1) -----")
 
         return {'shear_rate':shear_rate, 'shear_rate_bulk':shear_rate_bulk}
 
@@ -466,7 +534,7 @@ if __name__ == "__main__":
 
 
 # Get the viscosity from Green-Kubo
-# blocks_tau_xz = sq.block_1D_arr(sigxz_t,10)
+# blocks_tau_xz = sq.block_1D(sigxz_t,10)
 # n_array = np.arange(1, len(blocks_tau_xz)+1, 1)
 
 # sigxz_t_pa = np.sum(fx_Upper,axis=1) / (self.Lx * self.Ly * 1e-20)
