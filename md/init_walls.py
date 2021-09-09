@@ -93,7 +93,7 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
     # if new_Nfluid/Nfluid <= 98:
     #     Nz+=1
-    #     Nx-=1
+    #     Nx-=14
     #
     Nfluid_mod = Nx * Ny * Nz
     diff2 = Nfluid - Nfluid_mod
@@ -123,78 +123,78 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
 
 
 
-    if 'fluid_walls' in sys.argv:
-
-        in_script= f" # System moltemplate file\n\
-        #------------------------\n\
-        \n\
-        # import molecule building block file \n\
-        import '{name}.lt' \n\
-        \n\
-        # Replicate the pentane, the value in [] is the no. of replicas (a) \n\
-        # the value in () is the offset (b) between replicas. \n\
-        # To avoid atoms creation outside of the box, a*b < xhi. Same for y and z. \n\
-        mol = new {name}   [{Nx}].move({tolX},0,0) \n\
-                           [{Ny}].move(0,{tolY},0) \n\
-                           [{Nz}].move(0,0,{tolZ}) \n\
-        # delete mol[14][0-9][0-8] \n\
-        \n\
-        # import wall building block file \n\
-        import 'gold.lt' \n\
-        \n\
-        solidU = new gold  [{nUnitsX}].move({unitlengthX},0,0) \n\
-                           [{nUnitsY}].move(0,{unitlengthY},0) \n\
-                           [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
-        \n\
-        solidL = new gold [{nUnitsX}].move({unitlengthX},0,0)\n\
-                          [{nUnitsY}].move(0,{unitlengthY},0) \n\
-                          [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
-        \n\
-        # Shift the Upper layer from the origin in the z-direction. \n\
-        solidU[*][*][*].move(0.0,0.0,{(surfUStartZ+Boffset)}) \n\
-        \n\
-        # Shift the fluid atoms from the box center \n\
-        mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
-        \n\
-        # The lower layer is not shifted \n\
-        solidL[*][*][*].move(0.0,0.0,{Boffset}) \n\
-        \n\
-        write_once('Data Boundary'){{ \n\
-         0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
-         0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
-        {(Boffset*-1)}  {zlength}   zlo zhi \n\
-        }}\n"
-
-    # elif 'fluid_only' in sys.argv:
+    # if 'fluid_walls' in sys.argv:
 
     in_script= f" # System moltemplate file\n\
     #------------------------\n\
     \n\
-    # import molecule building block file\n\
+    # import molecule building block file \n\
     import '{name}.lt' \n\
     \n\
+    # Replicate the pentane, the value in [] is the no. of replicas (a) \n\
+    # the value in () is the offset (b) between replicas. \n\
+    # To avoid atoms creation outside of the box, a*b < xhi. Same for y and z. \n\
     mol = new {name}   [{Nx}].move({tolX},0,0) \n\
                        [{Ny}].move(0,{tolY},0) \n\
                        [{Nz}].move(0,0,{tolZ}) \n\
+    # delete mol[14][0-9][0-8] \n\
     \n\
-    # import wall building block file\n\
-    import 'gold_all.lt'  \n\
-    # import 'gold_nw.lt' \n\
-    # import 'gold_w.lt' \n\
+    # import wall building block file \n\
+    import 'gold.lt' \n\
     \n\
-    gold = new au   \n\
-    # gold_nw = new au_nw \n\
-    # gold_w = new au_w \n\
+    solidU = new gold  [{nUnitsX}].move({unitlengthX},0,0) \n\
+                       [{nUnitsY}].move(0,{unitlengthY},0) \n\
+                       [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
+    \n\
+    solidL = new gold [{nUnitsX}].move({unitlengthX},0,0)\n\
+                      [{nUnitsY}].move(0,{unitlengthY},0) \n\
+                      [{nUnitsZ}].move(0,0,{unitlengthZ}) \n\
+    \n\
+    # Shift the Upper layer from the origin in the z-direction. \n\
+    solidU[*][*][*].move(0.0,0.0,{(surfUStartZ+Boffset)}) \n\
     \n\
     # Shift the fluid atoms from the box center \n\
     mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
+    \n\
+    # The lower layer is not shifted \n\
+    solidL[*][*][*].move(0.0,0.0,{Boffset}) \n\
     \n\
     write_once('Data Boundary'){{ \n\
      0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
      0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
     {(Boffset*-1)}  {zlength}   zlo zhi \n\
-    }}"
+    }}\n"
 
+    # elif 'fluid_only' in sys.argv:
+
+    # in_script= f" # System moltemplate file\n\
+    # #------------------------\n\
+    # \n\
+    # # import molecule building block file\n\
+    # import '{name}.lt' \n\
+    # \n\
+    # mol = new {name}   [{Nx}].move({tolX},0,0) \n\
+    #                    [{Ny}].move(0,{tolY},0) \n\
+    #                    [{Nz}].move(0,0,{tolZ}) \n\
+    # \n\
+    # # import wall building block file\n\
+    # import 'gold_all.lt'  \n\
+    # # import 'gold_nw.lt' \n\
+    # # import 'gold_w.lt' \n\
+    # \n\
+    # gold = new au   \n\
+    # # gold_nw = new au_nw \n\
+    # # gold_w = new au_w \n\
+    # \n\
+    # # Shift the fluid atoms from the box center \n\
+    # mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
+    # \n\
+    # write_once('Data Boundary'){{ \n\
+    #  0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
+    #  0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
+    # {(Boffset*-1)}  {zlength}   zlo zhi \n\
+    # }}"
+    #
     in_f=open('geometry.lt','w')
     in_f.write(in_script)
     in_f.close()
