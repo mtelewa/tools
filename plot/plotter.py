@@ -38,6 +38,11 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
+    if args.fluid=='lj': mf = 39.948
+    elif args.fluid=='propane': mf = 44.09
+    elif args.fluid=='pentane': mf = 72.15
+    elif args.fluid=='heptane': mf = 100.21
+
     datasets, txtfiles = [], []
     for key, value in vars(args).items():
         if key.startswith('ds'):
@@ -56,7 +61,7 @@ if __name__ == "__main__":
                     datasets_z.append(os.path.join(ds_dir, i))
 
     if len(datasets) > 0.:
-        plot = plot_main.plot_from_ds(args.skip, datasets_x, datasets_z)
+        plot = plot_main.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
 
         if 'length' in args.qtty:
             plot.qtty_len(args.qtty, lt='-', legend='y', opacity=1.0)
@@ -64,7 +69,6 @@ if __name__ == "__main__":
             plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
         if 'time' in args.qtty:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.5)
-
         # plot.v_distrib(legend='y', opacity=0.5)
         # plot.pdiff_pumpsize
 
