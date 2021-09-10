@@ -20,18 +20,6 @@ import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.stats import pearsonr
 
-if 'lj' in sys.argv:
-    mf, A_per_molecule = 39.948, 1
-elif 'propane' in sys.argv:
-    mf, A_per_molecule = 44.09, 3
-elif 'pentane' in sys.argv:
-    mf, A_per_molecule = 72.15, 5
-elif 'heptane' in sys.argv:
-    mf, A_per_molecule = 100.21, 7
-else:
-    raise NameError('The fluid is not defined!')
-
-# print(mf)
 
 # Converions
 ang_to_cm = 1e-8
@@ -62,13 +50,14 @@ class derive_data:
         Array containing distance (r) and RDF values (g(r))
     """
 
-    def __init__(self, infile_x, infile_z, skip):
+    def __init__(self, skip, infile_x, infile_z, mf):
 
+        self.skip = skip
         self.infile_x = infile_x
         self.infile_z = infile_z
         self.data_x = netCDF4.Dataset(self.infile_x)
         self.data_z = netCDF4.Dataset(self.infile_z)
-        self.skip = skip
+        self.mf = mf
 
         # # Variables
         # for varobj in self.data_x.variables.keys():
@@ -157,7 +146,7 @@ class derive_data:
 
     def hydrodynamic(self):
 
-        dd = derive_data(self.infile_x, self.infile_z, self.skip)
+        dd = derive_data(self.skip, self.infile_x, self.infile_z)
         z = dd.height_array
         h = dd.avg_gap_height
         # viscosity near the walls
@@ -183,7 +172,7 @@ class derive_data:
         extrapolate: arr
             Extrapolated data
         """
-        dd = derive_data(self.infile_x, self.infile_z,self.skip)
+        dd = derive_data(self.skip, self.infile_x, self.infile_z)
         vels = dd.velocity()
 
         npoints = len(vels['height_array_mod'])
@@ -226,7 +215,7 @@ class derive_data:
         mu: float
             Dynamic viscosity
         """
-        dd = derive_data(self.infile_x, self.infile_z, self.skip)
+        dd = derive_data(self.skip, self.infile_x, self.infile_z)
         sigxz_avg = np.mean(dd.sigwall()['sigxz_t'])
         mu = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate']            # mPa.S
         mu_bulk = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate_bulk']            # mPa.S
@@ -282,8 +271,8 @@ class derive_data:
         # Mass flux (whole simulation domain)
         jx = np.array(self.data_x.variables["Jx"])[self.skip:,1:-1]
 
-        jx_t = np.sum(jx, axis=(1,2)) * (sci.angstrom/fs_to_ns) * (mf/sci.N_A) / (sci.angstrom**3)
-        jx_chunkX = np.mean(jx, axis=(0,2)) * (sci.angstrom/fs_to_ns) * (mf/sci.N_A) / (sci.angstrom**3)
+        jx_t = np.sum(jx, axis=(1,2)) * (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
+        jx_chunkX = np.mean(jx, axis=(0,2)) * (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
         # jx_chunkX_mod = jx_chunkX[jx_chunkX !=0]
 
         return {'jx_chunkX': jx_chunkX, 'jx_t': jx_t, 'jx_stable': jx_stable,
@@ -300,11 +289,11 @@ class derive_data:
         """
 
         # Bulk Density ---------------------
-        density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:,1:-1] * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:,1:-1] * (self.mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
         den_chunkX = np.mean(density_Bulk, axis=0)
 
         # Fluid Density ---------------------
-        density = np.array(self.data_z.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
+        density = np.array(self.data_z.variables["Density"])[self.skip:] * (self.mf/sci.N_A) / (ang_to_cm**3)
         den_chunkZ = np.mean(density,axis=(0,1))     # g/cm^3
 
         den_t = np.mean(density,axis=(1,2))    # g/cm^3
@@ -429,7 +418,7 @@ class derive_data:
 
     def shear_rate(self):
 
-        dd = derive_data(self.infile_x, self.infile_z, self.skip)
+        dd = derive_data(self.skip, self.infile_x, self.infile_z)
         vels = dd.velocity()
 
         coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 2)
@@ -559,17 +548,7 @@ if __name__ == "__main__":
 
 
 
-#vx_t = np.sum(fluid_vx, axis=(1,2))
-# vx_chunkZ = np.mean(vx, axis=(0,1))
-# remove_chunks = np.where(vx_chunkZ == 0)[0]
-#
-# height_array_mod = np.delete(height_array, remove_chunks)
-# vx_chunkZ_mod = vx_chunkZ[vx_chunkZ !=0]
 
-
-#a = np.count_nonzero(surfU_xcoords[0])
-# b = np.where(totVi == 0)[0]
-# print(b)
 
 # Block standard Error
 # sq.get_bse(mflux_stable)
