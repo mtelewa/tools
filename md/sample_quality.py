@@ -171,7 +171,7 @@ def get_err(f):
     confidence_intervalL = avg - margin_error
     confidence_intervalU = avg + margin_error
 
-    return {'values':values, 'probabs':probabilities, 'uncertainty':margin_error}
+    return {'values':values, 'probs':probabilities, 'uncertainty':margin_error}
 
 
 
