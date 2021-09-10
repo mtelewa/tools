@@ -53,23 +53,6 @@ plt.style.use('imtek')
 # mpl.rcParams.update({'axes.prop_cycle': color_cycler})
 
 
-# Get the datasets (or text files to plot)
-datasets_x, datasets_z, txtfiles = [], [], []
-skip = np.int(sys.argv[1])
-nchunks = np.int(sys.argv[2])
-
-for k in sys.argv[3:]:
-    ds_dir = os.path.join(k, "data/out")
-    for root, dirs, files in os.walk(ds_dir):
-        for i in files:
-            if i.endswith(f'{nchunks}x1.nc'):
-                datasets_x.append(os.path.join(ds_dir, i))
-            if i.endswith(f'1x{nchunks}.nc'):
-                datasets_z.append(os.path.join(ds_dir, i))
-            elif i.endswith('.txt'):
-                txtfiles.append(i)
-
-
 class plot_from_txt:
 
     def plot_from_txt(self,  outfile, lt='-', mark='o', opacity=1.0):
@@ -110,23 +93,28 @@ class plot_from_txt:
 
 class plot_from_ds:
 
-    def __init__(self):
+    def __init__(self, skip, datasets_x, datasets_z, mf):
+
+        self.skip=skip
+        self.mf=mf
+        self.datasets_x=datasets_x
+        self.datasets_z=datasets_z
 
         self.fig, self.ax = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=300)
 
         self.ax.xaxis.set_ticks_position('both')
         self.ax.yaxis.set_ticks_position('both')
 
-        self.Nx = len(dd(datasets_x[0], datasets_z[0], skip).length_array)
-        self.Nz = len(dd(datasets_x[0], datasets_z[0], skip).height_array)
+        self.Nx = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).length_array)
+        self.Nz = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).height_array)
 
-        self.time = dd(datasets_x[0], datasets_z[0], skip).time
-        self.Ly = dd(datasets_x[0], datasets_z[0], skip).Ly
+        self.time = dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).time
+        self.Ly = dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).Ly
 
         # self.sigxz_t = np.zeros([len(datasets), len(self.time)])
         # self.avg_sigxz_t = np.zeros([len(datasets)])
-        self.pGrad = np.zeros([len(datasets_x)])
-        self.viscosities = np.zeros([len(datasets_z)])
+        self.pGrad = np.zeros([len(self.datasets_x)])
+        self.viscosities = np.zeros([len(self.datasets_z)])
 
 
     def label_inline(self, plot):
@@ -140,7 +128,7 @@ class plot_from_ds:
 
 
     def draw_vlines(self, plot):
-        total_length = np.max(dd(datasets_x[0], datasets_z[0], skip).Lx)
+        total_length = np.max(dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).Lx)
         plot.ax.axvline(x= 0, color='k', linestyle='dashed', lw=1)
 
         for i in range(len(plot.ax.lines)-1):
@@ -163,10 +151,10 @@ class plot_from_ds:
             inset_ax.axvline(x=0, color='k', linestyle='dashed')
             inset_ax.axvline(x=0.2*np.max(lengths), color='k', linestyle='dashed')
             inset_ax.set_ylim(220, 280)
-            inset_ax.plot(dd(datasets_x[0], datasets_z[0], skip).length_array[0][1:29],
+            inset_ax.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).length_array[0][1:29],
                          vir_chunkX[0, :][1:29] , ls= lt, color=ax.lines[0].get_color(),
                          marker=None, alpha=opacity, label=label)
-            inset_ax.plot(dd(datasets_x[0], datasets_z[0], skip).length_array[0][1:29],
+            inset_ax.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf).length_array[0][1:29],
                          vir_chunkX[1, :][1:29] , ls= ' ', color=ax.lines[1].get_color(),
                          marker='x', alpha=opacity, label=label)
 
@@ -194,51 +182,51 @@ class plot_from_ds:
             err=None, **kwargs):
 
         self.ax.set_xlabel(labels[1])
-        arrays = np.zeros([len(arr_to_plot), len(datasets_x), self.Nx-2])
-        pds = plot_from_ds()
+        arrays = np.zeros([len(arr_to_plot), len(self.datasets_x), self.Nx-2])
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
 
-        for i in range(len(datasets_x)):
+        for i in range(len(self.datasets_x)):
             if 'vir_chunkX' in arr_to_plot and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()['vir_chunkX']
 
             if 'sigzz_chunkX' in arr_to_plot and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigzz_chunkX']
 
             if 'sigzz_chunkX' in arr_to_plot and 'vir_chunkX' in arr_to_plot:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkX']
-                arrays[1, i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()['vir_chunkX']
+                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigzz_chunkX']
 
             if 'sigxz_chunkX' in sys.argv:
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigxz_chunkX']
 
             if 'den_length' in arr_to_plot:
                 self.ax.set_ylabel(labels[3])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).density()['den_chunkX']
 
             if 'jx_length' in arr_to_plot:
                 self.ax.set_ylabel(labels[4])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['jx_chunkX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).mflux()['jx_chunkX']
 
             if 'temp_length' in arr_to_plot:
                 self.ax.set_ylabel(labels[6])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).temp()['tempX']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).temp()['tempX']
 
             if 'mflowrate_length' in arr_to_plot:
                 self.ax.set_ylabel(labels[10])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['mflowrate_stable']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).mflux()['mflowrate_stable']
 
             for j in range(len(arr_to_plot)):
                 pds.plot_settings()
                 if err is not None:
                     err_arrays = np.zeros_like(arrays)
-                    err_arrays[j, i, :] = dd(datasets_x[i], datasets_z[i],
-                                skip).uncertainty()[arr_to_plot[j]+'_err']
-                    markers_err, caps, bars= self.ax.errorbar(dd(datasets_x[i],
-                         datasets_z[i], skip).length_array[1:-1], arrays[j, i],
+                    err_arrays[j, i, :] = dd(self.datasets_x[i], self.datasets_z[i],
+                                self.skip).uncertainty()[arr_to_plot[j]+'_err']
+                    markers_err, caps, bars= self.ax.errorbar(dd(self.datasets_x[i],
+                         self.datasets_z[i], self.skip).length_array[1:-1], arrays[j, i],
                         yerr=err_arrays[j, i], label=input('label:'),
                         capsize=1.5, markersize=1, lw=0.7, alpha=opacity)
 
@@ -246,7 +234,7 @@ class plot_from_ds:
                     [cap.set_alpha(0.4) for cap in caps]
 
                 else:
-                    self.ax.plot(dd(datasets_x[i], datasets_z[i], skip).length_array[1:-1],
+                    self.ax.plot(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).length_array[1:-1],
                             arrays[j,i], label=input('label:'), alpha=0.7)
 
         if legend is not None:
@@ -263,57 +251,57 @@ class plot_from_ds:
                 fit=None, extrapolate=None, **kwargs):
 
         self.ax.set_xlabel(labels[0])
-        arrays = np.zeros([len(arr_to_plot), len(datasets_z), self.Nz])
-        pds = plot_from_ds()
+        arrays = np.zeros([len(arr_to_plot), len(self.datasets_z), self.Nz])
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
 
-        for i in range(len(datasets_z)):
+        for i in range(len(self.datasets_z)):
             if 'press_height' in arr_to_plot:       # Here we use the bulk height
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_chunkZ']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()['vir_chunkZ']
 
             if 'temp_height' in arr_to_plot:
                 self.ax.set_ylabel(labels[6])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).temp()['tempZ']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).temp()['tempZ']
 
             if 'vx_height' in arr_to_plot:
                 self.ax.set_ylabel(labels[5])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).velocity()['vx_data']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).velocity()['vx_data']
 
             if 'continuum_vx' in arr_to_plot:
-                arrays[1, i, :] = dd(datasets_x[i], datasets_z[i], skip).hydrodynamic()['v_hydro']
+                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).hydrodynamic()['v_hydro']
 
             if 'den_height' in sys.argv:
                 self.ax.set_ylabel(labels[3])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_chunkZ']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).density()['den_chunkZ']
 
             for j in range(len(arr_to_plot)):
                 pds.plot_settings()
                 if 'press_height' not in arr_to_plot:
-                    x = dd(datasets_x[i], datasets_z[i], skip).height_array[arrays[j,i] != 0]
+                    x = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).height_array[arrays[j,i] != 0]
                     y = arrays[j, i][arrays[j,i] != 0]
                 if 'press_height' in arr_to_plot:
-                    x = dd(datasets_x[i], datasets_z[i], skip).bulk_height_array
+                    x = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).bulk_height_array
                     y = arrays[0, i, :]
 
                 self.ax.plot(x, y, color=colors[i], label=input('Label:'), alpha=opacity)
 
                 if fit is not None:
-                    a = dd(datasets_x[i], datasets_z[i], skip).height_array[arrays[j,i] != 0]
+                    a = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).height_array[arrays[j,i] != 0]
                     b = arrays[j, i][arrays[j,i] != 0]
 
-                    x1 = dd(datasets_x[i], datasets_z[i], skip).fit(a,b)['xdata']
-                    y1 = dd(datasets_x[i], datasets_z[i], skip).fit(a,b)['fit_data']
+                    x1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).fit(a,b)['xdata']
+                    y1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).fit(a,b)['fit_data']
 
                     self.ax.plot(x1, y1, color= colors[i], ls='-', marker=' ', alpha=0.5)
 
                 if extrapolate is not None:
-                    x_left = dd(datasets_x[i], datasets_z[i], skip).slip_length()['xdata_left']
-                    y_left = dd(datasets_x[i], datasets_z[i], skip).slip_length()['extrapolate_left']
-                    x_right = dd(datasets_x[i], datasets_z[i], skip).slip_length()['xdata_right']
-                    y_right = dd(datasets_x[i], datasets_z[i], skip).slip_length()['extrapolate_right']
+                    x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['xdata_left']
+                    y_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['extrapolate_left']
+                    x_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['xdata_right']
+                    y_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['extrapolate_right']
 
-                    self.ax.set_xlim([dd(datasets_x[i], datasets_z[i], skip).slip_length()['root_left'],
-                                      dd(datasets_x[i], datasets_z[i], skip).slip_length()['root_right']])
+                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['root_left'],
+                                      dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()['root_right']])
                     self.ax.set_ylim(bottom = 0)
 
                     self.ax.plot(x_left, y_left, color='sienna')
@@ -332,47 +320,47 @@ class plot_from_ds:
                 legend=None, lab_lines=None, draw_vlines=None, **kwargs):
 
         self.ax.set_xlabel(labels[2])
-        arrays = np.zeros([len(arr_to_plot), len(datasets_x), len(self.time)])
-        arrays_avg = np.zeros(len(datasets_x))
-        pds = plot_from_ds()
+        arrays = np.zeros([len(arr_to_plot), len(self.datasets_x), len(self.time)])
+        arrays_avg = np.zeros(len(self.datasets_x))
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
 
-        for i in range(len(datasets_x)):
+        for i in range(len(self.datasets_x)):
             if 'temp_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[6])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).temp()['temp_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).temp()['temp_t']
 
             if 'mflowrate_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[10])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['mflowrate_stable']*1e18
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).mflux()['mflowrate_stable']*1e18
 
             if 'jx_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[4])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).mflux()['jx_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).mflux()['jx_t']
 
             if 'den_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[3])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).density()['den_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).density()['den_t']
 
             if 'vir_time' in arr_to_plot and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()['vir_t']
 
             if 'sigzz_time' in arr_to_plot and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigzz_t']
 
             if 'vir_time' in arr_to_plot and 'sigzz_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).virial()['vir_t']
-                arrays[1, i, :] = dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigzz_t']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()['vir_t']
+                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigzz_t']
 
             if 'sigxz_time' in arr_to_plot:
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-                arrays[0, i, :] =  dd(datasets_x[i], datasets_z[i], skip).sigwall()['sigxz_t']
+                arrays[0, i, :] =  dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall()['sigxz_t']
 
             if 'height_time' in arr_to_plot:
                 self.ax.set_ylabel(labels[0])
-                arrays[0, i, :] = dd(datasets_x[i], datasets_z[i], skip).h
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).h
 
             arrays_avg[i] = np.mean(arrays[0, i, :])
             for j in range(len(arr_to_plot)):
@@ -397,12 +385,12 @@ class plot_from_ds:
 
         pds = plot_from_ds()
 
-        for i in range(len(datasets_x)):
-            vx_values = dd(datasets_x[i], datasets_z[i], skip).vel_distrib()['vx_values']
-            vx_prob = dd(datasets_x[i], datasets_z[i], skip).vel_distrib()['vx_prob']
+        for i in range(len(self.datasets_x)):
+            vx_values = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).vel_distrib()['vx_values']
+            vx_prob = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).vel_distrib()['vx_prob']
 
-            vy_values = dd(datasets_x[i], datasets_z[i], skip).vel_distrib()['vy_values']
-            vy_prob = dd(datasets_x[i], datasets_z[i], skip).vel_distrib()['vy_prob']
+            vy_values = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).vel_distrib()['vy_values']
+            vy_prob = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).vel_distrib()['vy_prob']
 
             self.ax.plot(vx_values, vx_prob, ls='-', marker='o',
                     label=input('Label:'), alpha=opacity)
@@ -421,12 +409,12 @@ class plot_from_ds:
 
         pump_size = []
         vir_pdiff, sigzz_pdiff, vir_err, sigzz_err = [], [], [], []
-        for i in range(len(datasets_x)):
+        for i in range(len(self.datasets_x)):
             pump_size.append(np.float(input('pump size:')))
-            vir_pdiff.append(dd(datasets_x[i], datasets_z[i], skip).virial(pump_size[i])['pDiff'])
-            vir_err.append(dd(datasets_x[i], datasets_z[i], skip).virial(pump_size[i])['pDiff_err'])
-            sigzz_pdiff.append(dd(datasets_x[i], datasets_z[i], skip).sigwall(pump_size[i])['pDiff'])
-            sigzz_err.append(dd(datasets_x[i], datasets_z[i], skip).sigwall(pump_size[i])['pDiff_err'])
+            vir_pdiff.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial(pump_size[i])['pDiff'])
+            vir_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial(pump_size[i])['pDiff_err'])
+            sigzz_pdiff.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall(pump_size[i])['pDiff'])
+            sigzz_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall(pump_size[i])['pDiff_err'])
 
         markers_a, caps, bars= self.ax.errorbar(pump_size, vir_pdiff, yerr=vir_err, ls=lt, fmt=mark,
                 label='Virial (Fluid)', capsize=1.5, markersize=1.5, alpha=1)
@@ -446,9 +434,9 @@ class plot_from_ds:
 
         pressures = np.array([0.5, 5, 50, 250, 500])
         vir_err, sigzz_err = [], []
-        for i in range(len(datasets_x)):
-            vir_err.append(dd(datasets_x[i], datasets_z[i], skip).virial(0.2)['pDiff_err'])
-            # sigzz_err.append(dd(datasets_x[i], datasets_z[i], skip).sigwall(0.2)['pDiff_err'])
+        for i in range(len(self.datasets_x)):
+            vir_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial(0.2)['pDiff_err'])
+            # sigzz_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).sigwall(0.2)['pDiff_err'])
 
         vir_err_rel = vir_err / pressures
         self.ax.plot(pressures, vir_err_rel, ls='-', marker='o',label='Virial (Fluid)', alpha=1)
@@ -463,15 +451,15 @@ class plot_from_ds:
         mpl.rcParams.update({'lines.markersize': 4})
         mpl.rcParams.update({'figure.figsize': (12,12)})
 
-        mflowrate_avg = np.zeros([len(datasets_x)])
-        shear_rates = np.zeros([len(datasets_x)])
+        mflowrate_avg = np.zeros([len(self.datasets_x)])
+        shear_rates = np.zeros([len(self.datasets_x)])
 
-        for i in range(len(datasets_x)):
-            self.pGrad[i] = dd(datasets_x[i], datasets_z[i], skip).virial(np.float(input('pump size:')))[2]
-            mflowrate_avg[i] = np.mean(dd(datasets_x[i], datasets_z[i], skip).mflux()[3])
-            shear_rates[i] = dd(datasets_x[i], datasets_z[i], skip).shear_rate()[0]
-            self.viscosities[i] = dd(datasets_x[i], datasets_z[i], skip).viscosity()     # mPa.s
-            bulk_den_avg[i] = np.mean(dd(datasets_x[i], datasets_z[i], skip).density()[2])
+        for i in range(len(self.datasets_x)):
+            self.pGrad[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial(np.float(input('pump size:')))[2]
+            mflowrate_avg[i] = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).mflux()[3])
+            shear_rates[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).shear_rate()[0]
+            self.viscosities[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).viscosity()     # mPa.s
+            bulk_den_avg[i] = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).density()[2])
 
         mflowrate_hp =  ((bulk_den_avg*1e3) * (self.Ly*1e-10) * 1e3 * 1e-9 / (12 * (mu*1e6))) \
                                     * pGrad*1e6*1e9 * (avg_gap_height*1e-10)**3
@@ -501,9 +489,9 @@ class plot_from_ds:
         self.ax.set_yscale('log')
 
 
-        for i in range(len(datasets_x)):
-            self.pGrad[i] = dd(datasets_x[i], datasets_z[i], skip).virial()[2]
-            self.viscosities[i] = dd(datasets_x[i], datasets_z[i], skip).viscosity()
+        for i in range(len(self.datasets_x)):
+            self.pGrad[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()[2]
+            self.viscosities[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).viscosity()
 
         self.ax.plot(self.pGrad, self.viscosities, ls=lt, marker='o', alpha=opacity)
 
@@ -512,11 +500,11 @@ class plot_from_ds:
         self.ax.set_xlabel(labels[9])
         self.ax.set_ylabel('Slip Length b (nm)')
 
-        slip = np.zeros([len(datasets_x)])
+        slip = np.zeros([len(self.datasets_x)])
 
-        for i in range(len(datasets_x)):
-            self.pGrad[i] = dd(datasets_x[i], datasets_z[i], skip).virial()[2]
-            slip[i] = dd(datasets_x[i], datasets_z[i], skip).slip_length()[0]
+        for i in range(len(self.datasets_x)):
+            self.pGrad[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).virial()[2]
+            slip[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf).slip_length()[0]
 
         self.ax.plot(self.pGrad, slip, ls=lt, marker='o', alpha=opacity)
 
@@ -534,3 +522,40 @@ class plot_from_ds:
 
 
 #
+# Adjust ticks
+# plt.yticks(np.arange(30, 80, step=10))  # Set label locations.
+
+# pds.ax.lines[i].get_color()
+
+# # Name the output files according to the input
+# # base = os.path.basename(infile)
+# # global filename
+# # filename = os.path.splitext(base)[0]
+# # figure(num=None, dpi=80, facecolor='w', edgecolor='k')
+
+# if 'press-evol' in sys.argv:
+#     ax.set_xlabel(labels[1])
+#     ax.set_ylabel(labels[-1])
+#
+#     # for i in range(0,50):
+#     #     plt.plot((-0.1, 0.6),(i, i), color=(i/50., 0, (50-i)/50.))
+#
+#     nChunks = len(sigzz_chunkXi)
+#     nChunks_range = range(nChunks)
+#
+#     # map = plt.get_cmap('coolwarm', 256)
+#     # cNorm  = colors.Normalize(vmin=0, vmax=nChunks_range[-1])
+#     # scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=map)
+#
+#     start = 0.0
+#     stop = 1.0
+#     number_of_lines= nChunks
+#     cm_subsection = np.linspace(start, stop, number_of_lines)
+#
+#     colors = [ cmx.coolwarm(x) for x in cm_subsection ]
+#
+#     for i in range(nChunks):
+#         ax.plot(lengths[i][1:-1], vir_chunkXi[i][1:-1], ls=lt, \
+#             color=colors[i] , marker=None)
+#
+#     im = image.AxesImage(ax, cmap='coolwarm')
