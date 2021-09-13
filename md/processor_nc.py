@@ -60,13 +60,19 @@ class traj_to_grid:
             fluid_idx.append(np.where(type == 1))
             fluid_idx = fluid_idx[0][0]
             solid_idx.append(np.where(type == 2))
+            solid_idx = solid_idx[0][0]
         # Hydrocarbons
         if np.max(type)==3:
             fluid_idx.append(np.where([type == 1, type == 2]))
             fluid_idx = fluid_idx[0][1]
             solid_idx.append(np.where(type == 3))
-
-        solid_idx = solid_idx[0][0]
+            solid_idx = solid_idx[0][0]
+        # Hydrocarbons with sticking and slipping walls
+        if np.max(type)==4:
+            fluid_idx.append(np.where([type == 1, type == 2]))
+            fluid_idx = fluid_idx[0][1]
+            solid_idx.append(np.where([type == 3, type == 4]))
+            solid_idx = solid_idx[0][1]
 
         Nf, Nm, Ns = np.max(fluid_idx)+1, (np.max(fluid_idx)+1)/self.A_per_molecule, \
                                 np.max(solid_idx)-np.max(fluid_idx)
