@@ -50,14 +50,13 @@ class derive_data:
         Array containing distance (r) and RDF values (g(r))
     """
 
-    def __init__(self, skip, infile_x, infile_z, mf):
+    def __init__(self, skip, infile_x, infile_z):
 
         self.skip = skip
         self.infile_x = infile_x
         self.infile_z = infile_z
         self.data_x = netCDF4.Dataset(self.infile_x)
         self.data_z = netCDF4.Dataset(self.infile_z)
-        self.mf = mf
 
         # # Variables
         # for varobj in self.data_x.variables.keys():
@@ -220,7 +219,7 @@ class derive_data:
         mu = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate']            # mPa.S
         mu_bulk = sigxz_avg * 1e9 / dd.shear_rate()['shear_rate_bulk']            # mPa.S
 
-        print('Viscosity is {} (mPa.s) -----'.format(mu))
+        print('Viscosity is {} mPa.s -----'.format(mu))
 
         return {'mu':mu, 'mu_bulk':mu_bulk}
 
@@ -263,10 +262,10 @@ class derive_data:
         mflowrate_pump = np.array(self.data_x.variables["mflow_rate_pump"])[self.skip:]
         avg_mflowrate_pump = np.mean(mflowrate_pump)
 
-        print(f'Average mass flux in the stable region is {avg_jx_stable} g/m2.ns \
-              \nAverage mass flow rate in the stable region is {avg_mflowrate_stable} g/ns \
-              \nAverage mass flux in the pump region is {avg_jx_pump} g/m2.ns \
-              \nAverage mass flow rate in the pump region is {avg_mflowrate_pump} g/m2.ns')
+        # print(f'Average mass flux in the stable region is {avg_jx_stable} g/m2.ns \
+        #       \nAverage mass flow rate in the stable region is {avg_mflowrate_stable} g/ns \
+        #       \nAverage mass flux in the pump region is {avg_jx_pump} g/m2.ns \
+        #       \nAverage mass flow rate in the pump region is {avg_mflowrate_pump} g/m2.ns')
 
         # Mass flux (whole simulation domain)
         jx = np.array(self.data_x.variables["Jx"])[self.skip:,1:-1]
@@ -279,7 +278,7 @@ class derive_data:
                 'mflowrate_stable':mflowrate_stable}
 
 
-    def density(self):
+    def density(self, mf):
         """
         Returns
         -------
@@ -289,11 +288,11 @@ class derive_data:
         """
 
         # Bulk Density ---------------------
-        density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:,1:-1] * (self.mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
+        density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:,1:-1] * (mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
         den_chunkX = np.mean(density_Bulk, axis=0)
 
         # Fluid Density ---------------------
-        density = np.array(self.data_z.variables["Density"])[self.skip:] * (self.mf/sci.N_A) / (ang_to_cm**3)
+        density = np.array(self.data_z.variables["Density"])[self.skip:] * (mf/sci.N_A) / (ang_to_cm**3)
         den_chunkZ = np.mean(density,axis=(0,1))     # g/cm^3
 
         den_t = np.mean(density,axis=(1,2))    # g/cm^3
@@ -320,12 +319,14 @@ class derive_data:
         chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.avg_bulk_height) * 10     # A^3
 
         # Remove first and last chunks in the x-direction
+        vir = np.array(self.data_x.variables["Virial"])[self.skip:,] * \
+                    sci.atm * pa_to_Mpa
         vir_x = np.array(self.data_x.variables["Virial"])[self.skip:,1:-1] *  \
                     sci.atm * pa_to_Mpa / (3 * chunk_vol)
         vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * \
                     sci.atm * pa_to_Mpa / (3 * chunk_vol)
 
-        vir_t = np.sum(vir_x, axis=(1,2)) / (3 * totVi)
+        vir_t = np.sum(vir, axis=(1,2)) / (3 * totVi)
         vir_chunkX = np.mean(vir_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_z, axis=(0,1))
 
@@ -436,10 +437,23 @@ class derive_data:
         # and at a height in the bulk
         shear_rate_bulk = funcs.quad_slope(z_bulk, coeffs_fit[0], coeffs_fit[1]) * 1e9      # S-1
 
-        # print(f"Shear rate at the walls is {shear_rate:e} (s^-1) -----  \
-        #       \nShear rate in the bulk is {shear_rate_bulk:e} (s^-1) -----")
+        print(f"Shear rate at the walls is {shear_rate:e} (s^-1) -----  \
+              \nShear rate in the bulk is {shear_rate_bulk:e} (s^-1) -----")
 
         return {'shear_rate':shear_rate, 'shear_rate_bulk':shear_rate_bulk}
+
+
+    def green_kubo(self, cutoff):
+
+        # Get the viscosity from Green-Kubo
+        dd = derive_data(self.skip, self.infile_x, self.infile_z)
+        sigxz_t = dd.sigwall()['sigxz_t'][:cut] * 1e6  # cut after the correlation time, here i assume 10 timesteps, units in Pa
+        temp = np.mean(dd.temp()['temp_t'])         # K
+        vol = self.Lx * self.Ly * self.avg_gap_height * 1e-27 # m^3
+
+        viscosity = (vol / (sci.k * temp )) * np.sum(sq.acf(sigxz_t[:cut])['non-norm']) * 1e-15 * 1e3  # milli Pa.s
+
+        print(f'viscosity is {viscosity} mPa.s')
 
 
     def uncertainty(self):
@@ -516,52 +530,6 @@ class derive_data:
         return {'pDiff_err':pDiff_err, 'correlation':corr}
 
 
-if __name__ == "__main__":
-
-    dd = derive_data(sys.argv[-2], sys.argv[-1], np.int(sys.argv[1]))
-
-    if 'viscosity' in sys.argv:
-        dd.viscosity()
-
-    if 'mflux' in sys.argv:
-        dd.mflux()
-
-    if 'sigzz' in sys.argv:
-        dd.sigwall()
-
-    if 'hydro' in sys.argv:
-        dd.hydrodynamic()
-
-    if 'rdf' in sys.argv:
-        dd.rdf('nvt.nc')
 
 
-# Get the viscosity from Green-Kubo
-# blocks_tau_xz = sq.block_1D(sigxz_t,10)
-# n_array = np.arange(1, len(blocks_tau_xz)+1, 1)
-
-# sigxz_t_pa = np.sum(fx_Upper,axis=1) / (self.Lx * self.Ly * 1e-20)
-# vol = self.Lx*self.Ly*avg_gap_height*1e-30
-# T = 300
-# viscosity = (vol/(Kb*T)) * np.trapz(sq.acf(sigxz_t_pa[:10]), time[:10])
-# np.savetxt("tau_acf.txt", np.c_[time[:10], sq.acf(sigxz_t_pa[:10])],delimiter="  ",header="time       var")
-
-
-
-
-
-# Block standard Error
-# sq.get_bse(mflux_stable)
-# np.savetxt('bse.txt', np.c_[sq.get_bse(mflux_stable)[0],sq.get_bse(mflux_stable)[1]],
-#         delimiter="  ",header="n            bse")
-
-# Auto-correlation function
-# jacf = sq.acf(mflux_stable)
-# jacf_avg = np.mean(jacf,axis=1)
-# # Fourier transform of the ACF > Spectrum density
-# j_tq = np.fft.fft(jacf)
-# j_tq_avg = np.mean(rho_tq,axis=1)
-
-# Inverse DFT
-# rho_itq = np.fft.ifftn(rho_tq,axes=(0,1))
-# rho_itq_avg = np.mean(rho_itq,axis=1)
+#
