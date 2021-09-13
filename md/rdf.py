@@ -82,7 +82,7 @@ def rdf(traj, Nevery=20, Nbins=100, maxDist=10):
         count = len(imageList[-1].get_masses())
         print(f'{count} atoms are in the last image')
 
-    if 'liquid' in sys.argv:
+    if 'fluid' in sys.argv:
         # Get bounday atoms
         for idx, image in enumerate(imageList):
             # Atom objects with only the fluid atoms
@@ -90,8 +90,8 @@ def rdf(traj, Nevery=20, Nbins=100, maxDist=10):
             # maximum zpos in each image
             max_zpos = np.max(imageList[idx].get_positions()[:,2])
             min_zpos = np.min(imageList[idx].get_positions()[:,2])
-            # Delete atoms above and below the bulk
-            # bulk is defined as the distance of 3*sigma from the wall (or maxima
+            # Delete atoms above and below the bulk.
+            # Bulk is defined as the distance of 3*sigma from the wall (or maxima
             # of fluid positions)
             del image[[atom.index for atom in image if
                             atom.position[2] > (max_zpos - 3*sigma) or
@@ -116,8 +116,8 @@ def rdf(traj, Nevery=20, Nbins=100, maxDist=10):
         np.savetxt('RDF_boundary.txt',outRDF)
     if 'solid' in sys.argv:
         np.savetxt('RDF_solid.txt',outRDF)
-    if 'liquid' in sys.argv:
-        np.savetxt('RDF_liquid.txt',outRDF)
+    if 'fluid' in sys.argv:
+        np.savetxt('RDF_fluid.txt',outRDF)
 
     return outRDF
 
