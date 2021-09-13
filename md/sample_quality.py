@@ -110,8 +110,35 @@ def get_bse(f_t):
 
     return n, bse
 
+def acf(f):
+    var = np.var(f)
+    mean = np.mean(f)
+    N = len(f)
 
-def acf(f_tq):
+    acf = []
+    acf.append(np.sum((f-mean) * (f-mean)))
+    for j in range(1, int(N)):
+        x = np.sum((f[j:]-mean) * (f[:-j]-mean))
+        acf.append(x)
+
+    c_aa = np.array(acf)
+    c_aa_norm = np.array(acf)/(N*var)
+
+    return {'non-norm':c_aa, 'norm':c_aa_norm}
+
+
+def numpy_acf(f):
+    var = np.var(f)
+    mean = np.mean(f)
+    C = np.correlate(f - mean, f - mean, mode="full")
+    C = C[C.size // 2:]
+    C /= len(C)
+    C /= var
+
+    return C.real
+
+
+def h_acf(f_tq):
     """
     Autocorrelation function
     parameters
@@ -123,7 +150,8 @@ def acf(f_tq):
     var = np.var(f_tq, axis=0)
     f_tq -= np.mean(f_tq, axis=0)
 
-    C = np.array([np.sum(f_tq * f_tq, axis=0) if i == 0 else np.sum(f_tq[i:] * f_tq[:-i], axis=0)
+    C = np.array([np.sum(f_tq * f_tq, axis=0) if i == 0
+            else np.sum(f_tq[i:] * f_tq[:-i], axis=0)
                   for i in range(n)]) / (n*var)
 
     return C
