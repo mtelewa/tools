@@ -20,8 +20,10 @@ def get_parser():
     parser.add_argument('fluid', metavar='fluid', action='store', type=str,
                     help='The fluid to perform the analysis on.  \
                         Needed for the calculation of mass flux and density')
-    parser.add_argument('qtty', metavar='qtty', action='store', type=str,
+    parser.add_argument('qtty', metavar='qtty', nargs='+', action='store', type=str,
                     help='the quantity to plot')
+    parser.add_argument('--format', metavar='format', action='store', type=str,
+                    help='format of the saved figure. Default: PNG')
 
     parsed, unknown = parser.parse_known_args()
     for arg in unknown:
@@ -43,12 +45,12 @@ if __name__ == "__main__":
     elif args.fluid=='pentane': mf = 72.15
     elif args.fluid=='heptane': mf = 100.21
 
-    datasets, txtfiles = [], []
+    datasets, txtfiles, arr = [], [], []
     for key, value in vars(args).items():
         if key.startswith('ds'):
             datasets.append(value)
-        elif key.startswith('.txt'):
-            txtfiles.append(i)
+        elif key.startswith('txt'):
+            txtfiles.append(value)
 
     datasets_x, datasets_z = [], []
     for k in datasets:
@@ -63,20 +65,29 @@ if __name__ == "__main__":
     if len(datasets) > 0.:
         plot = plot_main.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
 
-        if 'length' in args.qtty:
+        if 'length' in args.qtty[0]:
+            # print(args.qtty)
             plot.qtty_len(args.qtty, lt='-', legend='y', opacity=1.0)
-        if 'height' in args.qtty:
+        if 'height' in args.qtty[0]:
             plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
-        if 'time' in args.qtty:
-            plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.5)
-        # plot.v_distrib(legend='y', opacity=0.5)
-        # plot.pdiff_pumpsize
+        if 'time' in args.qtty[0]:
+            plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
+        if 'distrib' in args.qtty[0]:
+            plot.v_distrib(legend='y', opacity=0.5)
+        if 'acf' in args.qtty[0]:
+            plot.acf(legend='y')
 
         plot.ax.set_rasterized(True)
-        if 'eps' in sys.argv:
-            plot.fig.savefig(args.qtty+'.eps' , format='eps')
+
+        if args.format is not None:
+            if 'eps' in args.format:
+                plot.fig.savefig(args.qtty[0]+'.eps' , format='eps')
+            if 'ps' in args.format:
+                plot.fig.savefig(args.qtty[0]+'.ps' , format='ps')
+            else:
+                plot.fig.savefig(args.qtty[0]+'.png' , format='png')
         else:
-            plot.fig.savefig(args.qtty+'.png' , format='png')
+            plot.fig.savefig(args.qtty[0]+'.png' , format='png')
 
     if len(txtfiles) > 0.:
         ptxt = plot_from_txt()
