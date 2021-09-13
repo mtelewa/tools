@@ -69,12 +69,15 @@ if __name__ == "__main__":
         if q == 'y':
             subprocess.call(['./setup.sh'], shell=True)
 
-    else:
+    elif args.code == 'lammps':
         init_walls.init_lammps(args.nUnitsX, args.nUnitsY, args.nUnitsZ,
                                      args.h, args.density, mFluid)
         q = input('run lammps: ')
         if q == 'y':
             subprocess.call(['mpirun -np 8 lmp_mpi -in $(pwd)/init.LAMMPS'], shell=True)
+
+    else:
+        raise NameError('Provide the code')
 
 
     file = open('args.txt', 'w')

@@ -14,112 +14,105 @@ mpa_to_kcalpermolA3= 0.00014393
 kcalpermolA3_to_mpa= 1/mpa_to_kcalpermolA3
 atm_to_pa= 101325
 
-# GEOMETRY
-#---------
-t= 7.0                    # Thickness of gold layer
-offset= 5.0               # Initial offset bet. solid and liquid to avoid atoms/molecules overlapping
-Boffset= 1.0			   # Initial offset bet. the block and the simulation box
-ls= 4.08                  # Lattice spacing for fcc gold
 
-def init_moltemp(Np, density, mass):
-
-    # Input Mass density
-    density_si = args.density
+def init_moltemp(density, Np, name, mass, tolX, tolY, tolZ):
 
     # Number density (#/A^3)
-    num_density_real = float(density_si) * 1e-24 * sci.N_A / args.mass
+    num_density = density * 1e-24 * sci.N_A / mass
     # Volume (A^3)
-    volume_real = args.Np * args.mass * 1e24 / (args.density*NA)
+    volume = Np * mass * 1e24 / (density * sci.N_A)
 
-    cellX = volume_real**(1/3)
-    cellY = volume_real**(1/3)
-    cellZ = volume_real**(1/3)
+    xlength = volume**(1/3)
+    ylength = volume**(1/3)
+    zlength = volume**(1/3)
 
-    #return (N)
-
-    bond_length=1.54  # between carbons
+    bond_length = 1.54  # between carbons
     offset_mol_mol = 2.
-    carbons_in_mol=5         # pentane
+    carbons_in_mol = 5         # pentane
 
-    tolX = (bond_length*carbons_in_mol)+offset_mol_mol
-    tolY = round(3.6)
-    tolZ = round(2.8)
+    # tolX = (bond_length * carbons_in_mol) + offset_mol_mol
+    # tolY = round(3.6)
+    # tolZ = round(2.8)
 
     # No. of atoms in each direction
-    Npx=0
-    i=1
-    while i<cellX:
-        i=Npx*tolX
-        Npx+=1
-    Npx=Npx-2
+    Nx, Ny = 0, 0
 
-    Npy=0
-    j=1
-    while j<cellY:
-        j=Npy*tolY
-        Npy+=1
-    Npy=Npy-2
+    i = 1
+    while i < xlength:
+        i = Nx * tolX
+        Nx += 1
+    Nx = Nx-2
 
-    Npz=int(args.Np/(Npx*Npy))
+    j = 1
+    while j < ylength:
+        j = Ny * tolY
+        Ny += 1
+    Ny = Ny - 2
 
-    with open('system.lt', 'w+') as out:
-        #Header
-        out.write( '# system.lt' + '\n')
-        # Box dimensions
-        out.write('\n' + 'write_once("Data Boundary"){' + '\n' \
-              '%.2f %.2f xlo xhi' %(int(-cellX/2.),int(cellX/2.)) + '\n' + \
-              '%.2f %.2f ylo yhi' %(int(-cellY/2.),int(cellY/2.)) + '\n' + \
-              '%.2f %.2f zlo zhi' %(int(-cellZ/2.),int(cellZ/2.)) + '\n' + '}' + '\n')
-        # Box boundary and variable `cutoff` required by GROMOS_54A7_ATB.lt
-        out.write('\n' + 'write_once("In Init"){' + '\n'
-             'variable cutoff equal 14.0 # Angstroms' + '\n' +
-             'boundary p p p' + '\n' + '}' + '\n')
-        # Import the forcefield and the molecule building block files
-        if args.forcefield:
-            out.write('import "%s"' %args.forcefield + '\n' +'import "%s"' %args.molecule)
-        else:
-            out.write('import "%s"' %args.molecule)
-
-        # Create the periodic structure
-        out.write('\n' +
-             'mol = new GROMOS_54A7_ATB/N5UF [{0}].move({1},0,0)'.format(Npx,tolX) + '\n'
-             #'mol = new pentane [{1}].move({0},0,0)'.format(Npx,tolX) + '\n'
-     	 		                             '[{0}].move(0,{1},0)'.format(Npy,tolY) + '\n'
-                                             '[{0}].move(0,0,{1})'.format(Npz,tolZ) + '\n')
-
-        # if (Npx*Npy*Npz)-args.Np!=0:
-        #    Nadd=args.Np-(Npx*Npy*Npz)
-        #    for i in range(int(Nadd)):
-        #        out.write('mol_%g = new GROMOS_54A7_ATB/N5UF [1].move(0,0,%g)' %(i,(tolZ*12)) + '\n')
-
-      # Move to the center
-        molecule_center=(carbons_in_mol-1)*bond_length/2.
-        offset_mol_box = 2.
-
-        shift_x = -(cellX/2)+molecule_center+offset_mol_box
-        shift_y = -(cellY/2.)+offset_mol_box
-        shift_z = -(cellZ/2.)+offset_mol_box
-
-        out.write('mol[*][*][*].move({0},{1},{2})'.format(shift_x,shift_y,shift_z) + '\n')
-
-    out.close()
+    Nz = int(Np / (Nx * Ny))
 
 
-# TODO: Expand for LJ fluid
+    new_Np = Nx * Ny * Nz
+    diff = Np - new_Np
+
+    ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
+    # if new_Nfluid/Nfluid <= 98:
+    #     Nz+=1
+    #     Nx-=14
+    #
+    Np_mod = Nx * Ny * Nz
+    diff2 = Np - Np_mod
+
+    print('Created %g molecules by moltemplate' %new_Np)
+    print('Created %g molecules after modification' %Np_mod)
+
+    # Move to the center
+    molecule_center = (carbons_in_mol-1) * bond_length / 2.
+    Boffset = 1
+
+
+    in_script= f" # System moltemplate file\n\
+    #------------------------\n\
+    \n\
+    # import molecule building block file \n\
+    import '{name}.lt' \n\
+    \n\
+    # Replicate the pentane, the value in [] is the no. of replicas (a) \n\
+    # the value in () is the offset (b) between replicas. \n\
+    # To avoid atoms creation outside of the box, a*b < xhi. Same for y and z. \n\
+    mol = new {name}   [{Nx}].move({tolX},0,0) \n\
+                       [{Ny}].move(0,{tolY},0) \n\
+                       [{Nz}].move(0,0,{tolZ}) \n\
+    \n\
+    mol[*][*][*].move({tolX},{Boffset},{Boffset})\n\
+    \n\
+    write_once('Data Boundary'){{ \n\
+     0    {xlength}   xlo xhi \n\
+     0    {ylength}   ylo yhi \n\
+     0    {zlength}   zlo zhi \n\
+    }}\n"
+
+
+    in_f=open('geometry.lt','w')
+    in_f.write(in_script)
+    in_f.close()
+
+
 def init_lammps(Np, density, mass):
 
     # Number density (#/A^3)
     num_density_real = float(density)* 1e-24 * sci.N_A / mass
     # Volume (A^3)
-    volume_real = Np * mass * 1e24 / (density * sci.N_A)
+    volume = Np * mass * 1e24 / (density * sci.N_A)
 
-    cellX = volume_real**(1/3)
-    cellY = volume_real**(1/3)
-    cellZ = volume_real**(1/3)
+    cellX = volume**(1/3)
+    cellY = volume**(1/3)
+    cellZ = volume**(1/3)
 
     for line in open('init.LAMMPS','r').readlines():
         line = re.sub(r'region          box block.+',
-                      r'region          box block %.2f %.2f %.2f %.2f %.2f %.2f units box' %(-cellX/2.,cellX/2.,-cellY/2.,cellY/2.,-cellZ/2.,cellZ/2.), line)
+                      r'region          box block %.2f %.2f %.2f %.2f %.2f %.2f units box' \
+                            %(-cellX/2.,cellX/2.,-cellY/2.,cellY/2.,-cellZ/2.,cellZ/2.), line)
         line = re.sub(r'create_atoms    0 random.+',
                       r'create_atoms    0 random %i 206649 NULL mol pentane 175649' %Np, line)
         fout = open("init2.LAMMPS", "a")
