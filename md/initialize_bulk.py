@@ -70,6 +70,6 @@ if __name__ == '__main__':
     else:
         raise NameError('Provide the code')
 
-    file = open('args.txt', 'a')
+    file = open('args.txt', 'w')
     file.write(f'Parameters : {args}')
     file.close()
