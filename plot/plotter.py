@@ -62,15 +62,25 @@ if __name__ == "__main__":
                 if i.endswith(f'1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(ds_dir, i))
 
+    # If the processed files are in the data dir
+    if not datasets_x:
+        for k in datasets:
+            ds_dir = os.path.join(k, "data")
+            for root, dirs, files in os.walk(ds_dir):
+                for i in files:
+                    if i.endswith(f'{args.nChunks}x1.nc'):
+                        datasets_x.append(os.path.join(ds_dir, i))
+                    if i.endswith(f'1x{args.nChunks}.nc'):
+                        datasets_z.append(os.path.join(ds_dir, i))
+
     if len(datasets) > 0.:
         plot = plot_main.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
 
-        if 'length' in args.qtty[0]:
-            # print(args.qtty)
-            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=1.0)
-        if 'height' in args.qtty[0]:
+        if '_length' in args.qtty[0]:
+            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=0.7)
+        if '_height' in args.qtty[0]:
             plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
-        if 'time' in args.qtty[0]:
+        if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
         if 'distrib' in args.qtty[0]:
             plot.v_distrib(legend='y', opacity=0.5)
