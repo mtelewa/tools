@@ -175,20 +175,26 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             surfL_fz_ch_global = None
             den_bulk_ch_global = None
 
-        comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=bulk_height_time, recvbuf=(bulk_height_time_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=fluxes[0], recvbuf=(mflux_pump_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
-        # If the virial was not computed, skip
-        try:
-            comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
-        except TypeError:
-            pass
+        if gap_heights != None:
+            comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=bulk_height_time, recvbuf=(bulk_height_time_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=fluxes[0], recvbuf=(mflux_pump_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
+            # If the virial was not computed, skip
+            try:
+                comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
+            except TypeError:
+                pass
+        else:
+            try:
+                comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
+            except TypeError:
+                pass
 
         comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
@@ -217,6 +223,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             out.setncattr("Lx", cell_lengths[0])
             out.setncattr("Ly", cell_lengths[1])
+            out.setncattr("Lz", cell_lengths[2])
 
             vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
             vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
