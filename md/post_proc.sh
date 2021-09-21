@@ -3,10 +3,10 @@
 usage="$(basename "$0") [-h] [-i -N] -- run the netcdf post-processor
 
 where:
-    -h  show this help text
-    -i  trajectory file
-    -N  set the No. of chunks
-    -f    Fluid
+    -h   show this help text
+    -i   trajectory file
+    -N   set the No. of chunks
+    -f   Fluid
     -s   stable start
     -e   stable end
     -p   pump start
