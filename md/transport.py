@@ -58,12 +58,23 @@ if __name__ == "__main__":
                 if i.endswith(f'1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(ds_dir, i))
 
+    # If the processed files are in the data dir
+    if not datasets_x:
+        for k in datasets:
+            ds_dir = os.path.join(k, "data")
+            for root, dirs, files in os.walk(ds_dir):
+                for i in files:
+                    if i.endswith(f'{args.nChunks}x1.nc'):
+                        datasets_x.append(os.path.join(ds_dir, i))
+                    if i.endswith(f'1x{args.nChunks}.nc'):
+                        datasets_z.append(os.path.join(ds_dir, i))
+
+
     for i in range(len(datasets)):
         get = get_variables.derive_data(args.skip, datasets_x[i], datasets_z[i])
-
         if 'viscosity' in args.qtty[0]:
             get.viscosity()
         if 'mflux' in args.qtty[0]:
-            get.mflux()
+            get.mflux(mf)
         if  'gk' in args.qtty[0]:
             get.green_kubo()
