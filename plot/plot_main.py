@@ -223,12 +223,13 @@ class plot_from_ds:
                 pds.plot_settings()
                 if err is not None:
                     err_arrays = np.zeros_like(arrays)
+                    print(arr_to_plot[0][j])
                     err_arrays[j, i, :] = dd(self.skip, self.datasets_x[i],
-                                self.datasets_z[i]).uncertainty()[arr_to_plot[j]+'_err']
+                                self.datasets_z[i]).uncertainty()[arr_to_plot[0][j]+'_err']
                     markers_err, caps, bars= self.ax.errorbar(dd(self.skip, self.datasets_x[i],
                          self.datasets_z[i]).length_array[1:-1], arrays[j, i],
                         yerr=err_arrays[j, i], label=input('label:'),
-                        capsize=1.5, markersize=1, lw=0.7, alpha=opacity)
+                        capsize=1.5, markersize=1, lw=2, alpha=opacity)
 
                     [bar.set_alpha(0.4) for bar in bars]
                     [cap.set_alpha(0.4) for cap in caps]
@@ -244,7 +245,7 @@ class plot_from_ds:
         if draw_vlines is not None:
             pds.draw_vlines(self)
 
-
+#TODO OPacity as input
 
     def qtty_height(self, *arr_to_plot, opacity=1,
                 legend=None, lab_lines=None, draw_vlines=None,
@@ -273,6 +274,11 @@ class plot_from_ds:
             if 'den_height' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[3])
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_chunkZ']
+                
+            if 'gamma_height' in arr_to_plot[0]:
+                self.ax.set_ylabel(labels[11])
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate_profile']
+
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
@@ -286,13 +292,13 @@ class plot_from_ds:
                 self.ax.plot(x, y, color=colors[i], label=input('Label:'), alpha=opacity)
 
                 if fit is not None:
-                    a = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0]
-                    b = arrays[j, i][arrays[j,i] != 0]
+                    a = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[0,i] != 0]
+                    b = arrays[0, i][arrays[0,i] != 0]
 
                     x1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b)['xdata']
                     y1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b)['fit_data']
 
-                    self.ax.plot(x1, y1, color= colors[i], ls='-', marker=' ', alpha=0.5)
+                    self.ax.plot(x1, y1, color= colors[i], ls='-', marker=' ', alpha=0.9)
 
                 if extrapolate is not None:
                     x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()['xdata_left']
@@ -319,55 +325,60 @@ class plot_from_ds:
     def qtty_time(self, *arr_to_plot, opacity=1,
                 legend=None, lab_lines=None, draw_vlines=None, **kwargs):
 
+        cut = None
+        # remove = len(self.time)-cut
+
         self.ax.set_xlabel(labels[2])
-        arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_x), len(self.time)])
+        arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_x), len(self.time[:cut])])
         arrays_avg = np.zeros([len(arr_to_plot[0]), len(self.datasets_x)])
         pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
+
 
         for i in range(len(self.datasets_x)):
             if 'temp_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[6])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).temp()['temp_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).temp()['temp_t'][:cut]
 
             if 'mflowrate_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[10])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux()['mflowrate_stable']*1e18
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux()['mflowrate_stable'][:cut]*1e18
 
             if 'jx_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[4])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux()['jx_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux()['jx_t'][:cut]
 
             if 'den_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[3])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_t'][:cut]
 
             if 'vir_time' in arr_to_plot[0] and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['vir_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['vir_t'][:cut]
 
             if 'sigzz_time' in arr_to_plot[0] and len(arr_to_plot)==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigzz_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigzz_t'][:cut]
 
             if 'vir_time' in arr_to_plot[0] and 'sigzz_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['vir_t']
-                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigzz_t']
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['vir_t'][:cut]
+                arrays[1, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigzz_t'][:cut]
 
             if 'sigxz_time' in arr_to_plot[0]:
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-                arrays[0, i, :] =  dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigxz_t']
+                arrays[0, i, :cut] =  dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigxz_t'][:cut]
 
             if 'height_time' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[0])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).h
+                arrays[0, i, :cut] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).h[:cut]
 
             for j in range(len(arr_to_plot[0])):
                 arrays_avg[j,i] = np.mean(arrays[j, i, :])
-                self.ax.plot(self.time*1e-6, arrays[j, i, :],
+                self.ax.plot(self.time[:cut]*1e-6, arrays[j, i, :],
                             label=input('Label:'), alpha=opacity)
 
-                self.ax.axhline(y=arrays_avg[j,i], color=colors[j],
+                # TODO: Fix the color getter
+                self.ax.axhline(y=arrays_avg[j,i], color=colors[i],
                     linestyle='dashed', lw=1)
 
         if legend is not None:
@@ -530,12 +541,13 @@ class plot_from_ds:
         arr = np.zeros([len(self.datasets_x), len(self.time)])
 
         for i in range(len(self.datasets_x)):
-            arr[i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i],
-                                    self.mf).mflux()['jx_t']
+            arr[i, :] = dd(self.skip, self.datasets_x[i],
+                                self.datasets_z[i]).mflux(self.mf)['jx_t']
             # Auto-correlation function
             acf = sq.acf(arr[i, :])['norm']
 
-            self.ax.plot(self.time[:10]*1e-6, acf[:10],
+            #TODO: Cutoff
+            self.ax.plot(self.time[:10000]*1e-6, acf[:10000],
                         label=input('Label:'), alpha=opacity)
 
         self.ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
