@@ -473,7 +473,7 @@ class traj_to_grid:
                     # Count particles in the fluid cell
                     N_fluid_mask[:, i, k] = np.sum(mask_fluid, axis=1)
                     # Avoid having zero particles in the cell
-                    Nzero_fluid = np.less(N_fluid_mask[:, i, k], 1)
+                    Nzero_fluid = np.less_equal(N_fluid_mask[:, i, k], 1)
                     N_fluid_mask[Nzero_fluid, i, k] = 2
 
             # Stable --------------------------------------
@@ -665,7 +665,8 @@ class traj_to_grid:
                 'surfL_fy_ch':surfL_fy_ch,
                 'surfL_fz_ch':surfL_fz_ch,
                 'den_bulk_ch':den_bulk_ch,
-                'Nf': Nf}
+                'Nf': Nf,
+                'N_fluid_mask':N_fluid_mask}
 
 # # Correction for the converging-diverging channel ---------------------------------------
 #

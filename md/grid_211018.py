@@ -77,6 +77,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         gap_heights, bulk_height_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
         vx_ch, den_ch, rho_kx_ch, sf_ch,  \
+        N_fluid_mask, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
@@ -94,6 +95,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'den_ch',
                                       'rho_kx_ch',
                                       'sf_ch',
+                                      'N_fluid_mask',
                                       # 'rho_kx_im_ch',
                                       # 'rho_ky_ch',
                                       'jx_ch',
@@ -163,6 +165,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Temperature
             temp_global = np.zeros_like(vx_ch_global)
 
+            N_fluid_mask_global = np.zeros_like(vx_ch_global)
+
             # Dimensions: (time, Nx)
             # Surface Forces
             surfU_fx_ch_global = np.zeros([time, Nx], dtype=np.float32)
@@ -198,6 +202,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wyz_ch_global = None
             temp_global = None
 
+            N_fluid_mask_global = None
+
             surfU_fx_ch_global = None
             surfU_fy_ch_global = None
             surfU_fz_ch_global = None
@@ -220,6 +226,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
             comm.Gatherv(sendbuf=sf_ch, recvbuf=(sf_ch_global, sendcounts_chunk_fluid_layer), root=0)
 
+
             # comm.Gatherv(sendbuf=rho_kx_im_ch, recvbuf=(rho_kx_im_ch_global, sendcounts_chunk_fluid_layer), root=0)
             # comm.Gatherv(sendbuf=rho_ky_ch, recvbuf=(rho_ky_ch_global, sendcounts_chunk_fluid_layer), root=0)
             # If the virial was not computed, skip
@@ -241,6 +248,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=Wxy_ch, recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxz_ch, recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wyz_ch, recvbuf=(Wyz_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=N_fluid_mask, recvbuf=(N_fluid_mask_global, sendcounts_chunk_fluid), root=0)
 
         comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
         comm.Gatherv(sendbuf=surfU_fy_ch, recvbuf=(surfU_fy_ch_global, sendcounts_chunk_solid), root=0)
