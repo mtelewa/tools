@@ -4,8 +4,9 @@
 
 SUB="norton"
 for i in $(ls -d */);do
-	cd $i/data/
-
+	cd $i/data
+	msub submit_parallel.moab
+	cd ../../
 	#if [[ $i == *"$SUB"* ]] ; then
 		#echo $i
 		#cd $i/data/out
