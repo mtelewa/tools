@@ -26,7 +26,7 @@ from scipy.stats import norm
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 
-from get_variables import derive_data as dd
+from get_variables_210921 import derive_data as dd
 
 color_cycler = (
     cycler(color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
@@ -74,8 +74,6 @@ class plot_from_txt:
             ydata = data[:,1]
             # err = data[:,2]
 
-            # ax.set_xscale('log', nonpositive='clip')
-
             # If the dimension is time, scale by 1e-6
             if np.int(sys.argv[2]) == 2:
                 xdata = xdata * 1e-6
@@ -113,18 +111,21 @@ class plot_from_ds:
 
         # self.sigxz_t = np.zeros([len(datasets), len(self.time)])
         # self.avg_sigxz_t = np.zeros([len(datasets)])
-        self.pGrad = np.zeros([len(self.datasets_x)])
-        self.viscosities = np.zeros([len(self.datasets_z)])
+        # self.pGrad = np.zeros([len(self.datasets_x)])
+        # self.viscosities = np.zeros([len(self.datasets_z)])
 
 
     def label_inline(self, plot):
         rot = input('Rotation of label: ')
         xpos = np.float(input('Label x-pos:'))
-        y_offset = 0 #np.float(input('Y-offset for label: '))
+        y_offset = np.float(input('Y-offset for label: '))
 
         for i in range (len(plot.ax.lines)):
-            label_lines.label_line(plot.ax.lines[i], xpos, yoffset= y_offset, \
-                     label= plot.ax.lines[i].get_label(), fontsize= 8, rotation= rot)
+            if plot.ax.lines[i].get_label().startswith('_'):
+                pass
+            else:
+                label_lines.label_line(plot.ax.lines[i], xpos, yoffset= y_offset, \
+                         label=plot.ax.lines[i].get_label(), fontsize= 8, rotation= rot)
 
 
     def draw_vlines(self, plot):
@@ -136,27 +137,23 @@ class plot_from_ds:
             plot.ax.axvline(x= pos*total_length, color='k', linestyle='dashed', lw=1)
 
 
-    def draw_inset(self, xpos, ypos, w, h):
-        popt2, pcov2 = curve_fit(funcs.quadratic, self.height_arrays_mod[0][1:-1],
-                                                    vx_chunkZ[0, :][1:-1])
+    def draw_inset(self, plot, xpos=0.62, ypos=0.57, w=0.2, h=0.28):
 
-        inset_ax = fig.add_axes([0.6, 0.48, 0.2, 0.28]) # X, Y, width, height
-        inset_ax.plot(height_arrays_mod[0][-31:-1], vx_chunkZ[0, :][-31:-1],
-                                ls= ' ', marker=mark, alpha=opacity, label=label)
-        inset_ax.plot(height_arrays_mod[0][-31:-1], funcs.quadratic(height_arrays_mod[0], *popt2)[-31:-1])
+        inset_ax = self.fig.add_axes([xpos, ypos, w, h]) # X, Y, width, height
+        # inset_ax.axvline(x=0, color='k', linestyle='dashed')
+        # inset_ax.axvline(x=0.2*np.max(lengths), color='k', linestyle='dashed')
+        # inset_ax.set_ylim(220, 280)
+
+        inset_ax.plot(dd(self.skip, self.datasets_x[1], self.datasets_z[1]).length_array[1:29],
+                      dd(self.skip, self.datasets_x[1], self.datasets_z[1]).virial()['vir_chunkX'][1:29],
+                      ls= plot.ax.lines[1].get_linestyle(), color=plot.ax.lines[1].get_color(),
+                      marker=None, alpha=1)
 
 
-        if 'inset' in sys.argv:
-            inset_ax = fig.add_axes([0.62, 0.57, 0.2, 0.28]) # X, Y, width, height
-            inset_ax.axvline(x=0, color='k', linestyle='dashed')
-            inset_ax.axvline(x=0.2*np.max(lengths), color='k', linestyle='dashed')
-            inset_ax.set_ylim(220, 280)
-            inset_ax.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array[0][1:29],
-                         vir_chunkX[0, :][1:29] , ls= lt, color=ax.lines[0].get_color(),
-                         marker=None, alpha=opacity, label=label)
-            inset_ax.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array[0][1:29],
-                         vir_chunkX[1, :][1:29] , ls= ' ', color=ax.lines[1].get_color(),
-                         marker='x', alpha=opacity, label=label)
+
+        # inset_ax.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array[0][1:29],
+        #              vir_chunkX[1, :][1:29] , ls= ' ', color=ax.lines[1].get_color(),
+        #              marker='x', alpha=opacity, label=label)
 
 
     def plot_settings(self):
@@ -179,7 +176,7 @@ class plot_from_ds:
 
     def qtty_len(self, *arr_to_plot, opacity=1.0,
             legend=None, lab_lines=None, draw_vlines=None,
-            err=None, **kwargs):
+            err=None, draw_inset=None, twin_axis=None, **kwargs):
 
         self.ax.set_xlabel(labels[1])
         arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_x), self.Nx-2])
@@ -223,7 +220,6 @@ class plot_from_ds:
                 pds.plot_settings()
                 if err is not None:
                     err_arrays = np.zeros_like(arrays)
-                    print(arr_to_plot[0][j])
                     err_arrays[j, i, :] = dd(self.skip, self.datasets_x[i],
                                 self.datasets_z[i]).uncertainty()[arr_to_plot[0][j]+'_err']
                     markers_err, caps, bars= self.ax.errorbar(dd(self.skip, self.datasets_x[i],
@@ -236,26 +232,72 @@ class plot_from_ds:
 
                 else:
                     self.ax.plot(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).length_array[1:-1],
-                            arrays[j,i], label=input('label:'), alpha=0.7)
+                            arrays[j,i], color=colors[i], label=input('label:'), alpha=0.8)
 
         if legend is not None:
             self.ax.legend()
-        if lab_lines is not None:
-            pds.label_inline(self)
         if draw_vlines is not None:
             pds.draw_vlines(self)
+        if draw_inset is not None:
+            total_length = np.max(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).Lx)
+
+            inset_ax = self.fig.add_axes([0.62, 0.57, 0.2, 0.28]) # X, Y, width, height
+
+            inset_ax.axvline(x=0, color='k', linestyle='dashed')
+            inset_ax.axvline(x=0.2*total_length, color='k', linestyle='dashed')
+            inset_ax.set_xlim(0, 8)
+            inset_ax.set_ylim(245, 255)
+
+            inset_ax.plot(dd(self.skip, self.datasets_x[2], self.datasets_z[2]).length_array[1:29],
+                          dd(self.skip, self.datasets_x[2], self.datasets_z[2]).virial()['vir_chunkX'][1:29],
+                          ls= self.ax.lines[2].get_linestyle(), color=self.ax.lines[2].get_color(),
+                          marker=None, alpha=1)
+
+            inset_ax.plot(dd(self.skip, self.datasets_x[3], self.datasets_z[3]).length_array[1:29],
+                          dd(self.skip, self.datasets_x[3], self.datasets_z[3]).virial()['vir_chunkX'][1:29],
+                          ls= self.ax.lines[3].get_linestyle(), color=self.ax.lines[3].get_color(),
+                          marker=None, alpha=1)
+
+        if twin_axis is not None:
+
+            ax2 = self.ax.twinx()
+            ax2.spines['left'].set_color(colors[0])
+            ax2.spines['right'].set_color(colors[1])
+            self.ax.tick_params(axis='y', colors=colors[0])
+            ax2.tick_params(axis='y', colors=colors[1])
+            self.ax.yaxis.label.set_color(colors[0])
+            ax2.yaxis.label.set_color(colors[1])
+
+            # for i in range(len(self.datasets_x)):
+            ax2.plot(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array[1:-1],
+                     dd(self.skip, self.datasets_x[0], self.datasets_z[0]).temp()['tempX'],
+                     ls= '-', marker= ' ',
+                     alpha=opacity, label=input('label:'), color=colors[1])
+
+            ax2.plot(dd(self.skip, self.datasets_x[1], self.datasets_z[1]).length_array[1:-1],
+                     dd(self.skip, self.datasets_x[1], self.datasets_z[1]).temp()['tempX'],
+                     ls= '--', marker= ' ',
+                     alpha=opacity, label=input('label:'), color=colors[1])
+
+
+            ax2.set_ylabel(labels[6])
+
+        if lab_lines is not None:
+            pds.label_inline(self)
+
 
 #TODO OPacity as input
 
     def qtty_height(self, *arr_to_plot, opacity=1,
                 legend=None, lab_lines=None, draw_vlines=None,
-                fit=None, extrapolate=None, **kwargs):
+                draw_inset=None, fit=None, extrapolate=None, **kwargs):
 
         self.ax.set_xlabel(labels[0])
         arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_z), self.Nz])
         pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
 
         for i in range(len(self.datasets_z)):
+
             if 'press_height' in arr_to_plot[0]:       # Here we use the bulk height
                 self.ax.set_ylabel(labels[7])
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['vir_chunkZ']
@@ -269,12 +311,12 @@ class plot_from_ds:
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).velocity()['vx_data']
 
             if 'continuum_vx' in arr_to_plot[0]:
-                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).hydrodynamic()['v_hydro']
+                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).hydrodynamic()['v_hydro_slip']
 
             if 'den_height' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[3])
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_chunkZ']
-                
+
             if 'gamma_height' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[11])
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate_profile']
@@ -292,11 +334,13 @@ class plot_from_ds:
                 self.ax.plot(x, y, color=colors[i], label=input('Label:'), alpha=opacity)
 
                 if fit is not None:
+
+                    order = np.float(input('fit order:'))
                     a = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[0,i] != 0]
                     b = arrays[0, i][arrays[0,i] != 0]
 
-                    x1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b)['xdata']
-                    y1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b)['fit_data']
+                    x1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b,order)['xdata']
+                    y1 = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).fit(a,b,order)['fit_data']
 
                     self.ax.plot(x1, y1, color= colors[i], ls='-', marker=' ', alpha=0.9)
 
@@ -322,7 +366,7 @@ class plot_from_ds:
 
 
 
-    def qtty_time(self, *arr_to_plot, opacity=1,
+    def qtty_time(self, *arr_to_plot, opacity=1, draw_inset=None,
                 legend=None, lab_lines=None, draw_vlines=None, **kwargs):
 
         cut = None
@@ -387,6 +431,8 @@ class plot_from_ds:
             pds.label_inline(self)
         if draw_vlines is not None:
             pds.draw_vlines(self)
+        if draw_inset is not None:
+            pds.draw_inset(self)
 
 
     def v_distrib(self, opacity=1, legend=None, lab_lines=None, **kwargs):
@@ -405,8 +451,8 @@ class plot_from_ds:
 
             self.ax.plot(vx_values, vx_prob, ls='-', marker='o',
                     label=input('Label:'), alpha=opacity)
-            self.ax.plot(vy_values, vy_prob, ls='-', marker='x',
-                    label=input('Label:'), alpha=opacity)
+            # self.ax.plot(vy_values, vy_prob, ls='-', marker='x',
+            #         label=input('Label:'), alpha=opacity)
 
         if legend is not None:
             self.ax.legend()
@@ -438,23 +484,25 @@ class plot_from_ds:
         [cap2.set_alpha(0.5) for cap2 in caps2]
 
 
-    def pdiff_err(self):
-
-        self.ax.set_xlabel(labels[7])
-        self.ax.set_ylabel('Uncertainty $\zeta$ %')
-
-        pressures = np.array([0.5, 5, 50, 250, 500])
-        vir_err, sigzz_err = [], []
-        for i in range(len(self.datasets_x)):
-            vir_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial(0.2)['pDiff_err'])
-            # sigzz_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall(0.2)['pDiff_err'])
-
-        vir_err_rel = vir_err / pressures
-        self.ax.plot(pressures, vir_err_rel, ls='-', marker='o',label='Virial (Fluid)', alpha=1)
-        # self.ax.plot(pressures, sigzz_err, ls='-', marker='o',label='$\sigma_{zz}$ (Solid)', alpha=1)
 
 
-    def pgrad_mflowrate(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
+    # def pdiff_err(self):
+    #
+    #     self.ax.set_xlabel(labels[7])
+    #     self.ax.set_ylabel('Uncertainty $\zeta$ %')
+    #
+    #     pressures = np.array([0.5, 5, 50, 250, 500])
+    #     vir_err, sigzz_err = [], []
+    #     for i in range(len(self.datasets_x)):
+    #         vir_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial(0.2)['pDiff_err'])
+    #         # sigzz_err.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall(0.2)['pDiff_err'])
+    #
+    #     vir_err_rel = vir_err / pressures
+    #     self.ax.plot(pressures, vir_err_rel, ls='-', marker='o',label='Virial (Fluid)', alpha=1)
+    #     # self.ax.plot(pressures, sigzz_err, ls='-', marker='o',label='$\sigma_{zz}$ (Solid)', alpha=1)
+
+
+    def pgrad_mflowrate(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 
         self.ax.set_xlabel(labels[9])
         self.ax.set_ylabel(labels[10])
@@ -462,49 +510,139 @@ class plot_from_ds:
         mpl.rcParams.update({'lines.markersize': 4})
         mpl.rcParams.update({'figure.figsize': (12,12)})
 
-        mflowrate_avg = np.zeros([len(self.datasets_x)])
-        shear_rates = np.zeros([len(self.datasets_x)])
+        pGrad, mflowrate_avg, shear_rate, mu, bulk_den_avg, mflowrate_hp, mflowrate_hp_slip = [], [], [], [], [], [], []
 
         for i in range(len(self.datasets_x)):
-            self.pGrad[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial(np.float(input('pump size:')))[2]
-            mflowrate_avg[i] = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux()[3])
-            shear_rates[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()[0]
-            self.viscosities[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()     # mPa.s
-            bulk_den_avg[i] = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)[2])
 
-        mflowrate_hp =  ((bulk_den_avg*1e3) * (self.Ly*1e-10) * 1e3 * 1e-9 / (12 * (mu*1e6))) \
-                                    * pGrad*1e6*1e9 * (avg_gap_height*1e-10)**3
+            avg_gap_height = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).h)*1e-9
+            slip_vel = np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).velocity()['vx_chunkZ_mod'][0])
 
-        # ax.set_xscale('log', nonpositive='clip')
-        # ax.set_yscale('log', nonpositive='clip')
+            pGrad.append(np.absolute(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['pGrad']))
+            mflowrate_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux(self.mf)['mflowrate_stable']))
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate'])
+            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()['mu'])    # mPa.s
+            bulk_den_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_t']))
+
+
+            # Continuum qtts
+            flowrate_cont = (bulk_den_avg[i]*1e3 * self.Ly*1e-9 * 1e-9 * 1e3 * pGrad[i]*1e6*1e9 * avg_gap_height**3)  / \
+                        (12 * mu[i]*1e-3)
+
+            mflowrate_hp.append(flowrate_cont)
+            mflowrate_hp_slip.append(flowrate_cont + (bulk_den_avg[i]*1e6 *  \
+                                self.Ly*1e-9 * slip_vel * avg_gap_height*1e-9) )
+
         self.ax.ticklabel_format(axis='y', style='sci', useOffset=False)
 
-        self.ax.plot(self.pGrad, mflowrate_hp*1e18, ls='--', marker='o', alpha=opacity, label=input('Label:'))
-        self.ax.plot(self.pGrad, mflowrate_avg*1e18, ls=lt, marker='o', alpha=opacity, label=input('Label:'))
+        self.ax.plot(pGrad, np.array(mflowrate_hp)*1e18, ls='--', marker='o', alpha=opacity, label=input('Label:'))
+        self.ax.plot(pGrad, np.array(mflowrate_hp_slip)*1e18, ls='--', marker='o', alpha=opacity, label=input('Label:'))
+        self.ax.plot(pGrad, np.array(mflowrate_avg)*1e18, ls='-', marker='o', alpha=opacity, label=input('Label:'))
 
         ax2 = self.ax.twiny()
         ax2.set_xscale('log', nonpositive='clip')
-        ax2.plot(shear_rates, mflowrate_avg, ls= ' ', marker= ' ',
-                    alpha=opacity, label=label, color=color[0])
+        ax2.plot(shear_rate, mflowrate_avg, ls= ' ', marker= ' ', alpha=opacity, color=colors[0])
         ax2.set_xlabel(labels[11])
 
+        if legend is not None:
+            self.ax.legend()
 
-    def pgrad_viscosity(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
+
+    def pgrad_viscosity(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 
         self.ax.set_xlabel(labels[9])
         self.ax.set_ylabel(labels[12])
 
         mpl.rcParams.update({'lines.markersize': 4})
 
-        self.ax.set_xscale('log')
-        self.ax.set_yscale('log')
-
+        pGrad, mu, shear_rate = [], [], []
 
         for i in range(len(self.datasets_x)):
-            self.pGrad[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()[2]
-            self.viscosities[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()
+            pGrad.append(np.absolute(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['pGrad']))
+            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()['mu'])
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate'])
 
-        self.ax.plot(self.pGrad, self.viscosities, ls=lt, marker='o', alpha=opacity)
+        self.ax.plot(pGrad, mu, ls= '-', marker='o', alpha=opacity,
+                    label=input('Label:'))
+
+        ax2 = self.ax.twiny()
+        ax2.set_xscale('log', nonpositive='clip')
+        ax2.plot(shear_rate, mu, ls= ' ', marker= ' ', alpha=opacity,
+                    label=input('Label:'), color=colors[0])
+        ax2.set_xlabel(labels[11])
+
+        if legend is not None:
+            self.ax.legend()
+
+    def rate_viscosity(self, opacity=1, legend=None, lab_lines=None, **kwargs):
+
+        self.ax.set_xlabel(labels[11])
+        self.ax.set_ylabel(labels[12])
+        # self.ax.set_xscale('log', nonpositive='clip')
+        # self.ax.set_yscale('log', nonpositive='clip')
+
+        mpl.rcParams.update({'lines.markersize': 4})
+
+        mu, shear_rate = [], []
+
+        for i in range(len(self.datasets_x)):
+            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()['mu'])
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate'])
+            # mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).couette()['mu'])
+            # shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).couette()['shear_rate'])
+
+        shear_rate = np.array(shear_rate)
+
+        coeffs_fit = np.polyfit(shear_rate**-0.19, mu, 1)
+        polynom = np.poly1d(coeffs_fit)
+        fit_data = polynom(shear_rate**-0.19)
+
+        self.ax.plot(shear_rate**-0.19, mu, ls= ' ', marker='o', alpha=opacity,
+                    label=input('Label:'))
+        self.ax.plot(shear_rate**-0.19, fit_data, ls= '-', marker=' ', alpha=opacity,
+                    label=input('Label:'))
+
+        if legend is not None:
+            self.ax.legend()
+
+
+    def rate_stress(self, opacity=1, legend=None, lab_lines=None, **kwargs):
+
+        self.ax.set_xlabel(labels[11])
+        self.ax.set_ylabel('$\sigma_{xz}$ (MPa)')
+
+        mpl.rcParams.update({'lines.markersize': 4})
+
+        shear_rate, shear_stress = [], []
+
+        for i in range(len(self.datasets_x)):
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate'])
+            shear_stress.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).sigwall()['sigxz_t']))
+
+        self.ax.plot(shear_rate, shear_stress, ls= '-', marker='o', alpha=opacity,
+                    label=input('Label:'))
+
+        if legend is not None:
+            self.ax.legend()
+
+
+    def struc_factor(self, opacity=1, legend=None, lab_lines=None, **kwargs):
+
+        self.ax.set_xlabel('$k_{x}$')
+        self.ax.set_ylabel('$s(k_x)$')
+
+        freq = 2*np.pi / (self.time*1e-6)
+
+        kx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['kx']
+        sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf']
+
+        skx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ISFx']
+        swx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['DSFx']
+
+        self.ax.plot(kx[1:], sf[1:], ls= '-', marker=' ', alpha=opacity,
+                    label=input('Label:'))
+        # self.ax.plot(freq, swx, ls= '-', marker='o', alpha=opacity,
+        #             label=input('Label:'))
+
 
     def pgrad_slip(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
 
@@ -518,6 +656,7 @@ class plot_from_ds:
             slip[i] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()[0]
 
         self.ax.plot(self.pGrad, slip, ls=lt, marker='o', alpha=opacity)
+
 
 
     def weight(self, label=None, err=None, lt='-', mark='o', opacity=1.0):
@@ -547,20 +686,37 @@ class plot_from_ds:
             acf = sq.acf(arr[i, :])['norm']
 
             #TODO: Cutoff
+            self.ax.plot(self.time[:500]*1e-6, acf[:500],
+                        label=input('Label:'), alpha=opacity)
+
+        self.ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
+
+        if legend is not None:
+            self.ax.legend()
+
+
+    def transverse(self, opacity=1, legend=None, lab_lines=None, **kwargs):
+        mpl.rcParams.update({'lines.linewidth':'1'})
+
+        self.ax.set_xlabel(labels[2])
+        self.ax.set_ylabel(r'${\rm C_{AA}}$')
+
+        # arr = np.zeros([len(self.datasets_x), len(self.time)])
+
+        for i in range(len(self.datasets_x)):
+            # Auto-correlation function
+            acf = dd(self.skip, self.datasets_x[i],
+                                self.datasets_z[i]).trans(self.mf)['a']
+            #TODO: Cutoff
             self.ax.plot(self.time[:10000]*1e-6, acf[:10000],
                         label=input('Label:'), alpha=opacity)
 
         self.ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
 
-
         if legend is not None:
             self.ax.legend()
 
-        # Fourier transform of the ACF > Spectrum density
-        # spec_density = np.fft.fft(acf)
 
-        # Inverse DFT
-        # acf = np.fft.ifftn(spec_density,axes=(0,1))
 
 
 #

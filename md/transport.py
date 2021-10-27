@@ -4,7 +4,8 @@
 import sys, os
 import argparse
 import numpy as np
-import get_variables
+# import get_variables_210921 as gv
+import get_variables_211018 as gv
 
 
 def get_parser():
@@ -71,10 +72,29 @@ if __name__ == "__main__":
 
 
     for i in range(len(datasets)):
-        get = get_variables.derive_data(args.skip, datasets_x[i], datasets_z[i])
-        if 'viscosity' in args.qtty[0]:
-            get.viscosity()
+        get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i])
+
         if 'mflux' in args.qtty[0]:
             get.mflux(mf)
         if  'gk' in args.qtty[0]:
             get.green_kubo()
+        if  'slip_length' in args.qtty[0]:
+            get.slip_length(couette=1)
+        if 'transverse' in args.qtty[0]:
+            get.trans()
+        if  'pgrad' in args.qtty[0]:
+            get.virial()
+        if 'sigxz' in args.qtty[0]:
+            get.sigwall()
+        if 'skx' in args.qtty[0]:
+            get.struc_factor()
+        if 'shear_rate' in args.qtty[0]:
+            get.shear_rate()
+        if 'viscosity' in args.qtty[0]:
+            get.viscosity()
+        if 'riz' in args.qtty[0]:
+            get.shear_rate_from_deriv()
+        if 'viz' in args.qtty[0]:
+            get.viscosity_from_shear()
+        if 'correlate' in args.qtty[0]:
+            get.uncertainty_pDiff(pump_size=0.1)

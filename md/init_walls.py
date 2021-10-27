@@ -24,7 +24,6 @@ atm_to_pa= 101325
 
 # GEOMETRY
 #---------
-t = 7.0                    # Thickness of gold layer
 offset = 5.0              # Initial offset bet. solid and liquid to avoid atoms/molecules overlapping
 Boffset = 1.0			   # Initial offset bet. the block and the simulation box
 ls = 4.08                  # Lattice spacing for fcc gold
@@ -37,26 +36,30 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     #derived dimensions
     unitlengthX = ls * np.sqrt(6) / 2.
     xlength = nUnitsX * unitlengthX				# Block length
+
     unitlengthY = ls * np.sqrt(2) / 2.
     ylength = nUnitsY * unitlengthY        	    # Block width
+
     unitlengthZ = round(ls * np.sqrt(3))
-    zlength = h + 2*offset + Boffset + 2*t 	# Block height (starts from -Boffset)
-    # print('lx=%g,ly=%g,lz=%g' %(xlength,ylength,zlength))
-    gapHeight = h + 2*offset
-    # print(gapHeight)
+    zlength = h + 2*offset + Boffset + 2*nUnitsZ*unitlengthZ 	# Block height (starts from -Boffset)
     totalboxHeight = zlength + Boffset
+
+    print(f'lx={xlength},ly={ylength},lz={totalboxHeight}')
+
+    gapHeight = h + 2*offset
     Nfluid= round(sci.N_A * density * xlength * ylength * gapHeight * 1.e-24 / mFluid)  # No. of fluid atoms
+
     print('At rho=%g g/cm^3, Nf=%g molecules shall be created' %(density,Nfluid))
 
     # Regions
     #---------
     # Fluid region
-    fluidStartZ = t + offset          # Lower bound in the Z-direction
+    fluidStartZ = nUnitsZ*unitlengthZ + offset          # Lower bound in the Z-direction
     fluidEndZ = h + fluidStartZ       # Upper bound for initialization
 
     # Upper wall region
     surfUStartZ = fluidEndZ + offset
-    surfUEndZ = surfUStartZ + t
+    surfUEndZ = surfUStartZ + nUnitsZ*unitlengthZ
 
     # No. of fluid atoms in each direction
     # TODO: Fix the Nfluid to be exactly whats obtained from the previous eq.
@@ -209,7 +212,7 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
 
     xlength= nUnitsX * ls * np.sqrt(6) /2.				    # Block length
     ylength= nUnitsY * ls * np.sqrt(2) /2.         	    # Block width
-    zlength= h + 2*offset + Boffset + 2*t 	                # Block height (starts from -Boffset)
+    zlength= h + 2*offset + Boffset + 2*unitlengthZ*nUnitsZ 	                # Block height (starts from -Boffset)
 
     gapHeight = h + 2*offset
     totalboxHeight = zlength + Boffset
@@ -221,11 +224,11 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
     # Regions
     #---------
     # Fluid region
-    fluidStartZ = t + offset          # Lower bound in the Z-direction
+    fluidStartZ = nUnitsZ*unitlengthZ + offset          # Lower bound in the Z-direction
     fluidEndZ = h + fluidStartZ       # Upper bound for initialization
     # Upper wall region
     surfUStartZ = fluidEndZ + offset
-    surfUEndZ = surfUStartZ + t
+    surfUEndZ = surfUStartZ + nUnitsZ*unitlengthZ
 
     # Modify the 'init.LAMMPS' ----------
     for line in open('init.LAMMPS','r').readlines():
@@ -240,7 +243,7 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
         line = re.sub(r'region          fluid block.+',
                       r'region          fluid block INF INF INF INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
         line = re.sub(r'region          surfL block.+',
-                      r'region          surfL block INF INF INF INF -1e-5 %.2f units box' %(t), line)
+                      r'region          surfL block INF INF INF INF -1e-5 %.2f units box' %(unitlengthZ), line)
         line = re.sub(r'region          surfU block.+',
                       r'region          surfU block INF INF INF INF %.2f %.2f units box' %(surfUStartZ, surfUEndZ), line)
         fout = open("init2.LAMMPS", "a")

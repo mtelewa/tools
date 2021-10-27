@@ -4,7 +4,7 @@
 import numpy as np
 import sys
 import os
-from sample_quality import block_ND_arr as bd
+from sample_quality import block_ND as bd
 from sample_quality import get_err
 from scipy.stats import iqr
 from scipy.stats import norm

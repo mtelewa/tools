@@ -12,7 +12,9 @@ Time slices are then merged with `cdo mergetime` or `cdo merge` commands.
 """
 import sys
 import argparse
-import grid
+# import grid_210921 as grid
+import grid_211018 as grid
+
 
 def get_parser():
     parser = argparse.ArgumentParser(

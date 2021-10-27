@@ -17,9 +17,9 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
     y = ydata[ip-1] + (ydata[ip]-ydata[ip-1])*(x-xdata[ip-1])/(xdata[ip]-xdata[ip-1]) + yoffset
     if not label:
         label = line.get_label()
-    if rotation is not None:
-    #     trans_angle = rotation
-    # else:
+    if rotation == '0':
+        trans_angle = rotation
+    if rotation == 'slope':
         #Compute the slope
         dx = xdata[ip] - xdata[ip-1]
         dy = ydata[ip] - ydata[ip-1]

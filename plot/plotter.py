@@ -4,7 +4,8 @@
 import sys, os
 import argparse
 import numpy as np
-import plot_main
+# import plot_main_210921 as pm
+import plot_main_211018 as pm
 
 
 def get_parser():
@@ -74,18 +75,36 @@ if __name__ == "__main__":
                         datasets_z.append(os.path.join(ds_dir, i))
 
     if len(datasets) > 0.:
-        plot = plot_main.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
-
+        plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
+        # Quantity profiles
         if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=0.7)
+            plot.qtty_len(args.qtty, lt='-', legend='y', err='y', opacity=0.7)
         if '_height' in args.qtty[0]:
             plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
         if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
+        # Velocity Distibution
         if 'distrib' in args.qtty[0]:
             plot.v_distrib(legend='y', opacity=0.5)
+        # Transport Coefficients
+        if 'pgrad_mflowrate' in args.qtty[0]:
+            plot.pgrad_mflowrate(legend='y')
+        if 'pgrad_viscosity' in args.qtty[0]:
+            plot.pgrad_viscosity(legend='y')
+        if 'rate_stress' in args.qtty[0]:
+            plot.rate_stress(legend='y', couette=1)
+        if 'rate_viscosity' in args.qtty[0]:
+            plot.rate_viscosity(legend='y')
+        if 'rate_slip' in args.qtty[0]:
+            plot.rate_slip(legend='y')
+        # ACFs
         if 'acf' in args.qtty[0]:
             plot.acf(legend='y')
+        if 'transverse' in args.qtty[0]:
+            plot.transverse(legend='y')
+        if 'sk' in args.qtty[0]:
+            plot.struc_factor(legend='y')
+
 
         plot.ax.set_rasterized(True)
 

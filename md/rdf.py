@@ -64,7 +64,7 @@ def rdf(traj, Nevery=20, Nbins=100, maxDist=10):
             max_zpos = np.max(imageList[idx].get_positions()[:,2])
             # delete atoms below the boundary atoms
             del image[[atom.index for atom in image if
-                            atom.position[2] < (max_zpos - 1.5*sigma) ]]
+                            atom.position[2] < (max_zpos - 0.5*sigma) ]]
 
         # Check the boundary atoms count
         count = len(imageList[-1].get_masses())
