@@ -473,8 +473,8 @@ class traj_to_grid:
                     # Count particles in the fluid cell
                     N_fluid_mask[:, i, k] = np.sum(mask_fluid, axis=1)
                     # Avoid having zero particles in the cell
-                    Nzero_fluid = np.less_equal(N_fluid_mask[:, i, k], 1)
-                    N_fluid_mask[Nzero_fluid, i, k] = 2
+                    Nzero_fluid = np.less(N_fluid_mask[:, i, k], 1)
+                    N_fluid_mask[Nzero_fluid, i, k] = 1
 
             # Stable --------------------------------------
                     maskx_stable = utils.region(fluid_xcoords, fluid_xcoords,
@@ -532,9 +532,9 @@ class traj_to_grid:
                     uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
 
                     # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
-                    peculiar_vx = (np.transpose(fluid_vx_t) - uCOMx)
-                    peculiar_vy = (np.transpose(fluid_vy_t) - uCOMy)
-                    peculiar_vz = (np.transpose(fluid_vz_t) - uCOMz)
+                    peculiar_vx = np.transpose(fluid_vx_t) - uCOMx
+                    peculiar_vy = np.transpose(fluid_vy_t) - uCOMy
+                    peculiar_vz = np.transpose(fluid_vz_t) - uCOMz
 
                     peculiar_v = np.sqrt(peculiar_vx**2+peculiar_vy**2+peculiar_vz**2) / self.A_per_molecule
                     peculiar_v = np.transpose(peculiar_v) * mask_fluid
@@ -542,7 +542,7 @@ class traj_to_grid:
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        ( (3 * N_fluid_mask[:, i, k]/self.A_per_molecule - 3) * sci.k )  # Kelvin
+                                        ( 3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule )  # Kelvin
 
                     # Virial pressure--------------------------------------
                     Wxx_ch = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1)

@@ -78,7 +78,7 @@ if __name__ == "__main__":
             get.mflux(mf)
         if  'gk' in args.qtty[0]:
             get.green_kubo()
-        if  'slip_length' in args.qtty[0]:
+        if 'slip_length' in args.qtty[0]:
             get.slip_length(couette=1)
         if 'transverse' in args.qtty[0]:
             get.trans()
@@ -88,13 +88,7 @@ if __name__ == "__main__":
             get.sigwall()
         if 'skx' in args.qtty[0]:
             get.struc_factor()
-        if 'shear_rate' in args.qtty[0]:
-            get.shear_rate()
-        if 'viscosity' in args.qtty[0]:
-            get.viscosity()
-        if 'riz' in args.qtty[0]:
-            get.shear_rate_from_deriv()
-        if 'viz' in args.qtty[0]:
-            get.viscosity_from_shear()
+        if 'transport' in args.qtty[0]:
+            get.transport(couette=1)
         if 'correlate' in args.qtty[0]:
             get.uncertainty_pDiff(pump_size=0.1)

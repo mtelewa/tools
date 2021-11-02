@@ -57,15 +57,15 @@ if __name__ == '__main__':
     if args.code == 'moltemp':
         init_bulk.init_moltemp(args.density, args.Np, args.name, mFluid,
                                                         tolX, tolY, tolZ)
-        q = input('run moltemp: ')
-        if q == 'y':
-            subprocess.call(['./setup.sh'], shell=True)
+        #q = input('run moltemp: ')
+        #if q == 'y':
+        subprocess.call(['./setup.sh'], shell=True)
 
     elif args.code == 'lammps':
         init_bulk.init_lammps(args.density, args.Np, args.name, mFluid)
-        q = input('run lammps: ')
-        if q == 'y':
-            subprocess.call(['mpirun -np 8 lmp_mpi -in $(pwd)/init.LAMMPS'], shell=True)
+        #q = input('run lammps: ')
+        #if q == 'y':
+        subprocess.call(['mpirun -np 8 lmp_mpi -in $(pwd)/init.LAMMPS'], shell=True)
 
     else:
         raise NameError('Provide the code')
