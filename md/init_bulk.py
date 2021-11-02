@@ -84,7 +84,7 @@ def init_moltemp(density, Np, name, mass, tolX, tolY, tolZ):
                        [{Ny}].move(0,{tolY},0) \n\
                        [{Nz}].move(0,0,{tolZ}) \n\
     \n\
-    mol[*][*][*].move({tolX},{Boffset},{Boffset})\n\
+    mol[*][*][*].move({tolX/2},{tolY},{tolZ*2})\n\
     \n\
     write_once('Data Boundary'){{ \n\
      0    {xlength}   xlo xhi \n\

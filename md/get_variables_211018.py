@@ -474,8 +474,8 @@ class derive_data:
             shear_rate_hi = sigxz_avg / mu_hi
 
             print(f'Viscosity is {mu:.4f} mPa.s at Shear rate {shear_rate:e} s^-1')
-            print(f'Lower vx profile: Viscosity is {mu_lo:.4f} mPa.s at Shear rate {shear_rate_lo:e} s^-1')
-            print(f'Upper vx profile: Viscosity is {mu_hi:.4f} mPa.s at Shear rate {shear_rate_hi:e} s^-1')
+            # print(f'Lower vx profile: Viscosity is {mu_lo:.4f} mPa.s at Shear rate {shear_rate_lo:e} s^-1')
+            # print(f'Upper vx profile: Viscosity is {mu_hi:.4f} mPa.s at Shear rate {shear_rate_hi:e} s^-1')
 
         if equilib is not None:
             # Equilibrium MD (based on ACF of the shear stress - Green-Kubo relation)
@@ -501,10 +501,12 @@ class derive_data:
 
             print(f'viscosity is {viscosity} mPa.s')
 
-        return {'shear_rate': shear_rate, 'mu': mu,
-                'shear_rate_lo': shear_rate_lo, 'mu_lo': mu_lo,
-                'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi,}
-
+        if pd is not None:
+            return {'shear_rate': shear_rate, 'mu': mu,
+                    'shear_rate_lo': shear_rate_lo, 'mu_lo': mu_lo,
+                    'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi}
+        else:
+            return {'shear_rate': shear_rate, 'mu': mu}
 
     def temp(self):
         """

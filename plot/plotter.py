@@ -78,7 +78,7 @@ if __name__ == "__main__":
         plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
         # Quantity profiles
         if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, lt='-', legend='y', err='y', opacity=0.7)
+            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=0.7)
         if '_height' in args.qtty[0]:
             plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
         if '_time' in args.qtty[0]:
