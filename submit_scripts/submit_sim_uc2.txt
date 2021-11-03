@@ -5,7 +5,7 @@
 #SBATCH --partition=single
 #SBATCH --output=cluster.out
 #SBATCH --error=cluster.err
-#SBATCH --export=ALL,EXECUTABLE=./home/kit/iam-cms/lr1762/bin/lmp_mpi
+#SBATCH --export=ALL,EXECUTABLE=./home/kit/iam-cms/lr1762/programs/lammps-5Jun19/src/lmp_mpi
 #SBATCH --job-name=Pump
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=mohamed.hassan@kit.edu
