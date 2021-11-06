@@ -209,6 +209,7 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
     Initializes a simulation box with specified dimensions and fluid mass density
     The script modifies the Lammps input file "init.LAMMPS".
     """
+    unitlengthZ = round(ls * np.sqrt(3))
 
     xlength= nUnitsX * ls * np.sqrt(6) /2.				    # Block length
     ylength= nUnitsY * ls * np.sqrt(2) /2.         	    # Block width
