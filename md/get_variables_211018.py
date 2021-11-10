@@ -200,8 +200,8 @@ class derive_data:
         coeffs_extrapolate = np.polyfit(xdata, extrapolate(xdata), 1)
         # Where the velocity profile vanishes
         root = np.roots(coeffs_extrapolate)
-        # If the root is positive, there is much noise in the velocity profile
-        if root > 0: root = 0
+        # If the root is positive or very small, there is much noise in the velocity profile
+        if root > 0 or np.abs(root) < 0.1 : root = 0
 
         # Slip velocity according to Navier boundary
         if couette is not None:
