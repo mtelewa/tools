@@ -34,7 +34,7 @@ color_cycler = (
     cycler(color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
             u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf'] ) )
 colors = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
-            u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
+            u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf', 'seagreen','darkslategrey']
 
 linestyles= {"line":"-", "dashed":"--", "dashdot":"-."}
 
@@ -653,15 +653,15 @@ class plot_from_ds:
                 shear_rate_pd.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate'])
                 viscosity_pd.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu'])
 
-                shear_rate_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_lo'])
-                viscosity_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_lo'])
+                # shear_rate_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_lo'])
+                # viscosity_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_lo'])
+                #
+                # shear_rate_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_hi'])
+                # viscosity_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_hi'])
 
-                shear_rate_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_hi'])
-                viscosity_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_hi'])
-
-            self.ax.plot(shear_rate_pd, viscosity_pd, ls= '-', marker='o', alpha=opacity, label=input('Label:'))
-            self.ax.plot(shear_rate_pd_lo, viscosity_pd_lo, ls= '--', marker='o', alpha=opacity, label='Lower limit')
-            self.ax.plot(shear_rate_pd_hi, viscosity_pd_hi, ls= '--', marker='o', alpha=opacity, label='Upper limit')
+            self.ax.plot(shear_rate_pd, viscosity_pd, ls= '--', marker='o', alpha=opacity, label=input('Label:'))
+            # self.ax.plot(shear_rate_pd_lo, viscosity_pd_lo, ls= '--', marker='o', alpha=opacity, label='Lower limit')
+            # self.ax.plot(shear_rate_pd_hi, viscosity_pd_hi, ls= '--', marker='o', alpha=opacity, label='Upper limit')
 
         if legend is not None:
             self.ax.legend()
