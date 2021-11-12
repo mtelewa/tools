@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --nodes=4
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=20
-#SBATCH --time=72:00:00
-#SBATCH --partition=multiple
+#SBATCH --time=30:00
+#SBATCH --partition=dev_single
 #SBATCH --output=cluster.out
 #SBATCH --error=cluster.err
 #SBATCH --job-name=Proc
@@ -61,7 +61,7 @@ done
 shift $((OPTIND - 1))
 
 
-cd ${MOAB_SUBMITDIR}
+cd $(pwd)
 
 mpirun --bind-to core --map-by core -report-bindings proc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
 mpirun --bind-to core --map-by core -report-bindings proc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
