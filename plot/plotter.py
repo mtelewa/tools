@@ -53,6 +53,8 @@ if __name__ == "__main__":
         elif key.startswith('txt'):
             txtfiles.append(value)
 
+    # # TODO: Resolve path issue
+
     datasets_x, datasets_z = [], []
     for k in datasets:
         ds_dir = os.path.join(k, "data/out")
@@ -67,6 +69,17 @@ if __name__ == "__main__":
     if not datasets_x:
         for k in datasets:
             ds_dir = os.path.join(k, "data")
+            for root, dirs, files in os.walk(ds_dir):
+                for i in files:
+                    if i.endswith(f'{args.nChunks}x1.nc'):
+                        datasets_x.append(os.path.join(ds_dir, i))
+                    if i.endswith(f'1x{args.nChunks}.nc'):
+                        datasets_z.append(os.path.join(ds_dir, i))
+
+    # If the processed files are in the out dir
+    if not datasets_x:
+        for k in datasets:
+            ds_dir = os.path.join(k, "out")
             for root, dirs, files in os.walk(ds_dir):
                 for i in files:
                     if i.endswith(f'{args.nChunks}x1.nc'):
@@ -97,6 +110,9 @@ if __name__ == "__main__":
             plot.rate_viscosity(legend='y')
         if 'rate_slip' in args.qtty[0]:
             plot.rate_slip(legend='y')
+        if 'pt_ratio' in args.qtty[0]:
+            plot.pt_ratio(legend='y')
+
         # ACFs
         if 'acf' in args.qtty[0]:
             plot.acf(legend='y')

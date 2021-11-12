@@ -354,8 +354,8 @@ class plot_from_ds:
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
-                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0]
-                y = arrays[j, i][arrays[j,i] != 0]
+                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0][1:-1]
+                y = arrays[j, i][arrays[j,i] != 0][1:-1]
 
                 if err is not None:
 
@@ -389,7 +389,7 @@ class plot_from_ds:
                     self.ax.plot(x, y, color=colors[i], label=input('Label:'), alpha=opacity)
 
             if fit is not None:
-                order = 1#np.float(input('fit order:'))
+                order = np.float(input('fit order:'))
                 a = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[0,i] != 0]
                 b = arrays[0, i][arrays[0,i] != 0]
 
@@ -626,12 +626,16 @@ class plot_from_ds:
         self.ax.set_ylabel(labels[12])
         self.ax.set_xscale('log', nonpositive='clip')
 
-        mpl.rcParams.update({'lines.markersize': 4})
+        mpl.rcParams.update({'lines.linewidth': 1})
+        # mpl.rcParams.update({'lines.markersize': 4})
 
         shear_rate_couette, viscosity_couette = [], []
+        shear_rate_couette_lo, viscosity_couette_lo = [], []
+        shear_rate_couette_hi, viscosity_couette_hi = [], []
         shear_rate_pd, viscosity_pd = [], []
         shear_rate_pd_lo, viscosity_pd_lo = [], []
         shear_rate_pd_hi, viscosity_pd_hi = [], []
+
         couette_ds_x, couette_ds_z, pump_ds_x, pump_ds_z = [], [], [], []
 
         for i, j in zip(self.datasets_x, self.datasets_z):
@@ -645,23 +649,48 @@ class plot_from_ds:
         if couette_ds_x:
             for i in range(len(couette_ds_x)):
                 shear_rate_couette.append(dd(self.skip, couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['shear_rate'])
+                shear_rate_couette_lo.append(dd(self.skip, couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['shear_rate_lo'])
+                shear_rate_couette_hi.append(dd(self.skip, couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['shear_rate_hi'])
+
                 viscosity_couette.append(dd(self.skip, couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['mu'])
-            self.ax.plot(shear_rate_couette, viscosity_couette, ls= '-', marker='o', alpha=opacity, label=input('Label:'))
+                viscosity_couette_lo.append(dd(self.skip, couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['mu_lo'])
+                viscosity_couette_hi.append(dd(self.skip,couette_ds_x[i], couette_ds_z[i]).transport(couette=1)['mu_hi'])
+
+            shear_rate_couette_err = np.array(shear_rate_couette_hi) - np.array(shear_rate_couette_lo)
+            viscosity_couette_err = np.array(viscosity_couette_hi)- np.array(viscosity_couette_lo)
+
+            # self.ax.plot(shear_rate_couette, viscosity_couette, ls= '-', marker='o', alpha=opacity, label=input('Label:'))
+
+            markers_err, caps, bars= self.ax.errorbar(shear_rate_couette, viscosity_couette,
+                xerr=shear_rate_couette_err,
+                yerr=viscosity_couette_err,
+                label=input('label:'),
+                capsize=1.5, markersize=4, alpha=opacity)
+            [bar.set_alpha(0.4) for bar in bars]
+            [cap.set_alpha(0.4) for cap in caps]
 
         if pump_ds_x:
             for i in range(len(pump_ds_x)):
                 shear_rate_pd.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate'])
+                shear_rate_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_lo'])
+                shear_rate_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_hi'])
+
                 viscosity_pd.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu'])
+                viscosity_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_lo'])
+                viscosity_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_hi'])
 
-                # shear_rate_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_lo'])
-                # viscosity_pd_lo.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_lo'])
-                #
-                # shear_rate_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate_hi'])
-                # viscosity_pd_hi.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['mu_hi'])
+            shear_rate_pd_err = np.array(shear_rate_pd_hi) - np.array(shear_rate_pd_lo)
+            viscosity_pd_err = np.array(viscosity_pd_hi)- np.array(viscosity_pd_lo)
 
-            self.ax.plot(shear_rate_pd, viscosity_pd, ls= '--', marker='o', alpha=opacity, label=input('Label:'))
-            # self.ax.plot(shear_rate_pd_lo, viscosity_pd_lo, ls= '--', marker='o', alpha=opacity, label='Lower limit')
-            # self.ax.plot(shear_rate_pd_hi, viscosity_pd_hi, ls= '--', marker='o', alpha=opacity, label='Upper limit')
+            # self.ax.plot(shear_rate_pd, viscosity_pd, ls= '--', marker='o', alpha=opacity, label=input('Label:'))
+
+            markers_err, caps, bars= self.ax.errorbar(shear_rate_pd, viscosity_pd,
+                xerr=shear_rate_pd_err,
+                yerr=viscosity_pd_err,
+                label=input('label:'),
+                capsize=1.5, markersize=4, alpha=opacity)
+            [bar.set_alpha(0.4) for bar in bars]
+            [cap.set_alpha(0.4) for cap in caps]
 
         if legend is not None:
             self.ax.legend()
@@ -735,6 +764,40 @@ class plot_from_ds:
 
         if legend is not None:
             self.ax.legend()
+
+
+    def pt_ratio(self, opacity=1, legend=None, lab_lines=None, couette=None, pd=None, **kwargs):
+
+        self.ax.set_xlabel('P2/P1')
+        self.ax.set_ylabel('T2/T1')
+        # self.ax.set_xscale('log', nonpositive='clip')
+        # self.ax.set_yscale('log', nonpositive='clip')
+
+        mpl.rcParams.update({'lines.markersize': 4})
+
+        press_ratio, temp_ratio = [], []
+
+        for i in range(len(self.datasets_x)):
+            press_ratio.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['p_ratio'])
+            temp_ratio.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).temp()['temp_ratio'])
+
+        self.ax.plot(press_ratio, temp_ratio, ls= '-', marker='o', alpha=opacity, label=input('Label:'))
+
+
+        popt, pcov = curve_fit(funcs.power, press_ratio, temp_ratio)
+        print(popt)
+        self.ax.plot(press_ratio, funcs.power(press_ratio, *popt),  ls= '--')
+
+
+
+        if legend is not None:
+            self.ax.legend()
+
+
+
+
+
+
 
     def struc_factor(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 

@@ -354,6 +354,7 @@ class derive_data:
         vir_out, vir_in = vir_x[:, out_chunk], vir_x[:, in_chunk]
         # Pressure Difference  between inlet and outlet
         pDiff = np.mean(vir_out) - np.mean(vir_in)
+        p_ratio = np.mean(vir_out) / np.mean(vir_in)
         # print(f'Pressure difference is {pDiff} MPa')
 
         # Pressure gradient in the simulation domain
@@ -365,11 +366,13 @@ class derive_data:
                     'Wyy_chunkX': Wyy_chunkX , 'Wyy_chunkZ': Wyy_chunkZ,
                     'Wzz_chunkX': Wzz_chunkX , 'Wzz_chunkZ': Wzz_chunkZ,
                     'vir_chunkX': vir_chunkX, 'vir_chunkZ': vir_chunkZ,
-                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff }
+                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff ,
+                    'p_ratio':p_ratio}
         except NameError:
             return {'vir_chunkX': vir_chunkX, 'virX_nd': vir_x,
                     'vir_chunkZ': vir_chunkZ,
-                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff }
+                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
+                    'p_ratio':p_ratio }
 
 
     def sigwall(self, pump_size=0.2, pd=None, couette=None):
@@ -454,6 +457,15 @@ class derive_data:
             sigxz_avg = np.mean(dd.sigwall(couette=1)['sigxz_t']) * 1e9      # mPa
             shear_rate = coeffs_fit[0] * 1e9
             mu = sigxz_avg / shear_rate
+
+            coeffs_fit_lo = np.polyfit(vels['height_array_mod'], dd.uncertainty()['lo'], 1)
+            shear_rate_lo = coeffs_fit_lo[0] * 1e9
+            mu_lo = sigxz_avg / shear_rate_lo
+
+            coeffs_fit_hi = np.polyfit(vels['height_array_mod'], dd.uncertainty()['hi'], 1)
+            shear_rate_hi = coeffs_fit_hi[0] * 1e9
+            mu_hi = sigxz_avg / shear_rate_hi
+
             print(f'Viscosity is {mu:.4f} mPa.s at Shear rate {shear_rate:e} s^-1')
 
         if pd is not None:
@@ -501,12 +513,9 @@ class derive_data:
 
             print(f'viscosity is {viscosity} mPa.s')
 
-        if pd is not None:
-            return {'shear_rate': shear_rate, 'mu': mu,
-                    'shear_rate_lo': shear_rate_lo, 'mu_lo': mu_lo,
-                    'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi}
-        else:
-            return {'shear_rate': shear_rate, 'mu': mu}
+        return {'shear_rate': shear_rate, 'mu': mu,
+                'shear_rate_lo': shear_rate_lo, 'mu_lo': mu_lo,
+                'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi}
 
     def temp(self):
         """
@@ -524,19 +533,23 @@ class derive_data:
         tempX = np.mean(temp_x,axis=(0,2))
         tempZ = np.mean(temp_z,axis=(0,1))
 
-        return {'tempX':tempX, 'tempZ':tempZ, 'temp_t':temp_t}
+        temp_out = np.max(tempX)
+        temp_in = np.min(tempX)
+        temp_ratio = temp_out/temp_in
+
+        return {'tempX':tempX, 'tempZ':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio}
 
 
     def uncertainty(self):
 
         # chunk_vol = self.dx * 10 * self.Ly * 10 * np.mean(self.avg_bulk_height) * 10     # A^3
         # vir_x = np.array(self.data_x.variables["Virial"])[self.skip:,1:-1] *  sci.atm * pa_to_Mpa# / (3 * chunk_vol)
-        # Block sampling of the virial and calculating the uncertainty
         dd = derive_data(self.skip, self.infile_x, self.infile_z)
 
         # arr = dd.virial()['virX_nd']
         arr = dd.velocity()['vx_nd']
 
+        # Block sampling and calculating the uncertainty
         n = 100 # samples/block
         # blocks = sq.block_ND(len(self.time), arr, self.Nx-2, n)
         blocks = sq.block_ND(len(self.time), arr, self.Nz, n)
@@ -550,7 +563,6 @@ class derive_data:
         # chunk_A =  self.dx * self.Ly * 1e-18
         # fz_Upper = np.array(self.data_x.variables["Fz_Upper"])[self.skip:,1:-1] * kcalpermolA_to_N
         # fz_Lower = np.array(self.data_x.variables["Fz_Lower"])[self.skip:,1:-1] * kcalpermolA_to_N
-
 
         # # Block sampling of the wall stress and calculating the uncertainty
         # fz_Upper_blocks = sq.block_ND(len(self.time), fz_Upper, self.Nx-2, 100)
@@ -567,57 +579,6 @@ class derive_data:
         # sigzz_err = fz_err * pa_to_Mpa / chunk_A
 
         return {'err':err, 'lo':lo, 'hi':hi}#, 'sigzz_length_err':sigzz_err}
-
-
-    def uncertainty_pDiff(self, pump_size=0.2):
-
-        # Virial -----------------
-        # Uncertainty of the measured pDiff
-        dd = derive_data(self.skip, self.infile_x, self.infile_z)
-        vir_out = dd.virial()['vir_out']
-        vir_in = dd.virial()['vir_in']
-
-        # sigzz_out = dd.sigwall()['sigzz_wall_out']
-        # sigzz_in = dd.sigwall()['sigzz_wall_in']
-
-        # blocks_out, blocks_in = sq.block_1D(vir_out, 100), sq.block_1D(vir_in, 100)
-        blocks_out, blocks_in = sq.block_1D(sigzz_out, 100), sq.block_1D(sigzz_in, 100)
-
-        # Pearson correlation coefficient (Gaussian distributed variables)
-        # Check: https://machinelearningmastery.com/how-to-use-correlation-to-understand-the-relationship-between-variables/
-        corr, _ = spearmanr(blocks_out, blocks_in)
-
-
-        vir_out_err, vir_in_err = sq.get_err(blocks_out)['uncertainty'], \
-                                  sq.get_err(blocks_in)['uncertainty']
-
-        # Propagation of uncertainty
-        pDiff_err = np.sqrt(vir_in_err**2 + vir_out_err**2 - 2*np.cov(blocks_out, blocks_in)[0,1])
-
-        # # Wall stress ----------------
-        # blocksU_out, blocksU_in = sq.block_1D(upper_out, 100), sq.block_1D(upper_in, 100)
-        # blocksL_out, blocksL_in = sq.block_1D(lower_out, 100), sq.block_1D(lower_in, 100)
-        #
-        # sigzzU_out_err, sigzzU_in_err = sq.get_err(blocksU_out)['uncertainty'] ,  \
-        #                                 sq.get_err(blocksU_in)['uncertainty']
-        # sigzzL_out_err, sigzzL_in_err = sq.get_err(blocksL_out)['uncertainty'] ,  \
-        #                                 sq.get_err(blocksL_in)['uncertainty']
-        #
-        # sig_A, sig_B, sig_C, sig_D = sigzzU_out_err, sigzzU_in_err, sigzzL_out_err, sigzzL_in_err
-        # covAB = np.cov(blocksU_out, blocksU_in)[0,1]
-        # covAC = np.cov(blocksU_out, blocksL_out)[0,1]
-        # covAD = np.cov(blocksU_out, blocksL_in)[0,1]
-        # covBC = np.cov(blocksU_in, blocksL_out)[0,1]
-        # covBD = np.cov(blocksU_in, blocksL_in)[0,1]
-        # covCD = np.cov(blocksL_out, blocksL_in)[0,1]
-        #
-        # pDiff_err = np.sqrt(sig_A**2 + sig_B**2 + sig_C**2 + sig_D**2 - 2*covAB -
-        #                     2*covAC - 2*covAD - 2*covBC - 2*covBD - 2*covCD)
-
-        print(f"The measured pressure difference uncerainty is {pDiff_err:.2f} MPa \
-        \nWith input-output correlation of {corr:.2f}")
-
-        return {'pDiff_err':pDiff_err, 'correlation':corr}
 
 
     def dsf(self):

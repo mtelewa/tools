@@ -39,6 +39,9 @@ def quartic(x):
     return y
 
 
+def power(x,a):
+    return x**a
+
 
 def quadratic_cosine_series(x,a,b,c,d,e,f,g):
 
@@ -47,7 +50,7 @@ def quadratic_cosine_series(x,a,b,c,d,e,f,g):
           (f *np.cos(3*np.pi*x/h)) + (g *np.cos(4*np.pi*x/h))
 
     return y
-    
+
 
 def fourier_series_coeff(f, T, N, return_complex=False):
     """Calculates the first 2*N+1 Fourier series coeff. of a periodic function.
