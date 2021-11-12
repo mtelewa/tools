@@ -320,12 +320,20 @@ class traj_to_grid:
             ky = 2. * np.pi * n / Ly
             kz = 2. * np.pi * n / avg_gap_height_div
 
-            # fluid_k_vectors = [kx, ky, kz]
-
         else:
             comZ = None
             gap_heights = None
             cell_lengths_updated = [Lx, Ly, Lz]
+
+            # Wavevectors
+
+            nmax = 100
+            n = np.linspace(0, nmax, nmax, endpoint=True)
+
+            kx = 2. * np.pi * n / Lx
+            ky = 2. * np.pi * n / Ly
+            kz = 2. * np.pi * n / Lz
+
 
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
