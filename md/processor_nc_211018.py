@@ -629,9 +629,23 @@ class traj_to_grid:
                     jx_ch[:, i, k] = vx_ch[:, i, k] * den_ch[:, i, k]
 
                     # Temperature ----------------------------
-                    temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * np.sum((fluid_v_t**2) * mask_fluid, axis=1) * \
+                    # COM velocity in the bin
+                    uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+
+                    # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
+                    peculiar_vx = np.transpose(fluid_vx_t) - uCOMx
+                    peculiar_vy = np.transpose(fluid_vy_t) - uCOMy
+                    peculiar_vz = np.transpose(fluid_vz_t) - uCOMz
+
+                    peculiar_v = np.sqrt(peculiar_vx**2+peculiar_vy**2+peculiar_vz**2) / self.A_per_molecule
+                    peculiar_v = np.transpose(peculiar_v) * mask_fluid
+
+                    temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
+                                        np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k / self.A_per_molecule)  # Kelvin
+                                        ( 3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule )  # Kelvin
 
                     # Virial pressure--------------------------------------
                     try:
