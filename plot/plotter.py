@@ -53,6 +53,14 @@ if __name__ == "__main__":
         elif key.startswith('txt'):
             txtfiles.append(value)
 
+    a = []
+    for k in txtfiles:
+        txt_dir = os.path.join(k, "data")
+        for root, dirs, files in os.walk(txt_dir):
+            for i in files:
+                if i.endswith(f'thermo.out'):
+                    a.append(os.path.join(txt_dir, i))
+
     # # TODO: Resolve path issue
 
     datasets_x, datasets_z = [], []
@@ -88,28 +96,29 @@ if __name__ == "__main__":
                         datasets_z.append(os.path.join(ds_dir, i))
 
     if len(datasets) > 0.:
-        plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf)
+        plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf, plot_type='2d')
         # Quantity profiles
         if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, lt='-', draw_vlines='y', legend='y', opacity=0.7)
+            plot.qtty_len(args.qtty, lt='-', opacity=0.9)
         if '_height' in args.qtty[0]:
-            plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.9)
+            plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.7)
         if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
         # Velocity Distibution
         if 'distrib' in args.qtty[0]:
             plot.v_distrib(legend='y', opacity=0.5)
         # Transport Coefficients
-        if 'pgrad_mflowrate' in args.qtty[0]:
+        if 'pgrad_mflowrate' in args.qtty[0]:       # ****
             plot.pgrad_mflowrate(legend='y')
         if 'pgrad_viscosity' in args.qtty[0]:
             plot.pgrad_viscosity(legend='y')
         if 'rate_stress' in args.qtty[0]:
             plot.rate_stress(legend='y', couette=1)
-        if 'rate_viscosity' in args.qtty[0]:
+        if 'rate_viscosity' in args.qtty[0]:        # ****
             plot.rate_viscosity(legend='y')
-        if 'rate_slip' in args.qtty[0]:
+        if 'rate_slip' in args.qtty[0]:             # ****
             plot.rate_slip(legend='y')
+
         if 'pt_ratio' in args.qtty[0]:
             plot.pt_ratio(legend='y')
 
@@ -135,5 +144,5 @@ if __name__ == "__main__":
             plot.fig.savefig(args.qtty[0]+'.png' , format='png')
 
     if len(txtfiles) > 0.:
-        ptxt = plot_from_txt()
-        ptxt.plot_from_txt(args.qtty)
+        ptxt = pm.plot_from_txt()
+        ptxt.plot_from_txt(args.skip, a, args.qtty[0])

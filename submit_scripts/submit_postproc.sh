@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --nodes=1
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=20
-#SBATCH --time=30:00
-#SBATCH --partition=dev_single
+#SBATCH --time=1:00:00
+#SBATCH --partition=multiple
 #SBATCH --output=cluster.out
 #SBATCH --error=cluster.err
 #SBATCH --job-name=Proc

@@ -29,8 +29,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
     # Timesteps
     Time = data.variables["time"]
+    time_arr=np.array(Time).astype(np.float32)
+
     tSteps_tot = Time.shape[0]-1
-    out_frequency = 1e3
+    out_frequency = np.int(time_arr[-1] - time_arr[-2])
 
     # If the dataset is more than 1M tsteps, slice it to fit in memory
     if tSteps_tot <= 1000:
@@ -76,7 +78,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         cell_lengths, kx, ky, kz, \
         gap_heights, bulk_height_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
-        vx_ch, den_ch, rho_kx_ch, sf_ch,  \
+        vx_ch, den_ch, sf_ch,  \
         N_fluid_mask, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
@@ -93,11 +95,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'fluid_vy_avg',
                                       'vx_ch',
                                       'den_ch',
-                                      'rho_kx_ch',
+                                      # 'rho_kx_ch',
                                       'sf_ch',
+                                      # 'sf_ch_y',
                                       'N_fluid_mask',
-                                      # 'rho_kx_im_ch',
-                                      # 'rho_ky_ch',
                                       'jx_ch',
                                       'vir_ch',
                                       'Wxy_ch',
@@ -113,7 +114,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
-        sendcounts_chunk_fluid_layer = np.array(comm.gather(rho_kx_ch.size, root=0))
+        sendcounts_chunk_fluid_layer = np.array(comm.gather(sf_ch.size, root=0))
         sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
         sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
@@ -150,9 +151,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
-            nmax = 100
-            rho_kx_ch_global = np.zeros([time, nmax] , dtype=np.complex64)
-            sf_ch_global = np.zeros([time, nmax] , dtype=np.complex64)
+            nmax = 200
+            # rho_kx_ch_global = np.zeros([time, nmax] , dtype=np.complex64)
+            sf_ch_global = np.zeros([time, nmax, nmax] , dtype=np.complex64)
+            # sf_ch_y_global = np.zeros([time, nmax] , dtype=np.complex64)
+
             # rho_kx_im_ch_global = np.zeros([time, nmax] , dtype=np.float32)
             # rho_ky_ch_global = np.zeros_like(rho_kx_ch_global)
             # Mass flux
@@ -191,8 +194,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_ch_global = None
             den_ch_global = None
-            rho_kx_ch_global = None
+            # rho_kx_ch_global = None
             sf_ch_global = None
+            # sf_ch_y_global = None
             # rho_kx_im_ch_global = None
             # rho_ky_ch_global = None
             jx_ch_global = None
@@ -223,12 +227,12 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
 
-            comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
+            # comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
             comm.Gatherv(sendbuf=sf_ch, recvbuf=(sf_ch_global, sendcounts_chunk_fluid_layer), root=0)
-
-
+            # comm.Gatherv(sendbuf=sf_ch_y, recvbuf=(sf_ch_y_global, sendcounts_chunk_fluid_layer), root=0)
             # comm.Gatherv(sendbuf=rho_kx_im_ch, recvbuf=(rho_kx_im_ch_global, sendcounts_chunk_fluid_layer), root=0)
             # comm.Gatherv(sendbuf=rho_ky_ch, recvbuf=(rho_ky_ch_global, sendcounts_chunk_fluid_layer), root=0)
+
             # If the virial was not computed, skip
             try:
                 comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
@@ -300,11 +304,15 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             den_var = out.createVariable('Density', 'f4',  ('time', 'x', 'z'))
 
             kx_var = out.createVariable('kx', 'f4', ('n'))
-            rho_kx = out.createVariable('rho_kx', 'f4', ('time', 'n'))
-            rho_kx_im = out.createVariable('rho_kx_im', 'f4', ('time', 'n'))
+            ky_var = out.createVariable('ky', 'f4', ('n'))
+            # rho_kx = out.createVariable('rho_kx', 'f4', ('time', 'n'))
+            # rho_kx_im = out.createVariable('rho_kx_im', 'f4', ('time', 'n'))
 
-            sf = out.createVariable('sf', 'f4', ('time', 'n'))
-            sf_im = out.createVariable('sf_im', 'f4', ('time', 'n'))
+            sf_var = out.createVariable('sf', 'f4', ('time', 'n', 'n'))
+            sf_im = out.createVariable('sf_im', 'f4', ('time', 'n', 'n'))
+
+            # sf_y = out.createVariable('sf_y', 'f4', ('time', 'n'))
+            # sf_im_y = out.createVariable('sf_y_im', 'f4', ('time', 'n'))
 
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
 
@@ -342,11 +350,14 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             den_var[:] = den_ch_global
 
             kx_var[:] = kx
-            rho_kx[:] = rho_kx_ch_global.real
-            rho_kx_im[:] = rho_kx_ch_global.imag
+            ky_var[:] = ky
+            # rho_kx[:] = rho_kx_ch_global.real
+            # rho_kx_im[:] = rho_kx_ch_global.imag
 
-            sf[:] = sf_ch_global.real
+            sf_var[:] = sf_ch_global.real
             sf_im[:] = sf_ch_global.imag
+            # sf_y[:] = sf_ch_y_global.real
+            # sf_im_y[:] = sf_ch_y_global.imag
 
             jx_var[:] = jx_ch_global
             vir_var[:] = vir_ch_global

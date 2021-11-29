@@ -14,6 +14,7 @@ import itertools
 
 import matplotlib as mpl
 # mpl.use('TkAgg')
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 from matplotlib.colors import LinearSegmentedColormap
@@ -21,7 +22,7 @@ import matplotlib.colors as colors
 import matplotlib.image as image
 import matplotlib.cm as cmx
 
-
+import scipy.constants as sci
 from scipy.stats import iqr
 from scipy import stats
 from scipy.stats import norm
@@ -57,7 +58,7 @@ plt.style.use('imtek')
 
 class plot_from_txt:
 
-    def plot_from_txt(self,  outfile, lt='-', mark='o', opacity=1.0):
+    def plot_from_txt(self, skip, txtfiles, outfile, lt='-', mark='o', opacity=1.0):
 
         fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=300)
 
@@ -65,22 +66,62 @@ class plot_from_txt:
         ax.xaxis.set_ticks_position('both')
         ax.yaxis.set_ticks_position('both')
 
-        ax.set_xlabel(labels[np.int(sys.argv[2])])
-        ax.set_ylabel(labels[np.int(sys.argv[3])])
+        ax.set_xlabel(labels[7])
+        ax.set_ylabel(labels[3])
 
-        for i in range(len(txtfiles)):
+        verlet_den_data, verlet_p_data = [], []
+        gautschi_den_data, gautschi_p_data = [], []
+        verlet_den_data_4, verlet_p_data_4 = [], []
+        gautschi_den_data_4, gautschi_p_data_4 = [], []
 
-            data = np.loadtxt(txtfiles[i], skiprows=2, dtype=float)
+        exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+        exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
 
-            xdata = data[:,0]
-            ydata = data[:,1]
-            # err = data[:,2]
+        for idx, val in enumerate(txtfiles):
 
-            # If the dimension is time, scale by 1e-6
-            if np.int(sys.argv[2]) == 2:
-                xdata = xdata * 1e-6
+            if 'gautschi' in val and '4fs' not in val:
+                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
+                xdata = data[:,10]
+                ydata = data[:,12]
 
-            ax.plot(xdata, ydata, ls=' ', marker='o', alpha=1, label=input('Label:'),)
+                gautschi_den_data.append(np.mean(xdata))
+                gautschi_p_data.append(np.mean(ydata) * sci.atm * 1e-6)
+
+            if 'verlet' in val and '4fs' not in val:
+                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
+                xdata = data[:,10]
+                ydata = data[:,12]
+
+                verlet_den_data.append(np.mean(xdata))
+                verlet_p_data.append(np.mean(ydata) * sci.atm * 1e-6)
+
+            if 'gautschi' in val and '4fs' in val:
+                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
+                xdata = data[:,10]
+                ydata = data[:,12]
+
+                gautschi_den_data_4.append(np.mean(xdata))
+                gautschi_p_data_4.append(np.mean(ydata) * sci.atm * 1e-6)
+
+            if 'verlet' in val and '4fs' in val:
+                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
+                xdata = data[:,10]
+                ydata = data[:,12]
+
+                verlet_den_data_4.append(np.mean(xdata))
+                verlet_p_data_4.append(np.mean(ydata) * sci.atm * 1e-6)
+
+        print(gautschi_p_data)
+
+        ax.plot(verlet_p_data, verlet_den_data, ls='-', marker='o', color=colors[0], alpha=1, label='Verlet',)
+        ax.plot(verlet_p_data_4, verlet_den_data_4, ls='--', marker=' ', color=colors[0], alpha=1, label=None,)
+
+        if gautschi_den_data:
+            ax.plot(gautschi_p_data, gautschi_den_data, ls='-', marker='x', color=colors[1], alpha=1, label='Gautschi',)
+            ax.plot(gautschi_p_data_4, gautschi_den_data_4, ls='--', marker=' ', color=colors[1], alpha=1, label=None,)
+
+        ax.plot(exp_press, exp_density, ls=' ', marker='*', alpha=1, color=colors[2], label='Expt. (Liu et al. 2010)',)
+
 
             # popt, pcov = curve_fit(funcs.linear, xdata, ydata)
             # ax.plot(xdata, funcs.linear(xdata, *popt))
@@ -93,17 +134,20 @@ class plot_from_txt:
 
 class plot_from_ds:
 
-    def __init__(self, skip, datasets_x, datasets_z, mf):
+    def __init__(self, skip, datasets_x, datasets_z, mf, plot_type='2d'):
 
         self.skip=skip
         self.mf=mf
         self.datasets_x=datasets_x
         self.datasets_z=datasets_z
 
-        self.fig, self.ax = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=300)
-
-        self.ax.xaxis.set_ticks_position('both')
-        self.ax.yaxis.set_ticks_position('both')
+        if plot_type=='2d':
+            self.fig, self.ax = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=300)
+            self.ax.xaxis.set_ticks_position('both')
+            self.ax.yaxis.set_ticks_position('both')
+        else:
+            self.fig = plt.figure()
+            self.ax = plt.axes(projection='3d')
 
         self.Nx = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array)
         self.Nz = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).height_array)
@@ -118,11 +162,13 @@ class plot_from_ds:
 
 
     def label_inline(self, plot):
+
         rot = input('Rotation of label: ')
         xpos = np.float(input('Label x-pos:'))
-        y_offset = np.float(input('Y-offset for label: '))
 
         for i in range (len(plot.ax.lines)):
+            print(plot.ax.lines[i])
+            y_offset = np.float(input('Y-offset for label: '))
             if plot.ax.lines[i].get_label().startswith('_'):
                 pass
             else:
@@ -134,9 +180,9 @@ class plot_from_ds:
         total_length = np.max(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).Lx)
         plot.ax.axvline(x= 0, color='k', linestyle='dashed', lw=1)
 
-        for i in range(len(plot.ax.lines)-1):
-            pos=np.float(input('vertical line pos:'))
-            plot.ax.axvline(x= pos*total_length, color='k', linestyle='dashed', lw=1)
+        #for i in range(len(plot.ax.lines)-1):
+        pos=np.float(input('vertical line pos:'))
+        plot.ax.axvline(x= pos*total_length, color='k', linestyle='dashed', lw=1)
 
 
     def draw_inset(self, plot, xpos=0.62, ypos=0.57, w=0.2, h=0.28):
@@ -226,6 +272,10 @@ class plot_from_ds:
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
+                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).length_array[1:-1]
+                y = arrays[j, i, :]
+                # np.savetxt(f'vir_length_{i}.txt', np.c_[x,y], delimiter= "  ", header= "Length(nm)       Sigmazz(MPa)")
+
                 if err is not None:
                     q = input('fill or caps:')
                     if q == 'caps':
@@ -246,14 +296,14 @@ class plot_from_ds:
                         hi_arrays[j, i, :] = dd(self.skip, self.datasets_x[i],
                                     self.datasets_z[i]).uncertainty()['hi']
 
-                        self.ax.fill_between( dd(self.skip, self.datasets_x[i], self.datasets_z[i]).length_array[1:-1],
-                                    lo_arrays[j,i], hi_arrays[j,i], color=colors[i], alpha=0.5)
-                        self.ax.plot(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).length_array[1:-1],
-                                arrays[j,i], color=colors[i], marker=' ', label=input('label:'), alpha=0.7)
+                        self.ax.fill_between(x, lo_arrays[j,i], hi_arrays[j,i], color=colors[i], alpha=0.5)
+                        self.ax.plot(x, y, color=colors[i], marker=' ', label=input('label:'), alpha=0.7)
 
                 else:
-                    self.ax.plot(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).length_array[1:-1],
-                            arrays[j,i], color=colors[i], label=input('label:'), alpha=0.7)
+                    if twin_axis is None:
+                        self.ax.plot(x, y, color=colors[i], label=input('label:'), alpha=0.7)
+                    else:
+                        self.ax.plot(x, y, color=colors[0], label=input('label:'), alpha=0.7)
 
         if legend is not None:
             self.ax.legend()
@@ -302,6 +352,10 @@ class plot_from_ds:
                      ls= '--', marker= ' ',
                      alpha=opacity, label=input('label:'), color=colors[1])
 
+            # ax2.plot(dd(self.skip, self.datasets_x[2], self.datasets_z[2]).length_array[1:-1],
+            #          dd(self.skip, self.datasets_x[2], self.datasets_z[2]).temp()['tempX'],
+            #          ls= '--', marker= ' ',
+            #          alpha=opacity, label=input('label:'), color=colors[1])
 
             ax2.set_ylabel(labels[6])
 
@@ -344,8 +398,8 @@ class plot_from_ds:
                 self.ax.set_ylabel(labels[5])
                 arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).velocity()['vx_data']
 
-            if 'continuum_vx' in arr_to_plot[0]:
-                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).hydrodynamic()['v_hydro']
+            # if 'continuum_vx' in arr_to_plot[0]:
+            #     arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).hydrodynamic()['v_hydro']
 
             if 'den_height' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[3])
@@ -354,8 +408,9 @@ class plot_from_ds:
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
-                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0][1:-1]
-                y = arrays[j, i][arrays[j,i] != 0][1:-1]
+                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0]
+                y = arrays[j, i][arrays[j,i] != 0]
+                # np.savetxt(f'{i}.txt', np.c_[x,y], delimiter= "  ", header= "Height(nm)       Velocity(m/s)")
 
                 if err is not None:
 
@@ -377,6 +432,7 @@ class plot_from_ds:
                                     self.datasets_z[i]).uncertainty()['lo']
                         hi_arrays = dd(self.skip, self.datasets_x[i],
                                     self.datasets_z[i]).uncertainty()['hi']
+                        # print(len(x),len(lo_arrays), len(hi_arrays))
 
                         self.ax.fill_between( x, lo_arrays, hi_arrays, color=colors[i], alpha=0.4)
                         self.ax.plot(x, y, color=colors[i], marker=' ', label=input('label:'), alpha=opacity)
@@ -384,7 +440,7 @@ class plot_from_ds:
                 else:
                     if 'press_height' in arr_to_plot[0]:
                         x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).bulk_height_array
-                        y = arrays[0, i, :]
+                        y = arrays[j, i, :]
 
                     self.ax.plot(x, y, color=colors[i], label=input('Label:'), alpha=opacity)
 
@@ -399,23 +455,23 @@ class plot_from_ds:
                 self.ax.plot(x1, y1, color= colors[i], ls='-', marker=' ', alpha=0.9)
 
             if extrapolate is not None:
+
                 if couette is not None:
                     x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['xdata']
                     y_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['extrapolate']
-                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['root'], x[-1] + \
-                    np.abs(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['root']) ])
+                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['root'],
+                        np.max(x) + np.abs(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['root'])])
 
                 if pd is not None:
                     x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['xdata']
                     y_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['extrapolate']
-                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root'], x[-1] + \
-                    dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root'] ])
+                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root'],
+                        np.max(x)])
                 # x_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()['xdata_right']
                 # y_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()['extrapolate_right']
 
-                self.ax.set_ylim([0,y[-1]])
+                self.ax.set_ylim([0, 1.1*np.max(y)])
                 self.ax.plot(x_left, y_left, marker=' ', ls='--', color='black')
-                # self.ax.plot(x_right, y_right, color='sienna')
 
         if legend is not None:
             self.ax.legend()
@@ -561,8 +617,8 @@ class plot_from_ds:
 
             pGrad.append(np.absolute(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['pGrad']))
             mflowrate_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux(self.mf)['mflowrate_stable']))
-            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).shear_rate()['shear_rate'])
-            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).viscosity()['mu'])    # mPa.s
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['shear_rate'])
+            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['mu'])    # mPa.s
             bulk_den_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_t']))
 
 
@@ -576,9 +632,9 @@ class plot_from_ds:
 
         self.ax.ticklabel_format(axis='y', style='sci', useOffset=False)
 
+        self.ax.plot(pGrad, np.array(mflowrate_avg)*1e18, ls='-', marker='o', alpha=opacity, label=input('Label:'))
         self.ax.plot(pGrad, np.array(mflowrate_hp)*1e18, ls='--', marker='o', alpha=opacity, label=input('Label:'))
         self.ax.plot(pGrad, np.array(mflowrate_hp_slip)*1e18, ls='--', marker='o', alpha=opacity, label=input('Label:'))
-        self.ax.plot(pGrad, np.array(mflowrate_avg)*1e18, ls='-', marker='o', alpha=opacity, label=input('Label:'))
 
         ax2 = self.ax.twiny()
         ax2.set_xscale('log', nonpositive='clip')
@@ -600,12 +656,12 @@ class plot_from_ds:
 
         for i in range(len(self.datasets_x)):
             pGrad.append(np.absolute(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['pGrad']))
-            if couette is not None:
-                shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(couette=1)['shear_rate'])
-                mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(couette=1)['mu'])
-            if pd is not None:
-                shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['shear_rate'])
-                mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['mu'])
+            # if couette is not None:
+            #     shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(couette=1)['shear_rate'])
+            #     mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(couette=1)['mu'])
+            # if pd is not None:
+            shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['shear_rate'])
+            mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['mu'])
 
         self.ax.plot(pGrad, mu, ls= '-', marker='o', alpha=opacity,
                     label=input('Label:'))
@@ -801,19 +857,43 @@ class plot_from_ds:
 
     def struc_factor(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 
-        self.ax.set_xlabel('$k_{x}$')
-        self.ax.set_ylabel('$s(k_x)$')
+        # self.ax.set_xlabel('$k_{x}$')
+        # self.ax.set_ylabel('$s(k_x)$')
 
-        freq = 2*np.pi / (self.time*1e-6)
+        # freq = 2*np.pi / (self.time*1e-6)
 
         kx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['kx']
-        sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf']
+        ky = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ky']
 
-        skx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ISFx']
-        swx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['DSFx']
+        sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf'].T
 
-        self.ax.plot(kx[1:], sf[1:], ls= '-', marker=' ', alpha=opacity,
-                    label=input('Label:'))
+        # sfy = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_y']
+
+        # skx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ISFx']
+        # swx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['DSFx']
+
+        # self.ax.plot(ky, sfy, ls= '-', marker=' ', alpha=opacity,
+        #            label=input('Label:'))
+
+        Kx, Ky = np.meshgrid(kx, ky)
+        print(Kx)
+        # sf = np.zeros([len(kx), len(ky)], dtype=np.float32)
+        # sf[:,0] = sfx
+        # for i in range(len(kx)):
+        #     sf[i,1:] = sfy[1:]
+
+        # sf = np.matrix([ sfx[:, np.newaxis], sfy[:, np.newaxis] ])
+
+
+        # data = np.random.random((len(kx), len(ky)))
+
+        # fig = plt.figure()
+        # ax = fig.gca(projection='3d')
+        self.ax.plot_surface(Kx, Ky, sf, linewidth=0.2)
+
+        import pickle
+        pickle.dump(self.fig, open('FigureObject.fig.pickle', 'wb'))
+
         # self.ax.plot(freq, swx, ls= '-', marker='o', alpha=opacity,
         #             label=input('Label:'))
 

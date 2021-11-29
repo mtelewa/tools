@@ -140,6 +140,15 @@ class traj_to_grid:
         fluid_idx, solid_start, Nf, Nm = d.get_indices()
         Lx, Ly, Lz = d.get_dimensions()
 
+        # Wavevectors
+
+        nmax = 200
+        n = np.linspace(1, nmax, nmax, endpoint=True)
+
+        kx = 2. * np.pi * n / Lx
+        ky = 2. * np.pi * n / Ly
+
+
         # Array dimensions: (time, idx, dimesnion)
         coords_data = self.data.variables["f_position"]
         vels_data = self.data.variables["f_velocity"]
@@ -172,9 +181,6 @@ class traj_to_grid:
         fluid_xcoords_unavgd, fluid_ycoords_unavgd, fluid_zcoords_unavgd = coords_unavgd[:, fluid_idx, 0], \
                                                                            coords_unavgd[:, fluid_idx, 1], \
                                                                            coords_unavgd[:, fluid_idx, 2]
-        # Spherical Coordinates (from x and y only)
-        r = np.sqrt(fluid_xcoords_unavgd**2 + fluid_ycoords_unavgd**2)
-
 
         # Velocities ------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
@@ -227,8 +233,13 @@ class traj_to_grid:
             fluid_end_div = utils.extrema(fluid_zcoords_div)['local_max']
 
             # Define the solid region ---------------------------------------------
-            solid_xcoords, solid_zcoords = coords[:, solid_start:, 0], \
-                                           coords[:, solid_start:, 2]
+            solid_xcoords, solid_ycoords, solid_zcoords = coords[:, solid_start:, 0], \
+                                                          coords[:, solid_start:, 1], \
+                                                          coords[:, solid_start:, 2]
+
+            solid_xcoords_unavgd, solid_ycoords_unavgd, solid_zcoords_unavgd = coords_unavgd[:, solid_start:, 0], \
+                                                          coords_unavgd[:, solid_start:, 1], \
+                                                          coords_unavgd[:, solid_start:, 2]
 
             # To avoid problems with logical-and later
             solid_xcoords[solid_xcoords==0] = 1e-5
@@ -311,13 +322,7 @@ class traj_to_grid:
 
             fluid_lengths = [Lx, Ly, avg_gap_height_div]
 
-            # Wavevectors
-
-            nmax = 100
-            n = np.linspace(0, nmax, nmax, endpoint=True)
-
-            kx = 2. * np.pi * n / Lx
-            ky = 2. * np.pi * n / Ly
+            # Wave vectors in the z-direction
             kz = 2. * np.pi * n / avg_gap_height_div
 
         else:
@@ -325,15 +330,8 @@ class traj_to_grid:
             gap_heights = None
             cell_lengths_updated = [Lx, Ly, Lz]
 
-            # Wavevectors
-
-            nmax = 100
-            n = np.linspace(0, nmax, nmax, endpoint=True)
-
-            kx = 2. * np.pi * n / Lx
-            ky = 2. * np.pi * n / Ly
+            # Wave vectors in the z-direction
             kz = 2. * np.pi * n / Lz
-
 
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
@@ -402,6 +400,7 @@ class traj_to_grid:
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------
         dim = np.array([self.Nx, self.Ny, self.Nz])
+        dim_reciproc = np.array([kx, ky, kz])
 
         # Whole cell --------------------------------------------
         # The minimum position has to be added to have equal Number of solid
@@ -450,8 +449,10 @@ class traj_to_grid:
 
         den_ch = np.zeros_like(vx_ch)
 
-        rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        sf_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
+        # rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
+        # sf_ch_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
+        # sf_ch_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
+        sf_ch = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
 
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
@@ -469,6 +470,43 @@ class traj_to_grid:
         den_bulk_ch = np.zeros_like(surfU_fx_ch)
 
         if solid_start != None:
+
+            # SFactor
+            maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
+            masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
+            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10.5)['mask']
+
+            mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
+            mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
+
+            # Count particles in the fluid cell
+            N_layer_mask = np.sum(mask_layer, axis=1)
+            Nzero_stable = np.less(N_layer_mask, 1)
+            N_layer_mask[Nzero_stable] = 1
+
+
+            # kxx, kyy = np.meshgrid(kx, ky)
+            # k_val = np.array([kxx,kyy])
+            k_val = np.array([kx,ky])
+
+            x = coords_unavgd[:, fluid_idx, 0] * mask_layer
+            y = coords_unavgd[:, fluid_idx, 1] * mask_layer
+
+            # Fourier coefficients
+            for i in range(len(kx)):
+                for k in range(len(ky)):
+                    # Fourier components of the density
+                    # rho_kx_ch[:, i] = np.sum( np.exp(-1.j * kx[i] * fluid_xcoords * mask_layer) , axis=1) #/ N_layer_mask
+
+                    # Structure factor
+                    # sfx = np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer)
+                    # sfy = np.exp(1.j * ky[i] * fluid_ycoords_unavgd * mask_layer)
+
+                    # sf_ch_x[:, i] = np.sum(sfx, axis=1)**2 / N_layer_mask
+                    # sf_ch_y[:, i] = np.sum(sfy, axis=1)**2 / N_layer_mask
+                    sf_ch[:, i, k] =  np.sum( np.exp(1.j * (kx[i]*x + ky[k]*y) ) , axis=1)**2 / N_layer_mask
+
+
             for i in range(self.Nx):
                 for k in range(self.Nz):
             # Fluid -----------------------------------------
@@ -578,31 +616,6 @@ class traj_to_grid:
                     den_bulk_ch[:, i] = (N_bulk_mask[:, i, k] / self.A_per_molecule) / vol_bulk_cell[i, 0, k]
 
 
-            # SFactor
-                maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
-                masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
-                maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 8.5, 10.5)['mask']
-
-                mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
-                mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
-
-                # Count particles in the fluid cell
-                N_layer_mask = np.sum(mask_layer, axis=1)
-
-            # Fourier coefficients
-            for i in range(len(kx)):
-                # Fourier components of the density
-                rho_kx_ch[:, i] = np.sum( np.exp(-1.j * kx[i] * fluid_xcoords \
-                                            * mask_layer) , axis=1) #/ N_layer_mask
-
-                # Structure factor
-                sf_ch[:, i] = np.sum(np.exp(1.j * kx[i] * r * mask_layer), axis=1)**2 / N_layer_mask
-
-                # rho_ky_ch[:, i, j] = np.sum( np.exp(-1.j * ky[j] * fluid_ycoords \
-                #                             * mask_fluid) , axis=1) / N_layer_mask
-
-                # print(sf_ch[0])
-
         else:
             for i in range(self.Nx):
                 for k in range(self.Nz):
@@ -672,8 +685,9 @@ class traj_to_grid:
                 'fluid_vy_avg': fluid_vy_avg,
                 'vx_ch': vx_ch,
                 'den_ch': den_ch,
-                'rho_kx_ch': rho_kx_ch,
+                # 'rho_kx_ch': rho_kx_ch,
                 'sf_ch': sf_ch,
+                # 'sf_ch_y': sf_ch_y,
                 'jx_ch' : jx_ch,
                 'vir_ch': vir_ch,
                 'Wxy_ch': Wxy_ch,

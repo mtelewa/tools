@@ -149,7 +149,7 @@ class derive_data:
             Fitting parameters for the velocity profile
         """
         # Fitting coefficients
-        coeffs_fit = np.polyfit(x, y, order)     #returns the polynomial coefficients
+        coeffs_fit = np.polyfit(x[1:-1], y[1:-1], order)     #returns the polynomial coefficients
         # construct the polynomial
         xdata = np.linspace(x[0], x[-1], len(x))
         polynom = np.poly1d(coeffs_fit)
@@ -591,46 +591,54 @@ class derive_data:
 
         # wavevectors
         kx = np.array(self.data_x.variables["kx"])
-        # ky = np.array(self.data_x.variables["ky"])
+        ky = np.array(self.data_x.variables["ky"])
 
         sf_real = np.array(self.data_x.variables["sf"])
         sf_im = np.array(self.data_x.variables["sf_im"])
 
+        # sf_y_real = np.array(self.data_x.variables["sf_y"])
+        # sf_y_im = np.array(self.data_x.variables["sf_y_im"])
+
         # Structure factor
-        sf = sf_real + 1j * sf_im
+        # sf_x = sf_x_real + 1j * sf_x_im
         sf = np.mean(sf_real, axis=0)
+        # sf_y = np.mean(sf_y_real, axis=0)
+
+
+
+        # print(sf_x)
 
 
         # Intermediate Scattering Function -------------------------------
 
         # Fourier components of the density
-        rho_kx_real = np.array(self.data_x.variables["rho_kx"])
-        rho_kx_im = np.array(self.data_x.variables["rho_kx_im"])
-
-        rho_kx = rho_kx_real + 1j * rho_kx_im
-        rho_kx_conj = rho_kx_real - 1j * rho_kx_im
-
-        a = np.mean(rho_kx, axis=0)
-        b = np.mean(rho_kx_conj, axis=0)
-        var = np.var(rho_kx, axis=0)
-        ISFx = np.zeros([len(self.time),len(kx)])
-        for i in range(len(kx)):
-            C = np.correlate(rho_kx[:,i]-a[i], rho_kx_conj[:,i]-b[i], mode="full")
-            C = C[C.size // 2:].real
-            ISFx[:,i] = C #/ var[i]
-        # we get the same with manual acf
-        # ISFx = sq.acf(rho_kx)['non-norm'].real
-
-        ISFx_mean = np.mean(ISFx, axis=0)
-
-        # Fourier transform of the ISF gives the Dynamical structure factor
-        DSFx = np.fft.fft(ISFx[:,5]).real
+        # rho_kx_real = np.array(self.data_x.variables["rho_kx"])
+        # rho_kx_im = np.array(self.data_x.variables["rho_kx_im"])
+        #
+        # rho_kx = rho_kx_real + 1j * rho_kx_im
+        # rho_kx_conj = rho_kx_real - 1j * rho_kx_im
+        #
+        # a = np.mean(rho_kx, axis=0)
+        # b = np.mean(rho_kx_conj, axis=0)
+        # var = np.var(rho_kx, axis=0)
+        # ISFx = np.zeros([len(self.time),len(kx)])
+        # for i in range(len(kx)):
+        #     C = np.correlate(rho_kx[:,i]-a[i], rho_kx_conj[:,i]-b[i], mode="full")
+        #     C = C[C.size // 2:].real
+        #     ISFx[:,i] = C #/ var[i]
+        # # we get the same with manual acf
+        # # ISFx = sq.acf(rho_kx)['non-norm'].real
+        #
+        # ISFx_mean = np.mean(ISFx, axis=0)
+        #
+        # # Fourier transform of the ISF gives the Dynamical structure factor
+        # DSFx = np.fft.fft(ISFx[:,5]).real
         # print(DSFx.shape)
         # DSFx_mean = np.mean(DSFx.real, axis=1)
         # print(DSFx.shape)
         # print(DSFx_mean)
 
-        return {'kx':kx, 'sf':sf, 'ISFx':ISFx, 'DSFx': DSFx}
+        return {'kx':kx, 'sf':sf, 'ky':ky} #'sf_y':sf_y}#, 'ISFx':ISFx, 'DSFx': DSFx}
 
         # exit()
 
