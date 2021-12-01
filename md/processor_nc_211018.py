@@ -108,7 +108,7 @@ class traj_to_grid:
         return fluid_idx, solid_start, Nf, Nm
 
 
-    def get_chunks(self, stable_start, stable_end, pump_start, pump_end):
+    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz):
         """
         Partitions the box into regions (solid and fluid) as well as chunks in
         those regions
@@ -140,14 +140,13 @@ class traj_to_grid:
         fluid_idx, solid_start, Nf, Nm = d.get_indices()
         Lx, Ly, Lz = d.get_dimensions()
 
+        # Discrete Wavevectors
+        nx = np.linspace(1, nx, nx, endpoint=True)
+        ny = np.linspace(1, ny, ny, endpoint=True)
+        nz = np.linspace(1, nz, nz, endpoint=True)
         # Wavevectors
-
-        nmax = 200
-        n = np.linspace(1, nmax, nmax, endpoint=True)
-
-        kx = 2. * np.pi * n / Lx
-        ky = 2. * np.pi * n / Ly
-
+        kx = 2. * np.pi * nx / Lx
+        ky = 2. * np.pi * ny / Ly
 
         # Array dimensions: (time, idx, dimesnion)
         coords_data = self.data.variables["f_position"]
@@ -323,7 +322,7 @@ class traj_to_grid:
             fluid_lengths = [Lx, Ly, avg_gap_height_div]
 
             # Wave vectors in the z-direction
-            kz = 2. * np.pi * n / avg_gap_height_div
+            kz = 2. * np.pi * nz / avg_gap_height_div
 
         else:
             comZ = None
@@ -331,7 +330,7 @@ class traj_to_grid:
             cell_lengths_updated = [Lx, Ly, Lz]
 
             # Wave vectors in the z-direction
-            kz = 2. * np.pi * n / Lz
+            kz = 2. * np.pi * nz / Lz
 
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
@@ -450,9 +449,9 @@ class traj_to_grid:
         den_ch = np.zeros_like(vx_ch)
 
         # rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        # sf_ch_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        # sf_ch_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
-        sf_ch = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
+        sf_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
+        sf_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
+        sf = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
 
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
@@ -471,10 +470,10 @@ class traj_to_grid:
 
         if solid_start != None:
 
-            # SFactor
+            # Structure Factor calculation
             maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
             masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
-            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10.5)['mask']
+            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 30, 40)['mask']
 
             mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
             mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
@@ -484,28 +483,18 @@ class traj_to_grid:
             Nzero_stable = np.less(N_layer_mask, 1)
             N_layer_mask[Nzero_stable] = 1
 
+            # Structure factor
+            for i in range(len(kx)):
+                sf_x[:, i] = np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1)**2 / N_layer_mask
+            for k in range(len(ky)):
+                sf_y[:, k] = np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1)**2 / N_layer_mask
 
-            # kxx, kyy = np.meshgrid(kx, ky)
-            # k_val = np.array([kxx,kyy])
-            k_val = np.array([kx,ky])
-
-            x = coords_unavgd[:, fluid_idx, 0] * mask_layer
-            y = coords_unavgd[:, fluid_idx, 1] * mask_layer
-
-            # Fourier coefficients
             for i in range(len(kx)):
                 for k in range(len(ky)):
                     # Fourier components of the density
                     # rho_kx_ch[:, i] = np.sum( np.exp(-1.j * kx[i] * fluid_xcoords * mask_layer) , axis=1) #/ N_layer_mask
-
-                    # Structure factor
-                    # sfx = np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer)
-                    # sfy = np.exp(1.j * ky[i] * fluid_ycoords_unavgd * mask_layer)
-
-                    # sf_ch_x[:, i] = np.sum(sfx, axis=1)**2 / N_layer_mask
-                    # sf_ch_y[:, i] = np.sum(sfy, axis=1)**2 / N_layer_mask
-                    sf_ch[:, i, k] =  np.sum( np.exp(1.j * (kx[i]*x + ky[k]*y) ) , axis=1)**2 / N_layer_mask
-
+                    sf[:, i, k] =  np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
+                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1)**2 / N_layer_mask
 
             for i in range(self.Nx):
                 for k in range(self.Nz):
@@ -591,17 +580,22 @@ class traj_to_grid:
                                         ( 3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule )  # Kelvin
 
                     # Virial pressure--------------------------------------
-                    Wxx_ch = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1)
-                    Wyy_ch = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1)
-                    Wzz_ch = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1)
-                    vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / (3 * vol_bulk_cell[i,0,k])
+                    # Simulations without virial calculation
+                    try:
+                        Wxx_ch = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1)
+                        Wyy_ch = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1)
+                        Wzz_ch = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1)
+                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / (3 * vol_bulk_cell[i,0,k])
+                    except UnboundLocalError:
+                        pass
 
+                    # Simulations without virial off-diagonal components calculation
                     try:
                         Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
                         Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
                         Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
 
-                    except IndexError:
+                    except (IndexError, UnboundLocalError) as e:
                         pass
 
                     # Wall Forces--------------------------------------
@@ -686,8 +680,9 @@ class traj_to_grid:
                 'vx_ch': vx_ch,
                 'den_ch': den_ch,
                 # 'rho_kx_ch': rho_kx_ch,
-                'sf_ch': sf_ch,
-                # 'sf_ch_y': sf_ch_y,
+                'sf': sf,
+                'sf_x': sf_x,
+                'sf_y': sf_y,
                 'jx_ch' : jx_ch,
                 'vir_ch': vir_ch,
                 'Wxy_ch': Wxy_ch,

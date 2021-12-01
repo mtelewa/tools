@@ -594,16 +594,20 @@ class derive_data:
         ky = np.array(self.data_x.variables["ky"])
 
         sf_real = np.array(self.data_x.variables["sf"])
-        sf_im = np.array(self.data_x.variables["sf_im"])
+        # sf_im = np.array(self.data_x.variables["sf_im"])
 
-        # sf_y_real = np.array(self.data_x.variables["sf_y"])
+        sf_x_real = np.array(self.data_x.variables["sf_x"])
+        sf_y_real = np.array(self.data_x.variables["sf_y"])
         # sf_y_im = np.array(self.data_x.variables["sf_y_im"])
 
         # Structure factor
         # sf_x = sf_x_real + 1j * sf_x_im
         sf = np.mean(sf_real, axis=0)
+        sf_x = np.mean(sf_x_real, axis=0)
+        sf_y = np.mean(sf_y_real, axis=0)
         # sf_y = np.mean(sf_y_real, axis=0)
 
+        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y} #'sf_y':sf_y}#, 'ISFx':ISFx, 'DSFx': DSFx}
 
 
         # print(sf_x)
@@ -638,7 +642,7 @@ class derive_data:
         # print(DSFx.shape)
         # print(DSFx_mean)
 
-        return {'kx':kx, 'sf':sf, 'ky':ky} #'sf_y':sf_y}#, 'ISFx':ISFx, 'DSFx': DSFx}
+
 
         # exit()
 

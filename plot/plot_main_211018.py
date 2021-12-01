@@ -140,14 +140,16 @@ class plot_from_ds:
         self.mf=mf
         self.datasets_x=datasets_x
         self.datasets_z=datasets_z
+        self.plot_type = plot_type
 
-        if plot_type=='2d':
+        if self.plot_type=='2d':
             self.fig, self.ax = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=300)
             self.ax.xaxis.set_ticks_position('both')
             self.ax.yaxis.set_ticks_position('both')
         else:
-            self.fig = plt.figure()
-            self.ax = plt.axes(projection='3d')
+            self.fig, self.ax = plt.figure(dpi=1200), plt.axes(projection='3d')
+            self.ax.xaxis.set_ticks_position('both')
+            self.ax.yaxis.set_ticks_position('both')
 
         self.Nx = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).length_array)
         self.Nz = len(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).height_array)
@@ -857,42 +859,30 @@ class plot_from_ds:
 
     def struc_factor(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 
-        # self.ax.set_xlabel('$k_{x}$')
-        # self.ax.set_ylabel('$s(k_x)$')
-
-        # freq = 2*np.pi / (self.time*1e-6)
-
         kx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['kx']
         ky = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ky']
 
-        sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf'].T
+        sfx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_x']
+        sfy = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_y']
 
-        # sfy = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_y']
+        sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf']
 
-        # skx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ISFx']
-        # swx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['DSFx']
+        if self.plot_type=='2d':
+            self.ax.set_xlabel('$k_x$')
+            self.ax.set_ylabel('$S(K_x)$')
+            self.ax.plot(kx, sfx, ls= '-', marker=' ', alpha=opacity,
+                       label=input('Label:'))
+        else:
+            self.ax.set_xlabel('$k_x$')
+            self.ax.set_ylabel('$k_y$')
+            self.ax.set_zlabel('$S(k)$')
 
-        # self.ax.plot(ky, sfy, ls= '-', marker=' ', alpha=opacity,
-        #            label=input('Label:'))
-
-        Kx, Ky = np.meshgrid(kx, ky)
-        print(Kx)
-        # sf = np.zeros([len(kx), len(ky)], dtype=np.float32)
-        # sf[:,0] = sfx
-        # for i in range(len(kx)):
-        #     sf[i,1:] = sfy[1:]
-
-        # sf = np.matrix([ sfx[:, np.newaxis], sfy[:, np.newaxis] ])
-
-
-        # data = np.random.random((len(kx), len(ky)))
-
-        # fig = plt.figure()
-        # ax = fig.gca(projection='3d')
-        self.ax.plot_surface(Kx, Ky, sf, linewidth=0.2)
-
-        import pickle
-        pickle.dump(self.fig, open('FigureObject.fig.pickle', 'wb'))
+            Kx, Ky = np.meshgrid(kx, ky)
+            self.ax.set_zticks([])
+            self.ax.plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
+                        rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
+            # self.fig.colorbar(surf, shrink=0.5, aspect=5)
+            self.ax.view_init(35,60)
 
         # self.ax.plot(freq, swx, ls= '-', marker='o', alpha=opacity,
         #             label=input('Label:'))

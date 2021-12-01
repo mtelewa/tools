@@ -20,7 +20,7 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=200, ny=50, nz=5):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -44,7 +44,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
     slice1, slice2 = 1, slice_size+1
 
     if rank == 0:
-        print('Total simualtion time: {} {}'.format(np.int(tSteps_tot * out_frequency * Time.scale_factor), Time.units))
+        print('Total simualtion time: {} {}'.format(np.int(tSteps_tot * out_frequency), Time.units))
         print('======> The dataset will be sliced to %g slices!! <======' %Nslices)
 
     t0 = timer.time()
@@ -78,7 +78,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         cell_lengths, kx, ky, kz, \
         gap_heights, bulk_height_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
-        vx_ch, den_ch, sf_ch,  \
+        vx_ch, den_ch, sf, sf_x, sf_y, \
         N_fluid_mask, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
@@ -96,7 +96,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'vx_ch',
                                       'den_ch',
                                       # 'rho_kx_ch',
-                                      'sf_ch',
+                                      'sf',
+                                      'sf_x',
+                                      'sf_y',
                                       # 'sf_ch_y',
                                       'N_fluid_mask',
                                       'jx_ch',
@@ -109,12 +111,14 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
                                       'den_bulk_ch',
                                       'Nf')(init.get_chunks(stable_start,
-                                        stable_end, pump_start, pump_end))
+                                        stable_end, pump_start, pump_end, nx, ny, nz))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
-        sendcounts_chunk_fluid_layer = np.array(comm.gather(sf_ch.size, root=0))
+        sendcounts_chunk_fluid_layer_3d = np.array(comm.gather(sf.size, root=0))
+        sendcounts_chunk_fluid_layer_nx = np.array(comm.gather(sf_x.size, root=0))
+        sendcounts_chunk_fluid_layer_ny = np.array(comm.gather(sf_y.size, root=0))
         sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
         sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
@@ -151,10 +155,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
-            nmax = 200
             # rho_kx_ch_global = np.zeros([time, nmax] , dtype=np.complex64)
-            sf_ch_global = np.zeros([time, nmax, nmax] , dtype=np.complex64)
-            # sf_ch_y_global = np.zeros([time, nmax] , dtype=np.complex64)
+            sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
+            sf_x_global = np.zeros([time, nx] , dtype=np.complex64)
+            sf_y_global = np.zeros([time, ny] , dtype=np.complex64)
 
             # rho_kx_im_ch_global = np.zeros([time, nmax] , dtype=np.float32)
             # rho_ky_ch_global = np.zeros_like(rho_kx_ch_global)
@@ -195,7 +199,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             vx_ch_global = None
             den_ch_global = None
             # rho_kx_ch_global = None
-            sf_ch_global = None
+            sf_global = None
+            sf_x_global = None
+            sf_y_global = None
             # sf_ch_y_global = None
             # rho_kx_im_ch_global = None
             # rho_ky_ch_global = None
@@ -228,7 +234,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
 
             # comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
-            comm.Gatherv(sendbuf=sf_ch, recvbuf=(sf_ch_global, sendcounts_chunk_fluid_layer), root=0)
+            comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
+            comm.Gatherv(sendbuf=sf_x, recvbuf=(sf_x_global, sendcounts_chunk_fluid_layer_nx), root=0)
+            comm.Gatherv(sendbuf=sf_y, recvbuf=(sf_y_global, sendcounts_chunk_fluid_layer_ny), root=0)
+
+
             # comm.Gatherv(sendbuf=sf_ch_y, recvbuf=(sf_ch_y_global, sendcounts_chunk_fluid_layer), root=0)
             # comm.Gatherv(sendbuf=rho_kx_im_ch, recvbuf=(rho_kx_im_ch_global, sendcounts_chunk_fluid_layer), root=0)
             # comm.Gatherv(sendbuf=rho_ky_ch, recvbuf=(rho_ky_ch_global, sendcounts_chunk_fluid_layer), root=0)
@@ -271,7 +281,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             out.createDimension('x', Nx)
             out.createDimension('y', Ny)
             out.createDimension('z', Nz)
-            out.createDimension('n', nmax)
+            out.createDimension('nx', nx)
+            out.createDimension('ny', ny)
             out.createDimension('time', time)
             out.createDimension('Nf', Nf)
 
@@ -280,10 +291,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             out.setncattr("Ly", cell_lengths[1])
             out.setncattr("Lz", cell_lengths[2])
             out.setncattr("Version", version)
-
-            # Reciprocal lattice
-            # out.setncattr("kx", kx)
-            # out.setncattr("ky", ky)
 
             vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
             vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
@@ -303,13 +310,16 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             vx_var =  out.createVariable('Vx', 'f4', ('time', 'x', 'z'))
             den_var = out.createVariable('Density', 'f4',  ('time', 'x', 'z'))
 
-            kx_var = out.createVariable('kx', 'f4', ('n'))
-            ky_var = out.createVariable('ky', 'f4', ('n'))
+            # Reciprocal lattice wave vectors
+            kx_var = out.createVariable('kx', 'f4', ('nx'))
+            ky_var = out.createVariable('ky', 'f4', ('ny'))
             # rho_kx = out.createVariable('rho_kx', 'f4', ('time', 'n'))
             # rho_kx_im = out.createVariable('rho_kx_im', 'f4', ('time', 'n'))
 
-            sf_var = out.createVariable('sf', 'f4', ('time', 'n', 'n'))
-            sf_im = out.createVariable('sf_im', 'f4', ('time', 'n', 'n'))
+            sf_var = out.createVariable('sf', 'f4', ('time', 'nx', 'ny'))
+            sf_x_var = out.createVariable('sf_x', 'f4', ('time', 'nx'))
+            sf_y_var = out.createVariable('sf_y', 'f4', ('time', 'ny'))
+            sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
 
             # sf_y = out.createVariable('sf_y', 'f4', ('time', 'n'))
             # sf_im_y = out.createVariable('sf_y_im', 'f4', ('time', 'n'))
@@ -354,8 +364,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # rho_kx[:] = rho_kx_ch_global.real
             # rho_kx_im[:] = rho_kx_ch_global.imag
 
-            sf_var[:] = sf_ch_global.real
-            sf_im[:] = sf_ch_global.imag
+            sf_var[:] = sf_global.real
+            sf_x_var[:] = sf_x_global.real
+            sf_y_var[:] = sf_y_global.real
+
+            sf_im[:] = sf_global.imag
             # sf_y[:] = sf_ch_y_global.real
             # sf_im_y[:] = sf_ch_y_global.imag
 
