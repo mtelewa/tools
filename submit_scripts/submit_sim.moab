@@ -12,6 +12,7 @@
 
 module load system/modules/deprecated
 module use /work/ws/nemo/fr_lp1029-IMTEK_SIMULATION-0/modulefiles
+module load netcdf/4.6.3
 module load mpi/openmpi/3.1-gnu-7.3
 
 printenv
