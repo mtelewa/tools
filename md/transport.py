@@ -79,16 +79,18 @@ if __name__ == "__main__":
         if  'gk' in args.qtty[0]:
             get.green_kubo()
         if 'slip_length' in args.qtty[0]:
-            get.slip_length(couette=1)
+            params = get.slip_length(pd=1)
+            print(f'Slip Length {params['Ls']} (nm) and velocity {params['Vs']} (m/s)')
         if 'transverse' in args.qtty[0]:
             get.trans()
-        if  'pgrad' in args.qtty[0]:
+        if 'pgrad' in args.qtty[0]:
             get.virial()
         if 'sigxz' in args.qtty[0]:
             get.sigwall()
         if 'skx' in args.qtty[0]:
             get.struc_factor()
         if 'transport' in args.qtty[0]:
-            get.transport(couette=1)
+            params = get.transport(pd=1)
+            print(f'Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1')
         if 'correlate' in args.qtty[0]:
             get.uncertainty_pDiff(pump_size=0.1)
