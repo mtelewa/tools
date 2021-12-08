@@ -473,7 +473,7 @@ class traj_to_grid:
             # Structure Factor calculation
             maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
             masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
-            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 30, 40)['mask']
+            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10)['mask']
 
             mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
             mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
