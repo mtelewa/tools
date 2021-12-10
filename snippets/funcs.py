@@ -6,9 +6,8 @@ import numpy as np
 def quadratic(x,a,b,c):
     return a*x**2+b*x+c
 
-def quadratic_cosine_series(x,a,b,c,d):
-    return a*x**2+b*x+c+(d*np.cos(2*np.pi*x/h))
-
+# def quadratic_cosine_series(x,a,b,c,d):
+#     return a*x**2+b*x+c+(d*np.cos(2*np.pi*x/h))
 
 # Define parabola derivative
 def quad_slope(x,a,b):
@@ -16,6 +15,7 @@ def quad_slope(x,a,b):
 
 
 def linear(x,a,b):
+    x = np.array(x)
     return a*x+b
 
 def step(x):
@@ -39,17 +39,36 @@ def quartic(x):
     return y
 
 
-def power(x,a):
-    return x**a
+def power(x,a,b,c):
+    return a*np.power(x,b) + c
 
 
-def quadratic_cosine_series(x,a,b,c,d,e,f,g):
+def quadratic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
 
-    y = a*x**2 + b*x + c + \
-          (d *np.cos(np.pi*x/h))   + (e *np.cos(2*np.pi*x/h)) + \
-          (f *np.cos(3*np.pi*x/h)) + (g *np.cos(4*np.pi*x/h))
+    height=x[-1]+x[0]
+
+    y = a*x**2 + b*x + c +\
+          (d *np.cos(2*np.pi*x/height)) + (e *np.cos(4*np.pi*x/height)) + \
+          (f *np.cos(6*np.pi*x/height)) + (g *np.cos(8*np.pi*x/height)) + \
+          (h *np.cos(10*np.pi*x/height)) + (i *np.cos(12*np.pi*x/height)) + \
+          (j *np.cos(14*np.pi*x/height)) + (k *np.cos(16*np.pi*x/height)) + \
+          (l *np.cos(18*np.pi*x/height)) + (m *np.cos(20*np.pi*x/height))
 
     return y
+
+def quartic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m,y,z):
+
+    height=x[-1]+x[0]
+
+    y = a*x**4 + b*x**3 + c*x**2 + z*x + y +\
+          (d *np.cos(2*np.pi*x/height)) + (e *np.cos(4*np.pi*x/height)) + \
+          (f *np.cos(6*np.pi*x/height)) + (g *np.cos(8*np.pi*x/height)) + \
+          (h *np.cos(10*np.pi*x/height)) + (i *np.cos(12*np.pi*x/height)) + \
+          (j *np.cos(14*np.pi*x/height)) + (k *np.cos(16*np.pi*x/height)) + \
+          (l *np.cos(18*np.pi*x/height)) + (m *np.cos(20*np.pi*x/height))
+
+    return y
+
 
 
 def fourier_series_coeff(f, T, N, return_complex=False):
@@ -102,4 +121,17 @@ def fourier_series_coeff(f, T, N, return_complex=False):
         return y
     else:
         y *= 2
-        return y[0].real, y[1:-1].real, -y[1:-1].imag
+        return y.real, -y[1:-1].imag
+
+
+def fourierSeries(coeffs,x,n):
+    """This functions returns the value of the Fourier series for a given value
+    of x given the already calculated Fourier coefficients.
+    """
+    value = fourier_series_coeff(1,n)[0]
+    l=x[-1]
+    for i in range(1,n+1):
+        value = value + coeffs[1][i-1]*np.cos(i*np.pi*x/l) #+  coeffs[2][i-1]*np.sin(i*np.pi*x/l)
+
+    print(len(value))
+    return value
