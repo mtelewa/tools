@@ -15,11 +15,12 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
             ip = i
             break
     y = ydata[ip-1] + (ydata[ip]-ydata[ip-1])*(x-xdata[ip-1])/(xdata[ip]-xdata[ip-1]) + yoffset
+
     if not label:
         label = line.get_label()
-    if rotation == '0':
+    if rotation is not None:
         trans_angle = rotation
-    if rotation == 'slope':
+    else:
         #Compute the slope
         dx = xdata[ip] - xdata[ip-1]
         dy = ydata[ip] - ydata[ip-1]
@@ -27,6 +28,7 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
         #Transform to screen co-ordinates
         pt = np.array([x,y]).reshape((1,2))
         trans_angle = ax.transData.transform_angles(np.array((ang,)),pt)[0]
+
     #Set a bunch of keyword arguments
     if 'color' not in kwargs:
         kwargs['color'] = line.get_color()
@@ -40,7 +42,8 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
         kwargs['clip_on'] = True
     if 'zorder' not in kwargs:
         kwargs['zorder'] = 2.5
-    ax.text(x,y,label,rotation=trans_angle,**kwargs)
+    ax.text(x,y,label,rotation=trans_angle,rotation_mode='anchor', transform_rotates_text=True,
+        bbox=dict(facecolor='none', edgecolor='none'),**kwargs)
 
 def label_lines(lines,xvals=None,rotations=None,**kwargs):
     ax = lines[0].axes

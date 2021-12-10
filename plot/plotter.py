@@ -99,9 +99,9 @@ if __name__ == "__main__":
         plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf, plot_type='2d')
         # Quantity profiles
         if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, lt='-', opacity=0.9)
+            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=1)
         if '_height' in args.qtty[0]:
-            plot.qtty_height(args.qtty, lt='-', legend='y', opacity=0.7)
+            plot.qtty_height(args.qtty, lt='-', legend='y', pd='y', fit='y', opacity=1)
         if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
         # Velocity Distibution
@@ -120,7 +120,7 @@ if __name__ == "__main__":
             plot.rate_slip(legend='y')
 
         if 'pt_ratio' in args.qtty[0]:
-            plot.pt_ratio(legend='y')
+            plot.pt_ratio()
 
         # ACFs
         if 'acf' in args.qtty[0]:
