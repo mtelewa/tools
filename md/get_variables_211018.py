@@ -220,14 +220,12 @@ class derive_data:
             # Ls = Vs/dd.transport(couette=1)['shear_rate'] * 1e9         # nm
             Ls = np.abs(root) + vels['height_array_mod'][0]
             Vs = Ls * sci.nano * dd.transport(couette=1)['shear_rate']
-            # print(f'Slip Length {Ls} (nm) and velocity {Vs} (m/s)')
 
         if pd is not None:
             # Slip length is the extrapolated length in addition to the depletion region: small
             # length where there are no atoms
             Ls = np.abs(root) + vels['height_array_mod'][0]
             Vs = Ls * sci.nano * dd.transport(pd=1)['shear_rate']        # m/s
-            # print(f'Slip Length {Ls} (nm) and velocity {Vs} (m/s)')
 
         return {'root':root, 'Ls':Ls, 'Vs':Vs,
                 'xdata':xdata,
@@ -475,8 +473,6 @@ class derive_data:
             coeffs_fit_hi = np.polyfit(vels['height_array_mod'], dd.uncertainty('vx')['hi'], 1)
             shear_rate_hi = coeffs_fit_hi[0] * 1e9
             mu_hi = sigxz_avg / shear_rate_hi
-
-            # print(f'Viscosity is {mu:.4f} mPa.s at Shear rate {shear_rate:e} s^-1')
 
         if pd is not None:
             # Get the viscosity
