@@ -485,16 +485,16 @@ class traj_to_grid:
 
             # Structure factor
             for i in range(len(kx)):
-                sf_x[:, i] = np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1)**2 / N_layer_mask
+                sf_x[:, i] = (np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
             for k in range(len(ky)):
-                sf_y[:, k] = np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1)**2 / N_layer_mask
+                sf_y[:, k] = (np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
 
             for i in range(len(kx)):
                 for k in range(len(ky)):
                     # Fourier components of the density
                     # rho_kx_ch[:, i] = np.sum( np.exp(-1.j * kx[i] * fluid_xcoords * mask_layer) , axis=1) #/ N_layer_mask
-                    sf[:, i, k] =  np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
-                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1)**2 / N_layer_mask
+                    sf[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
+                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1))**2 / N_layer_mask
 
             for i in range(self.Nx):
                 for k in range(self.Nz):
