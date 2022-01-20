@@ -259,31 +259,23 @@ class derive_data:
         """
 
         jx_stable = np.array(self.data_x.variables["mflux_stable"])[self.skip:]
-        avg_jx_stable = np.mean(jx_stable)
-
+        # avg_jx_stable = np.mean(jx_stable)
         mflowrate_stable = np.array(self.data_x.variables["mflow_rate_stable"])[self.skip:]
-        avg_mflowrate_stable = np.mean(mflowrate_stable)
-
+        # avg_mflowrate_stable = np.mean(mflowrate_stable)
         jx_pump = np.array(self.data_x.variables["mflux_pump"])[self.skip:]
-        avg_jx_pump = np.mean(jx_pump)
-
+        # avg_jx_pump = np.mean(jx_pump)
         mflowrate_pump = np.array(self.data_x.variables["mflow_rate_pump"])[self.skip:]
-        avg_mflowrate_pump = np.mean(mflowrate_pump)
-
-        print(f'Average mass flux in the stable region is {avg_jx_stable} g/m2.ns \
-              \nAverage mass flow rate in the stable region is {avg_mflowrate_stable} g/ns \
-              \nAverage mass flux in the pump region is {avg_jx_pump} g/m2.ns \
-              \nAverage mass flow rate in the pump region is {avg_mflowrate_pump} g/ns')
+        # avg_mflowrate_pump = np.mean(mflowrate_pump)
 
         # Mass flux (whole simulation domain)
         jx = np.array(self.data_x.variables["Jx"])[self.skip:,1:-1]
-
         jx_t = np.sum(jx, axis=(1,2)) * (sci.angstrom/fs_to_ns) * (mf/sci.N_A) / (sci.angstrom**3)
         jx_chunkX = np.mean(jx, axis=(0,2)) * (sci.angstrom/fs_to_ns) * (mf/sci.N_A) / (sci.angstrom**3)
         # jx_chunkX_mod = jx_chunkX[jx_chunkX !=0]
 
-        return {'jx_chunkX': jx_chunkX, 'jx_t': jx_t, 'jx_stable': jx_stable,
-                'mflowrate_stable':mflowrate_stable}
+        return {'jx_chunkX': jx_chunkX, 'jx_t': jx_t,
+                'jx_stable': jx_stable, 'mflowrate_stable':mflowrate_stable,
+                'jx_pump': jx_pump, 'mflowrate_pump':mflowrate_pump}
 
 
     def density(self, mf):
@@ -370,9 +362,9 @@ class derive_data:
         # print(f'Pressure gradient is {pGrad} MPa/nm')
 
         try:
-            return {'Wxx_chunkX': Wxx_chunkX , 'Wxx_chunkZ': Wxx_chunkZ,
-                    'Wyy_chunkX': Wyy_chunkX , 'Wyy_chunkZ': Wyy_chunkZ,
-                    'Wzz_chunkX': Wzz_chunkX , 'Wzz_chunkZ': Wzz_chunkZ,
+            return {'Wxy_chunkX': Wxy_chunkX , 'Wxy_chunkZ': Wxy_chunkZ,
+                    'Wxz_chunkX': Wxz_chunkX , 'Wxz_chunkZ': Wxz_chunkZ,
+                    'Wyz_chunkX': Wyz_chunkX , 'Wyz_chunkZ': Wyz_chunkZ,
                     'vir_chunkX': vir_chunkX, 'vir_chunkZ': vir_chunkZ,
                     'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff ,
                     'p_ratio':p_ratio}
