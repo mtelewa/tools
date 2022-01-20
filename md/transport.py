@@ -51,31 +51,23 @@ if __name__ == "__main__":
 
     datasets_x, datasets_z = [], []
     for k in datasets:
-        ds_dir = os.path.join(k, "data/out")
-        for root, dirs, files in os.walk(ds_dir):
+        for root, dirs, files in os.walk(k):
             for i in files:
                 if i.endswith(f'{args.nChunks}x1.nc'):
-                    datasets_x.append(os.path.join(ds_dir, i))
+                    datasets_x.append(os.path.join(root, i))
                 if i.endswith(f'1x{args.nChunks}.nc'):
-                    datasets_z.append(os.path.join(ds_dir, i))
-
-    # If the processed files are in the data dir
-    if not datasets_x:
-        for k in datasets:
-            ds_dir = os.path.join(k, "data")
-            for root, dirs, files in os.walk(ds_dir):
-                for i in files:
-                    if i.endswith(f'{args.nChunks}x1.nc'):
-                        datasets_x.append(os.path.join(ds_dir, i))
-                    if i.endswith(f'1x{args.nChunks}.nc'):
-                        datasets_z.append(os.path.join(ds_dir, i))
-
+                    datasets_z.append(os.path.join(root, i))
 
     for i in range(len(datasets)):
         get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i])
 
         if 'mflux' in args.qtty[0]:
-            get.mflux(mf)
+            params = get.mflux(mf)
+            print(f"mdot stable = {np.mean(params['mflowrate_stable']):e} g/ns") #\
+                  #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
+                  #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
+                  #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
+
         if  'gk' in args.qtty[0]:
             get.green_kubo()
         if 'slip_length' in args.qtty[0]:
