@@ -111,17 +111,6 @@ def get_bse(f_t):
     return n, bse
 
 
-def numpy_acf(f):
-    var = np.var(f)
-    mean = np.mean(f)
-    C = np.correlate(f - mean, f - mean, mode="full")
-    C = C[C.size // 2:]
-    C /= len(C)
-    C /= var
-
-    return C.real
-
-
 def acf(f_tq):
     """
     Autocorrelation function
@@ -144,23 +133,23 @@ def acf(f_tq):
     return {'non-norm':C_non_norm, 'norm':C_norm}
 
 
-# def acf_conjugate(f_tq):
-#     """
-#     Autocorrelation function
-#     parameters
-#     ----------
-#     f_tq: arr
-#         input array with shape (time,)
-#     """
-#     var = np.var(f)
-#     mean = np.mean(f)
-#     C = np.correlate(f - mean, f - mean, mode="full")
-#     C = C[C.size // 2:]
-#     C /= len(C)
-#     C /= var
-#
-#
-#     return {'non-norm':C_non_norm, 'norm':C_norm}
+def acf_conjugate(f_tq):
+    """
+    Autocorrelation function
+    parameters
+    ----------
+    f_tq: arr
+        input array with shape (time,)
+    """
+    var = np.var(f)
+    mean = np.mean(f)
+    C = np.correlate(f - mean, f - mean, mode="full")
+    C = C[C.size // 2:]
+    C /= len(C)
+    C /= var
+
+
+    return {'non-norm':C_non_norm, 'norm':C_norm}
 
 
 
