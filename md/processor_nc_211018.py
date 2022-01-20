@@ -589,7 +589,7 @@ class traj_to_grid:
                     except UnboundLocalError:
                         pass
 
-                    # Simulations without virial off-diagonal components calculation
+                    # Simulations with virial off-diagonal components calculation
                     try:
                         Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
                         Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
