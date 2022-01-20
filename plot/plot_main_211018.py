@@ -181,7 +181,7 @@ class plot_from_ds:
 
     def draw_vlines(self, plot):
         total_length = np.max(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).Lx)
-        plot.ax.axvline(x= 0, color='k', linestyle='dotted', lw=1.5)
+        plot.ax.axvline(x= 0*total_length, color='k', linestyle='dotted', lw=1.5)
 
         #for i in range(len(plot.ax.lines)-1):
         pos=np.float(input('vertical line pos:'))
@@ -221,7 +221,7 @@ class plot_from_ds:
 
 
 
-    def qtty_len(self, *arr_to_plot, opacity=1.0,
+    def qtty_len(self, *arr_to_plot, opacity,
             legend=None, lab_lines=None, draw_vlines=None,
             err=None, draw_inset=None, twin_axis=None, **kwargs):
 
@@ -229,6 +229,9 @@ class plot_from_ds:
         arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_x), self.Nx-2])
         pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
         n = 0
+
+        mpl.rcParams.update({'lines.linewidth': 2})
+        mpl.rcParams.update({'lines.markersize': 6})
 
         for i in range(len(self.datasets_x)):
             if 'virxy_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
@@ -313,7 +316,10 @@ class plot_from_ds:
 
                 else:
                     if twin_axis is None:
+                        # a = input('plot?:')
+                        # if a =='y':
                         self.ax.plot(x, y, color=input('color:'), label=input('label:'), alpha=opacity)
+                        # else: pass
                     else:
                         self.ax.plot(x, y, color=colors[0], label=input('label:'), alpha=opacity)
 
@@ -371,7 +377,7 @@ class plot_from_ds:
 
 #TODO Opacity as input
 
-    def qtty_height(self, *arr_to_plot, opacity=1,
+    def qtty_height(self, *arr_to_plot, opacity,
                 legend=None, lab_lines=None, draw_vlines=None,
                 draw_inset=None, fit=None, extrapolate=None,
                 couette=None, pd=None, err=None, **kwargs):
@@ -379,6 +385,9 @@ class plot_from_ds:
         self.ax.set_xlabel(labels[0])
         arrays = np.zeros([len(arr_to_plot[0]), len(self.datasets_z), self.Nz])
         pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf)
+
+        # mpl.rcParams.update({'lines.linewidth': 1.5})
+        # mpl.rcParams.update({'lines.markersize': 2})
 
         for i in range(len(self.datasets_z)):
             if 'virxy_height' in arr_to_plot[0]:       # Here we use the bulk height
@@ -412,8 +421,8 @@ class plot_from_ds:
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
-                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0][1:-1]
-                y = arrays[j, i][arrays[j,i] != 0][1:-1]
+                x = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).height_array[arrays[j,i] != 0]
+                y = arrays[j, i][arrays[j,i] != 0]
                 # np.savetxt(f'{i}.txt', np.c_[x,y], delimiter= "  ", header= "Height(nm)       Velocity(m/s)")
 
                 if err is not None:
@@ -439,7 +448,7 @@ class plot_from_ds:
                         hi_arrays = dd(self.skip, self.datasets_x[i],
                                     self.datasets_z[i]).uncertainty(qtty)['hi']
 
-                        self.ax.fill_between( x, lo_arrays, hi_arrays, color=colors[i], alpha=0.4)
+                        self.ax.fill_between(x, lo_arrays, hi_arrays, color=colors[i], alpha=0.4)
                         self.ax.plot(x, y, color=colors[i], marker=input('marker:'), label=input('label:'), alpha=opacity)
 
                 else:
@@ -495,17 +504,17 @@ class plot_from_ds:
                 self.ax.plot(x_left, y_left, marker=' ', ls='dotted', color='k')
 
         if legend is not None:
-            # where some data has already been plotted to ax
-            handles, labs = self.ax.get_legend_handles_labels()
-            # Additional elements
-            legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Quartic fit'),
-                               Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic + Cosine fit')]
+            # #where some data has already been plotted to ax
+            # handles, labs = self.ax.get_legend_handles_labels()
+            # #Additional elements
+            # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Quartic fit'),
+            #                    Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic + Cosine fit')]
                                # Line2D([0], [0], color='k', lw=2.5, ls='dotted', marker=' ', label='Lin. extrapolation')]
+            # handles.extend(legend_elements)
+            # self.ax.legend(handles=handles, frameon=False)
 
-            handles.extend(legend_elements)
+            self.ax.legend(frameon=False)
 
-            self.ax.legend(handles=handles, frameon=False)
-            # self.ax.legend(frameon=False)
         if lab_lines is not None:
             pds.label_inline(self)
         if draw_vlines is not None:
@@ -636,7 +645,7 @@ class plot_from_ds:
         self.ax.set_xlabel(labels[9])
         self.ax.set_ylabel(labels[10])
 
-        mpl.rcParams.update({'lines.markersize': 4})
+        mpl.rcParams.update({'lines.markersize': 6})
         mpl.rcParams.update({'figure.figsize': (12,12)})
 
         pGrad, mflowrate_avg, shear_rate, mu, bulk_den_avg, mflowrate_hp, mflowrate_hp_slip = [], [], [], [], [], [], []
@@ -663,9 +672,9 @@ class plot_from_ds:
 
         self.ax.ticklabel_format(axis='y', style='sci', useOffset=False)
 
-        self.ax.plot(pGrad, np.array(mflowrate_avg)*1e18, ls='-', marker='o', alpha=opacity, label=input('Label:'))
-        self.ax.plot(pGrad, np.array(mflowrate_hp)*1e18, ls='-', marker='o', alpha=opacity, label='HP (no-slip)')
-        self.ax.plot(pGrad, np.array(mflowrate_hp_slip)*1e18, ls='-', marker='o', alpha=opacity, label='HP (slip)')
+        self.ax.plot(pGrad, np.array(mflowrate_avg)*1e18, ls=' ', marker='x', alpha=opacity, label=input('Label:'))
+        self.ax.plot(pGrad, np.array(mflowrate_hp)*1e18, ls='--', marker=' ', alpha=opacity, label='HP (no-slip)')
+        self.ax.plot(pGrad, np.array(mflowrate_hp_slip)*1e18, ls='-', marker=' ', alpha=opacity, label='HP (slip)')
 
         ax2 = self.ax.twiny()
         ax2.set_xscale('log', nonpositive='clip')
@@ -724,7 +733,6 @@ class plot_from_ds:
         shear_rate_pd, viscosity_pd = [], []
         shear_rate_pd_lo, viscosity_pd_lo = [], []
         shear_rate_pd_hi, viscosity_pd_hi = [], []
-
         couette_ds_x, couette_ds_z, pump_ds_x, pump_ds_z = [], [], [], []
 
         for i, j in zip(self.datasets_x, self.datasets_z):
@@ -759,6 +767,10 @@ class plot_from_ds:
             [bar.set_alpha(0.4) for bar in bars]
             [cap.set_alpha(0.4) for cap in caps]
 
+            popt, pcov = curve_fit(funcs.power, shear_rate_couette, viscosity_couette)
+            print(popt)
+            self.ax.plot(shear_rate_couette, funcs.power(shear_rate_couette, *popt), 'k--')
+
         if pump_ds_x:
             for i in range(len(pump_ds_x)):
                 shear_rate_pd.append(dd(self.skip, pump_ds_x[i],  pump_ds_z[i]).transport(pd=1)['shear_rate'])
@@ -783,23 +795,21 @@ class plot_from_ds:
             [bar.set_alpha(0.4) for bar in bars]
             [cap.set_alpha(0.4) for cap in caps]
 
+            popt, pcov = curve_fit(funcs.power, shear_rate_pd, viscosity_pd)
+            print(popt)
+            self.ax.plot(shear_rate_pd, funcs.power(shear_rate_pd, *popt), 'k--')
 
         # coeffs = np.polyfit(np.log(shear_rate_pd), np.log(viscosity_pd), 1)
         # polynom = np.poly1d(coeffs)
         # y = polynom(shear_rate_pd)
-
-        popt, pcov = curve_fit(funcs.power, shear_rate_pd, viscosity_pd)
-        print(popt)
-        self.ax.plot(shear_rate_pd, funcs.power(shear_rate_pd, *popt), 'k--')
-
-        popt, pcov = curve_fit(funcs.power, shear_rate_couette, viscosity_couette)
-        print(popt)
-        self.ax.plot(shear_rate_couette, funcs.power(shear_rate_couette, *popt), 'k--', label="Carreau")
-
         # self.ax.plot(shear_rate_pd, y, ls='--', color='k', label='Carreau')
 
         if legend is not None:
-            self.ax.legend(frameon=False)
+            handles, labs = self.ax.get_legend_handles_labels()
+            legend_elements = [Line2D([0], [0], color='k', ls='--', marker=' ', label='Carreau')]
+            handles.extend(legend_elements)
+            self.ax.legend(handles=handles, frameon=False)
+            # self.ax.legend(frameon=False)
 
 
     def rate_stress(self, opacity=1, legend=None, lab_lines=None, couette=None, pd=None, **kwargs):
@@ -918,10 +928,17 @@ class plot_from_ds:
         sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf']
 
         if self.plot_type=='2d':
-            self.ax.set_xlabel('$k_y$')
-            self.ax.set_ylabel('$S(K_y)$')
-            self.ax.plot(ky, sfy, ls= '-', marker=' ', alpha=opacity,
-                       label=input('Label:'))
+            a = input('x or y:')
+            if a=='x':
+                self.ax.set_xlabel('$k_x (\AA^{-1})$')
+                self.ax.set_ylabel('$S(K_x)$')
+                self.ax.plot(kx, sfx/np.max(sfx), ls= '-', marker=' ', alpha=opacity,
+                           label=input('Label:'))
+            elif a=='y':
+                self.ax.set_xlabel('$k_y (\AA^{-1})$')
+                self.ax.set_ylabel('$S(K_y)$')
+                self.ax.plot(ky, sfy/np.max(sfy), ls= '-', marker=' ', alpha=opacity,
+                           label=input('Label:'))
         else:
             self.ax.set_xlabel('$k_x (\AA^{-1})$')
             self.ax.set_ylabel('$k_y (\AA^{-1})$')
@@ -933,10 +950,11 @@ class plot_from_ds:
             self.ax.set_zticks([])
 
             Kx, Ky = np.meshgrid(kx, ky)
-            self.ax.plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
+            self.ax.plot_surface(Kx, Ky, sf.T/np.max(sf.T), cmap=cmx.jet,
                         rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
             # self.fig.colorbar(surf, shrink=0.5, aspect=5)
             self.ax.view_init(35,60)
+            # self.ax.view_init(0,90)
 
         # self.ax.plot(freq, swx, ls= '-', marker='o', alpha=opacity,
         #             label=input('Label:'))

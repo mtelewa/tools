@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 # import plot_main_210921 as pm
 import plot_main_211018 as pm
-
+from pathlib import Path
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -55,73 +55,49 @@ if __name__ == "__main__":
 
     a = []
     for k in txtfiles:
-        txt_dir = os.path.join(k, "data")
-        for root, dirs, files in os.walk(txt_dir):
+        for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith(f'thermo.out'):
-                    a.append(os.path.join(txt_dir, i))
+                if i.endswith('thermo.out') or i.endswith('.txt'):
+                    a.append(os.path.join(root, i))
 
-    # # TODO: Resolve path issue
 
     datasets_x, datasets_z = [], []
     for k in datasets:
-        ds_dir = os.path.join(k, "data/out")
-        for root, dirs, files in os.walk(ds_dir):
+        for root, dirs, files in os.walk(k):
             for i in files:
                 if i.endswith(f'{args.nChunks}x1.nc'):
-                    datasets_x.append(os.path.join(ds_dir, i))
+                    datasets_x.append(os.path.join(root, i))
                 if i.endswith(f'1x{args.nChunks}.nc'):
-                    datasets_z.append(os.path.join(ds_dir, i))
+                    datasets_z.append(os.path.join(root, i))
 
-    # If the processed files are in the data dir
-    if not datasets_x:
-        for k in datasets:
-            ds_dir = os.path.join(k, "data")
-            for root, dirs, files in os.walk(ds_dir):
-                for i in files:
-                    if i.endswith(f'{args.nChunks}x1.nc'):
-                        datasets_x.append(os.path.join(ds_dir, i))
-                    if i.endswith(f'1x{args.nChunks}.nc'):
-                        datasets_z.append(os.path.join(ds_dir, i))
-
-    # If the processed files are in the out dir
-    if not datasets_x:
-        for k in datasets:
-            ds_dir = os.path.join(k, "out")
-            for root, dirs, files in os.walk(ds_dir):
-                for i in files:
-                    if i.endswith(f'{args.nChunks}x1.nc'):
-                        datasets_x.append(os.path.join(ds_dir, i))
-                    if i.endswith(f'1x{args.nChunks}.nc'):
-                        datasets_z.append(os.path.join(ds_dir, i))
+    print(datasets_x)
 
     if len(datasets) > 0.:
         plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf, plot_type='2d')
         # Quantity profiles
         if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, lt='-', legend='y', opacity=1)
+            plot.qtty_len(args.qtty, legend='y', draw_vlines='y', opacity=0.6)
         if '_height' in args.qtty[0]:
-            plot.qtty_height(args.qtty, lt='-', legend='y', pd='y', fit='y', opacity=1)
+            plot.qtty_height(args.qtty, lt='-', legend='y', pd='y', opacity=1)
         if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
         # Velocity Distibution
         if 'distrib' in args.qtty[0]:
             plot.v_distrib(legend='y', opacity=0.5)
         # Transport Coefficients
-        if 'pgrad_mflowrate' in args.qtty[0]:       # ****
+        if 'pgrad_mflowrate' in args.qtty[0]:
             plot.pgrad_mflowrate(legend='y')
         if 'pgrad_viscosity' in args.qtty[0]:
             plot.pgrad_viscosity(legend='y')
         if 'rate_stress' in args.qtty[0]:
             plot.rate_stress(legend='y', couette=1)
-        if 'rate_viscosity' in args.qtty[0]:        # ****
+        if 'rate_viscosity' in args.qtty[0]:
             plot.rate_viscosity(legend='y')
-        if 'rate_slip' in args.qtty[0]:             # ****
+        if 'rate_slip' in args.qtty[0]:
             plot.rate_slip(legend='y')
-
+        # Inlet-Outlet pump quantities
         if 'pt_ratio' in args.qtty[0]:
             plot.pt_ratio()
-
         # ACFs
         if 'acf' in args.qtty[0]:
             plot.acf(legend='y')
@@ -130,16 +106,15 @@ if __name__ == "__main__":
         if 'sk' in args.qtty[0]:
             plot.struc_factor(legend='y')
 
-
         plot.ax.set_rasterized(True)
 
         if args.format is not None:
-            if 'eps' in args.format:
+            if args.format == 'eps':
                 plot.fig.savefig(args.qtty[0]+'.eps' , format='eps')
-            if 'ps' in args.format:
+            if args.format == 'ps':
                 plot.fig.savefig(args.qtty[0]+'.ps' , format='ps')
-            else:
-                plot.fig.savefig(args.qtty[0]+'.png' , format='png')
+            # else:
+            #     plot.fig.savefig(args.qtty[0]+'.png' , format='png')
         else:
             plot.fig.savefig(args.qtty[0]+'.png' , format='png')
 
