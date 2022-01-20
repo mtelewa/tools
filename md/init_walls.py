@@ -170,36 +170,37 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
 
     # elif 'fluid_only' in sys.argv:
 
-    # in_script= f" # System moltemplate file\n\
-    # #------------------------\n\
-    # \n\
-    # # import molecule building block file\n\
-    # import '{name}.lt' \n\
-    # \n\
-    # mol = new {name}   [{Nx}].move({tolX},0,0) \n\
-    #                    [{Ny}].move(0,{tolY},0) \n\
-    #                    [{Nz}].move(0,0,{tolZ}) \n\
-    # \n\
-    # # import wall building block file\n\
-    # import 'gold_all.lt'  \n\
-    # # import 'gold_nw.lt' \n\
-    # # import 'gold_w.lt' \n\
-    # \n\
-    # gold = new au   \n\
-    # # gold_nw = new au_nw \n\
-    # # gold_w = new au_w \n\
-    # \n\
-    # # Shift the fluid atoms from the box center \n\
-    # mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
-    # \n\
-    # write_once('Data Boundary'){{ \n\
-    #  0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
-    #  0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
-    # {(Boffset*-1)}  {zlength}   zlo zhi \n\
-    # }}"
-    #
+    in_script_liquid_only= f" # System moltemplate file\n\
+    #------------------------\n\
+    \n\
+    # import molecule building block file\n\
+    import '{name}.lt' \n\
+    \n\
+    mol = new {name}   [{Nx}].move({tolX},0,0) \n\
+                       [{Ny}].move(0,{tolY},0) \n\
+                       [{Nz}].move(0,0,{tolZ}) \n\
+    \n\
+    delete mol[2-17][0-7][0-2] \n\
+    \n\
+    # import wall building block file\n\
+    import 'gold_all.lt'  \n\
+    \n\
+    gold = new au   \n\
+    \n\
+    # Shift the fluid atoms from the box center \n\
+    mol[*][*][*].move({tolX},{Boffset},{(fluidStartZ+Boffset)}) \n\
+    \n\
+    write_once('Data Boundary'){{ \n\
+     0    {(nUnitsX*unitlengthX)}    xlo xhi \n\
+     0    {(nUnitsY*unitlengthY)}    ylo yhi \n\
+    {(Boffset*-1)}  {zlength}   zlo zhi \n\
+    }}"
+
     in_f=open('geometry.lt','w')
-    in_f.write(in_script)
+    if input('solid_initialized:')=='y':
+        in_f.write(in_script_liquid_only)
+    else:
+        in_f.write(in_script)
     in_f.close()
 
 
