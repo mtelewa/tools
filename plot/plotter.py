@@ -70,15 +70,13 @@ if __name__ == "__main__":
                 if i.endswith(f'1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(root, i))
 
-    print(datasets_x)
-
     if len(datasets) > 0.:
         plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf, plot_type='2d')
         # Quantity profiles
         if '_length' in args.qtty[0]:
             plot.qtty_len(args.qtty, legend='y', draw_vlines='y', opacity=0.6)
         if '_height' in args.qtty[0]:
-            plot.qtty_height(args.qtty, lt='-', legend='y', pd='y', opacity=1)
+            plot.qtty_height(args.qtty, lt='-', legend='y', fit='y', extrapolate='y', pd='y', opacity=1)
         if '_time' in args.qtty[0]:
             plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
         # Velocity Distibution
