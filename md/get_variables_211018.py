@@ -67,7 +67,7 @@ class derive_data:
         #     print("Global attr {} = {}".format(name, getattr(self.data_x, name)))
 
         # Time
-        self.time =  np.array(self.data_x.variables["Time"])[self.skip:]
+        self.time =  np.array(self.data_x.variables["Time"])
         if not self.time.size:
             raise ValueError('The array is empty! Reduce the skipped timesteps.')
 
@@ -203,33 +203,42 @@ class derive_data:
 
         npoints = len(vels['height_array_mod'])
         # Positions to inter/extrapolate
-        xdata = np.linspace(-10, vels['height_array_mod'][0], npoints)
+        xdata_left = np.linspace(-10, vels['height_array_mod'][0], npoints)
+        xdata_right = np.linspace(vels['height_array_mod'][-1], 10 , npoints)
+
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
         order = 1
         # do inter/extrapolation
         extrapolate = InterpolatedUnivariateSpline(vels['height_array_mod'], fit_data, k=order)
-        coeffs_extrapolate = np.polyfit(xdata, extrapolate(xdata), 1)
+        coeffs_extrapolate_left = np.polyfit(xdata_left, extrapolate(xdata_left), 1)
+        coeffs_extrapolate_right = np.polyfit(xdata_right, extrapolate(xdata_right), 1)
+
         # Where the velocity profile vanishes
-        root = np.roots(coeffs_extrapolate)
+        root_left = np.roots(coeffs_extrapolate_left)
+        root_right = np.roots(coeffs_extrapolate_right)
+
         # If the root is positive or very small, there is much noise in the velocity profile
-        if root > 0 or np.abs(root) < 0.1 : root = 0
+        if root_left > 0 or np.abs(root_left) < 0.1 : root_left = 0
 
         # Slip velocity according to Navier boundary
         if couette is not None:
             # Vs = vels['vx_chunkZ_mod'][0]
             # Ls = Vs/dd.transport(couette=1)['shear_rate'] * 1e9         # nm
-            Ls = np.abs(root) + vels['height_array_mod'][0]
+            Ls = np.abs(root_left) + vels['height_array_mod'][0]
             Vs = Ls * sci.nano * dd.transport(couette=1)['shear_rate']
 
         if pd is not None:
             # Slip length is the extrapolated length in addition to the depletion region: small
             # length where there are no atoms
-            Ls = np.abs(root) + vels['height_array_mod'][0]
+            Ls = np.abs(root_left) + vels['height_array_mod'][0]
             Vs = Ls * sci.nano * dd.transport(pd=1)['shear_rate']        # m/s
 
-        return {'root':root, 'Ls':Ls, 'Vs':Vs,
-                'xdata':xdata,
-                'extrapolate':extrapolate(xdata)}
+        return {'root_left':root_left, 'Ls':Ls, 'Vs':Vs,
+                'xdata_left':xdata_left,
+                'extrapolate_left':extrapolate(xdata_left),
+                'root_right':root_right,
+                'xdata_right':xdata_right,
+                'extrapolate_right':extrapolate(xdata_right)}
 
     def vel_distrib(self):
         """
@@ -343,7 +352,7 @@ class derive_data:
         vir_x = np.array(self.data_x.variables["Virial"])[self.skip:,1:-1] * sci.atm * pa_to_Mpa
         vir_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
 
-        vir_t = np.sum(vir, axis=(1,2)) #/ (3 * totVi)
+        vir_t = np.mean(vir, axis=(1,2)) #/ (3 * totVi)
         vir_chunkX = np.mean(vir_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_z, axis=(0,1))
 
@@ -545,7 +554,7 @@ class derive_data:
 
         if qtty == 'virial':
             arr = np.array(self.data_x.variables["Virial"])[self.skip:,1:-1] * sci.atm * pa_to_Mpa
-            blocks = sq.block_ND(len(self.time), arr, self.Nx-2, n)
+            blocks = sq.block_ND(len(self.time[self.skip:]), arr, self.Nx-2, n)
             blocks_mean = np.mean(blocks, axis=0)
             blocks = np.transpose(blocks)
             blocks = blocks[blocks_mean !=0]
@@ -555,7 +564,7 @@ class derive_data:
 
         if qtty == 'vx':
             arr = np.array(self.data_z.variables["Vx"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
-            blocks = sq.block_ND(len(self.time), arr, self.Nz, n)
+            blocks = sq.block_ND(len(self.time[self.skip:]), arr, self.Nz, n)
             blocks_mean = np.mean(blocks, axis=0)
             blocks = np.transpose(blocks)
             blocks = blocks[blocks_mean !=0]
@@ -569,8 +578,8 @@ class derive_data:
             fz_Lower = np.array(self.data_x.variables["Fz_Lower"])[self.skip:,1:-1] * kcalpermolA_to_N
 
             # Block sampling of the wall stress and calculating the uncertainty
-            fz_Upper_blocks = sq.block_ND(len(self.time), fz_Upper, self.Nx-2, 100)
-            fz_Lower_blocks = sq.block_ND(len(self.time), fz_Lower, self.Nx-2, 100)
+            fz_Upper_blocks = sq.block_ND(len(self.time[self.skip:]), fz_Upper, self.Nx-2, 100)
+            fz_Lower_blocks = sq.block_ND(len(self.time[self.skip:]), fz_Lower, self.Nx-2, 100)
             fz_Upper_err = sq.get_err(fz_Upper_blocks)['uncertainty']
             fz_Lower_err = sq.get_err(fz_Lower_blocks)['uncertainty']
 
@@ -599,24 +608,31 @@ class derive_data:
         kx = np.array(self.data_x.variables["kx"])
         ky = np.array(self.data_x.variables["ky"])
 
-        sf_real = np.array(self.data_x.variables["sf"])
+        # skip here is used to truncate the calculated SF
+        sf_real = np.array(self.data_x.variables["sf"])[:self.skip]
         # sf_im = np.array(self.data_x.variables["sf_im"])
 
-        sf_x_real = np.array(self.data_x.variables["sf_x"])
-        sf_y_real = np.array(self.data_x.variables["sf_y"])
+        sf_x_real = np.array(self.data_x.variables["sf_x"])[:self.skip]
+        sf_y_real = np.array(self.data_x.variables["sf_y"])[:self.skip]
         # sf_y_im = np.array(self.data_x.variables["sf_y_im"])
 
-        # Structure factor
+        # Structure factor averaged over time for each k
         # sf_x = sf_x_real + 1j * sf_x_im
         sf = np.mean(sf_real, axis=0)
+        sf_time = np.mean(sf_real, axis=(1,2))
+
         sf_x = np.mean(sf_x_real, axis=0)
         sf_y = np.mean(sf_y_real, axis=0)
-        # sf_y = np.mean(sf_y_real, axis=0)
 
-        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y} #'sf_y':sf_y}#, 'ISFx':ISFx, 'DSFx': DSFx}
+        # How to get S(k) in radial direction (In 2D from k=(kx,ky) and the sf=(sfx,sfy))
+        # k_vals=[]
+        # sf_r=[]
+        # for i in range(len(kx)):
+        #     for k in range(len(ky)):
+        #         k_vals.append(np.sqrt(kx[i]**2+ky[k]**2))
+        #         sf_r.append(np.sqrt(sf_x[i]**2+sf_y[k]**2))
 
-
-        # print(sf_x)
+        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time} #'sf_y':sf_y}#, 'ISFx':ISFx, 'DSFx': DSFx}
 
 
         # Intermediate Scattering Function -------------------------------
