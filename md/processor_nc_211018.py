@@ -399,7 +399,7 @@ class traj_to_grid:
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------
         dim = np.array([self.Nx, self.Ny, self.Nz])
-        dim_reciproc = np.array([kx, ky, kz])
+        dim_reciproc = np.array([kx, ky, kz], dtype=object)
 
         # Whole cell --------------------------------------------
         # The minimum position has to be added to have equal Number of solid
