@@ -181,11 +181,12 @@ class plot_from_ds:
 
     def draw_vlines(self, plot):
         total_length = np.max(dd(self.skip, self.datasets_x[0], self.datasets_z[0]).Lx)
-        plot.ax.axvline(x= 0*total_length, color='k', linestyle='dotted', lw=1.5)
+        pos1=np.float(input('vertical line pos1:'))
+        plot.ax.axvline(x= pos1*total_length, color='k', linestyle='dotted', lw=1.5)
 
         #for i in range(len(plot.ax.lines)-1):
-        pos=np.float(input('vertical line pos:'))
-        plot.ax.axvline(x= pos*total_length, color='k', linestyle='dotted', lw=1.5)
+        pos2=np.float(input('vertical line pos2:'))
+        plot.ax.axvline(x= pos2*total_length, color='k', linestyle='dotted', lw=1.5)
 
 
     def draw_inset(self, plot, xpos=0.62, ypos=0.57, w=0.2, h=0.28):
@@ -493,15 +494,17 @@ class plot_from_ds:
                         np.max(x) + np.abs(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(couette=1)['root'])])
 
                 if pd is not None:
-                    x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['xdata']
-                    y_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['extrapolate']
-                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root'],
-                        np.max(x) + np.abs(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root'])])
-                # x_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()['xdata_right']
-                # y_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length()['extrapolate_right']
+                    x_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['xdata_left']
+                    y_left = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['extrapolate_left']
+                    self.ax.set_xlim([dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root_left'],
+                        np.max(x) + np.abs(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['root_left'])])
+
+                    x_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['xdata_right']
+                    y_right = dd(self.skip, self.datasets_x[i], self.datasets_z[i]).slip_length(pd=1)['extrapolate_right']
 
                 self.ax.set_ylim([0, 1.1*np.max(y)])
                 self.ax.plot(x_left, y_left, marker=' ', ls='dotted', color='k')
+                self.ax.plot(x_right, y_right, marker=' ', ls='dotted', color='k')
 
         if legend is not None:
             # #where some data has already been plotted to ax
@@ -574,7 +577,7 @@ class plot_from_ds:
 
             for j in range(len(arr_to_plot[0])):
                 arrays_avg[j,i] = np.mean(arrays[j, i, :])
-                self.ax.plot(self.time[:cut]*1e-6, arrays[j, i, :],
+                self.ax.plot(self.time[self.skip:cut]*1e-6, arrays[j, i, :],
                             label=input('Label:'), alpha=opacity)
 
                 # TODO: Fix the color getter
@@ -642,6 +645,8 @@ class plot_from_ds:
 
     def pgrad_mflowrate(self, opacity=1, legend=None, lab_lines=None, **kwargs):
 
+        # Get the error in mflowrate in MD
+
         self.ax.set_xlabel(labels[9])
         self.ax.set_ylabel(labels[10])
 
@@ -657,6 +662,7 @@ class plot_from_ds:
 
             pGrad.append(np.absolute(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).virial()['pGrad']))
             mflowrate_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux(self.mf)['mflowrate_stable']))
+            # mflowrate_err.append(np.(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).mflux(self.mf)['mflowrate_stable']))
             shear_rate.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['shear_rate'])
             mu.append(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).transport(pd=1)['mu'])    # mPa.s
             bulk_den_avg.append(np.mean(dd(self.skip, self.datasets_x[i], self.datasets_z[i]).density(self.mf)['den_t']))
@@ -921,36 +927,48 @@ class plot_from_ds:
 
         kx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['kx']
         ky = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['ky']
+        # k = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['k']
 
         sfx = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_x']
         sfy = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_y']
 
         sf = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf']
+        # sf_r = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_r']
+        sf_time = dd(self.skip, self.datasets_x[0], self.datasets_z[0]).dsf()['sf_time']
 
         if self.plot_type=='2d':
-            a = input('x or y:')
+            a = input('x or y or r or t:')
             if a=='x':
                 self.ax.set_xlabel('$k_x (\AA^{-1})$')
                 self.ax.set_ylabel('$S(K_x)$')
-                self.ax.plot(kx, sfx/np.max(sfx), ls= '-', marker=' ', alpha=opacity,
+                self.ax.plot(kx, sfx, ls= '-', marker=' ', alpha=opacity,
                            label=input('Label:'))
             elif a=='y':
                 self.ax.set_xlabel('$k_y (\AA^{-1})$')
                 self.ax.set_ylabel('$S(K_y)$')
-                self.ax.plot(ky, sfy/np.max(sfy), ls= '-', marker=' ', alpha=opacity,
+                self.ax.plot(ky, sfy, ls= '-', marker=' ', alpha=opacity,
+                           label=input('Label:'))
+            elif a=='r':
+                self.ax.set_xlabel('$k (\AA^{-1})$')
+                self.ax.set_ylabel('$S(K)$')
+                self.ax.plot(k, sf_r, ls= ' ', marker='x', alpha=opacity,
+                           label=input('Label:'))
+            elif a=='t':
+                self.ax.set_xlabel('$t (fs)$')
+                self.ax.set_ylabel('$S(K)$')
+                self.ax.plot(self.time[:self.skip], sf_time, ls= '-', marker=' ', alpha=opacity,
                            label=input('Label:'))
         else:
             self.ax.set_xlabel('$k_x (\AA^{-1})$')
             self.ax.set_ylabel('$k_y (\AA^{-1})$')
             self.ax.set_zlabel('$S(k)$')
             self.ax.invert_xaxis()
-            # self.ax.invert_zaxis()
             self.ax.set_ylim(ky[-1]+1,0)
             self.ax.zaxis.set_rotate_label(False)
             self.ax.set_zticks([])
 
             Kx, Ky = np.meshgrid(kx, ky)
-            self.ax.plot_surface(Kx, Ky, sf.T/np.max(sf.T), cmap=cmx.jet,
+            self.ax.plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
                         rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
             # self.fig.colorbar(surf, shrink=0.5, aspect=5)
             self.ax.view_init(35,60)
