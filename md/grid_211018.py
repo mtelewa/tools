@@ -20,7 +20,7 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=200, ny=50, nz=5):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=5):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -95,11 +95,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                       'fluid_vy_avg',
                                       'vx_ch',
                                       'den_ch',
-                                      # 'rho_kx_ch',
                                       'sf',
                                       'sf_x',
                                       'sf_y',
-                                      # 'sf_ch_y',
                                       'N_fluid_mask',
                                       'jx_ch',
                                       'vir_ch',
