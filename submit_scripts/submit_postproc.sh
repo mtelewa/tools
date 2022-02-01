@@ -74,3 +74,5 @@ else
   cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
 fi
 
+args=("$@")
+echo ${args[@]} > args.txt
