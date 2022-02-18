@@ -19,15 +19,18 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
     if not label:
         label = line.get_label()
     if rotation is not None:
+        # TODO: Get the transformed angle (in degrees)
         trans_angle = rotation
+        # print(trans_angle)
     else:
         #Compute the slope
-        dx = xdata[ip] - xdata[ip-1]
-        dy = ydata[ip] - ydata[ip-1]
+        dx = xdata[ip] - xdata[ip-40]
+        dy = ydata[ip] - ydata[ip-40]
         ang = np.degrees(atan2(dy,dx))
         #Transform to screen co-ordinates
         pt = np.array([x,y]).reshape((1,2))
         trans_angle = ax.transData.transform_angles(np.array((ang,)),pt)[0]
+        # print(trans_angle)
 
     #Set a bunch of keyword arguments
     if 'color' not in kwargs:
