@@ -311,6 +311,7 @@ class traj_to_grid:
 
             #Update the box height
             Lz = avg_surfU_end - avg_surfL_begin
+
             cell_lengths_updated = [Lx, Ly, Lz]
 
             avg_surfL_end_div = np.mean(comm.allgather(np.mean(surfL_end_div)))
@@ -352,7 +353,7 @@ class traj_to_grid:
 
             # Bulk --------------------------------------------
             avg_surfL_end_conv = np.mean(comm.allgather(np.mean(surfL_end_conv)))
-            bulkStartZ, bulkEndZ = 0.4 * Lz, 0.6 * Lz
+            bulkStartZ, bulkEndZ = (0.4 * Lz) + 1, (0.6 * Lz) + 1     # Boffset is 1 Angstrom
             bulk_height, bulk_region, bulk_zcoords, bulk_vol, bulk_N = \
                 itemgetter('interval', 'mask', 'data', 'vol', 'count')\
                 (utils.region(fluid_zcoords, fluid_zcoords, bulkStartZ, bulkEndZ,
