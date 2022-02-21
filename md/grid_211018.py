@@ -76,7 +76,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
         # Get the data
         cell_lengths, kx, ky, kz, \
-        gap_heights, bulk_height_time, com, fluxes, totVi,\
+        gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
         vx_ch, den_ch, sf, sf_x, sf_y, \
         N_fluid_mask, \
@@ -87,7 +87,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         den_bulk_ch, Nf = itemgetter('cell_lengths',
                                       'kx', 'ky', 'kz',
                                       'gap_heights',
-                                      'bulk_height_time',
+                                      'bulkStartZ_time',
+                                      'bulkEndZ_time',
                                       'com',
                                       'fluxes',
                                       'totVi',
@@ -136,7 +137,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             gap_height_global = np.zeros(time, dtype=np.float32)
             gap_height_conv_global = np.zeros_like(gap_height_global)
             gap_height_div_global = np.zeros_like(gap_height_global)
-            bulk_height_time_global = np.zeros_like(gap_height_global)
+            bulkStartZ_time_global = np.zeros_like(gap_height_global)
+            bulkEndZ_time_global = np.zeros_like(gap_height_global)
             # Center of Mass
             com_global = np.zeros_like(gap_height_global)
             # Flow Rate and Mass flux
@@ -186,7 +188,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             gap_height_global = None
             gap_height_conv_global = None
             gap_height_div_global = None
-            bulk_height_time_global = None
+            bulkStartZ_time_global = None
+            bulkEndZ_time_global = None
             com_global = None
             mflowrate_stable_global = None
             mflux_stable_global = None
@@ -224,7 +227,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=bulk_height_time, recvbuf=(bulk_height_time_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=bulkStartZ_time, recvbuf=(bulkStartZ_time_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=bulkEndZ_time, recvbuf=(bulkEndZ_time_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=fluxes[0], recvbuf=(mflux_pump_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
@@ -297,7 +301,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
             gap_height_conv_var =  out.createVariable('Height_conv', 'f4', ('time'))
             gap_height_div_var =  out.createVariable('Height_div', 'f4', ('time'))
-            bulk_height_var = out.createVariable('Bulk_Height', 'f4', ('time'))
+            bulkStartZ_time_var = out.createVariable('Bulk_Start', 'f4', ('time'))
+            bulkEndZ_time_var = out.createVariable('Bulk_End', 'f4', ('time'))
             com_var =  out.createVariable('COM', 'f4', ('time'))
             mflux_pump = out.createVariable('mflux_pump', 'f4', ('time'))
             mflowrate_pump = out.createVariable('mflow_rate_pump', 'f4', ('time'))
@@ -343,7 +348,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             gap_height_var[:] = gap_height_global
             gap_height_conv_var[:] = gap_height_conv_global
             gap_height_div_var[:] = gap_height_div_global
-            bulk_height_var[:] = bulk_height_time_global
+            bulkStartZ_time_var[:] = bulkStartZ_time_global
+            bulkEndZ_time_var[:] = bulkEndZ_time_global
             com_var[:] = com_global
             mflux_pump[:] = mflux_pump_global
             mflowrate_pump[:] = mflowrate_pump_global

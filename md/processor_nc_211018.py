@@ -358,7 +358,8 @@ class traj_to_grid:
                 itemgetter('interval', 'mask', 'data', 'vol', 'count')\
                 (utils.region(fluid_zcoords, fluid_zcoords, bulkStartZ, bulkEndZ,
                                                 ylength=Ly, length=Lx))
-            bulk_height_time = 0.2 * (surfU_end - surfL_begin)
+            bulkStartZ_time = 0.4 * (surfU_end - surfL_begin) + 1
+            bulkEndZ_time = 0.6 * (surfU_end - surfL_begin) + 1
 
             try:
                 # Voronoi volumes of atoms in the bulk region in each timestep
@@ -386,7 +387,7 @@ class traj_to_grid:
             fluxes = [mflux_pump, mflowrate_pump, mflux_stable, mflowrate_stable]
 
         else:
-            bulk_height_time = None
+            # bulk_height_time = None
             fluxes = None
             try:
                 # Voronoi volumes of atoms in the bulk region in each timestep
@@ -672,7 +673,8 @@ class traj_to_grid:
                 'ky': ky,
                 'kz': kz,
                 'gap_heights': gap_heights,
-                'bulk_height_time': bulk_height_time,
+                'bulkStartZ_time': bulkStartZ_time,
+                'bulkEndZ_time': bulkEndZ_time,
                 'com': comZ,
                 'fluxes': fluxes,
                 'totVi': totVi,
