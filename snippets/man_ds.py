@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, sys
+import os, sys, subprocess
 from ruamel.yaml import YAML
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
 import dtoolcore
-from pathlib import Path
 from dtool_create.dataset import _get_readme_template
+from pathlib import Path
 
 class manipulate_ds:
 
@@ -18,7 +18,6 @@ class manipulate_ds:
         ds: str
             Source dataset name
         """
-
         self.dataset_name = ds
         # global yaml setting
         self.yaml = YAML()
@@ -32,55 +31,31 @@ class manipulate_ds:
         # Sim dataset out path
         self.sim_out_uri = os.path.join(self.sim_uri,'data','out')
         # Get the simulation dataset uuid
-        try:
+        try:    # For ProtoDataSets
             self.sim_dataset = dtoolcore.ProtoDataSet.from_uri(self.dataset_name)
-        except TypeError:
+        except dtoolcore.DtoolCoreTypeError: # If it is not a dataset
+            pass
+        except TypeError:  # For frozen datasets
             self.sim_dataset = dtoolcore.DataSet.from_uri(self.dataset_name)
 
-    def write_readme(self, **kwargs):
+    def create_dataset(self, **kwargs):
+        """
+        Creates a parent dataset
+        """
 
-        # Simulation dataset readme template
-        template = os.path.join(os.path.expanduser('~'), '.dtool', 'custom_dtool_readme.yml')
-        # load readme template and update
-        readme_template = _get_readme_template(template)
-        metadata = self.yaml.load(readme_template)
-
-        metadata['expiration_date'] = metadata['creation_date'] + relativedelta(years=10)
-
-        if kwargs:
-            metadata['Independent Vars'] = kwargs
-
-        # write the readme of the post-proc dataset
-        with open(template, "w") as f:
-            self.yaml.dump(metadata, f)
-
-        return metadata
-
-
-    def update_readme(self, **kwargs):
-
-        # Simulation dataset readme template
+        ds = dtoolcore.DataSetCreator(self.dataset_name, str(self.base_uri), creator_username='mtelewa')
+        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
         template = os.path.join(self.sim_uri, 'README.yml')
-        # load readme template and update
-        readme_template = _get_readme_template(template)
-        metadata = self.yaml.load(readme_template)
 
-        metadata['expiration_date'] = metadata['creation_date'] + relativedelta(years=10)
-
-        if 'uuid' in kwargs:
-            metadata['derived_from'] = kwargs
-        if 'description' in kwargs:
-            metadata['description'] = kwargs['description']
-        else:
-            metadata['Independent Vars'] = kwargs
-
-        # write the readme of the post-proc dataset
+        # write the readme of the dataset
         with open(template, "w") as f:
             self.yaml.dump(metadata, f)
 
-        return metadata
 
-    def create_post(self, freeze=None, copy=None):
+    def create_post(self, freeze=None, copy=None, **kwargs):
+        """
+        Creates a post-processing dataset derived from a simulation step
+        """
 
         # Post-proc dataset path
         post_uri = str(self.sim_uri)+'-post'
@@ -89,28 +64,22 @@ class manipulate_ds:
         # Post-proc dataset readme template
         post_template = os.path.join(post_uri, 'README.yml')
 
-
-        template = os.path.join(self.sim_uri, 'README.yml')
-        # # load readme template and update
-        readme_template = _get_readme_template(template)
-        metadata = self.yaml.load(readme_template)
-
-        metadata['creation_date'] = datetime.today()
-        metadata['expiration_date'] = metadata['creation_date'] + relativedelta(years=10)
-        metadata['derived_from']['uuid'] = self.sim_dataset.uuid
+        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
+        metadata['derived_from'][0]['uuid'] = self.sim_dataset.uuid
 
         # Create the derived dataset if not already existing
         if not os.path.isdir(post_name):
             dds = dtoolcore.create_derived_proto_dataset(post_name, str(self.base_uri),
-                        self.sim_dataset)
+                        self.sim_dataset, creator_username='mtelewa')
         else:
             dds = dtoolcore.ProtoDataSet.from_uri(post_uri)
 
-        # Copy the files to the post-proc dataset
+        # Copy the files to the post-proc dataset and remove them from the simulation dataset
         for root, dirs, files in os.walk(self.sim_out_uri):
             for i in files:
                 if 'x' in i:
                     dds.put_item(os.path.join(self.sim_out_uri,i), i)
+                    os.remove(os.path.join(self.sim_out_uri,i))
 
         # write the readme of the post-proc dataset
         with open(post_template, "w") as f:
@@ -120,47 +89,106 @@ class manipulate_ds:
             print(f'Freezing Simulation dataset: {self.sim_uri} ----')
             self.sim_dataset.freeze()
         if copy:
-            print(f'Copying dataset: {dds} ----')
-            dtoolcore.copy(dds.uri, '/work3')
+            print(f'Copying dataset: {self.sim_uri} to S3 ----')
+            dtoolcore.copy(self.sim_dataset.uri, 's3://frct-simdata',
+                    config_path=os.path.join(os.path.expanduser('~'),'.config/dtool/dtool.json'))
+            # subprocess.call([f"rsync -av {self.sim_dataset.uri} lsdf:{input('lsdf_dir:')}"])
 
-        return dds
+    def create_derived(self, derived_name, **kwargs):
+        """
+        Creates a dataset derived from a previous simulation step
+        """
 
+        derived_uri = os.path.join(self.base_uri, derived_name)
 
-    def create_derived(self, derived_uri, **kwargs):
+        # Create the derived dataset if not already existing
+        dds = dtoolcore.create_derived_proto_dataset(derived_name, str(self.base_uri),
+                    self.sim_dataset, creator_username='mtelewa')
 
         # # derived dataset readme template
         derived_template = os.path.join(derived_uri, 'README.yml')
-
         template = os.path.join(self.sim_uri, 'README.yml')
-        # load readme template and update
-        readme_template = _get_readme_template(template)
-        metadata = self.yaml.load(readme_template)
 
-        metadata['creation_date'] = datetime.today()
-        metadata['expiration_date'] = metadata['creation_date'] + relativedelta(years=10)
-        metadata['derived_from']['uuid'] = self.sim_dataset.uuid
-
-        if kwargs:
-            metadata['Independent Vars'].update(kwargs)
+        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
+        if '-post' not in self.dataset_name:    # Take the UUID of the dataset itself not the post-processed one
+            metadata['derived_from'][0]['uuid'] = self.sim_dataset.uuid
 
         # write the readme of the post-proc dataset
         with open(derived_template, "w") as f:
             self.yaml.dump(metadata, f)
 
 
+    def update_readme(self, write=None, **kwargs):
 
-if __name__ == "__main__":
+        # Check if readme of the dataset is empty
+        ds_readme = _get_readme_template(os.path.join(self.sim_uri, 'README.yml'))
 
-    man=manipulate_ds(sys.argv[1])
+        if self.yaml.load(ds_readme) == None:
+            # Load Readme template
+            read_from = os.path.join(os.path.expanduser('~'), '.dtool', 'custom_dtool_readme.yml')
+        else:
+            # Load the simulation dataset readme
+            read_from = os.path.join(self.sim_uri, 'README.yml')
 
-    if 'update_readme' in sys.argv:
-        man.update_readme(**dict(arg.split('=') for arg in sys.argv[3:]))
-    elif 'create_post' in sys.argv:
-        man.create_post()
-    elif 'create_derived' in sys.argv:
-        man.create_derived(sys.argv[2],**dict(arg.split('=') for arg in sys.argv[4:]))
-    elif 'write_readme' in sys.argv:
-        man.write_readme()
+        readme_template = _get_readme_template(read_from)
+        # load readme template and update
+        metadata = self.yaml.load(readme_template)
 
+        metadata['creation_date'] = datetime.today()
+        metadata['expiration_date'] = metadata['creation_date'] + relativedelta(years=10)
 
-        # subprocess.call(['rm '], shell=True)
+        if 'project' in kwargs:
+            metadata['project'] = kwargs['project']
+        if 'description' in kwargs:
+            metadata['description'] = kwargs['description']
+        if 'uuid' in kwargs:
+            metadata['derived_from'][0]['uuid'] = kwargs['uuid']
+        if 'bc' in kwargs:
+            metadata['boundary_conditions'] = kwargs['bc']
+        if 'fluid' in kwargs:
+            metadata['Materials'][0]['fluid'] = kwargs['fluid']
+        if 'walls' in kwargs:
+            metadata['Materials'][1]['walls'] = kwargs['walls']
+        if 'FF' in kwargs:
+            metadata['Force_fields/Potentials'][0]['force field fluid'] = kwargs['FF']
+        if 'pot_wall' in kwargs:
+            metadata['Force_fields/Potentials'][1]['potential wall'] = kwargs['pot_wall']
+        if 'eps_s' in kwargs:
+            metadata['Force_fields/Potentials'][2]['eps_s'] = kwargs['eps_s']
+        if 'dt' in kwargs:
+            metadata['Force_fields/Potentials'][3]['dt'] = kwargs['dt']
+        if 'method' in kwargs:
+            metadata['Method'] = kwargs['method']
+        if 'thermo' in kwargs:
+            metadata['Thermostat'] = kwargs['thermo']
+        if 'baro' in kwargs:
+            metadata['Barostat'] = kwargs['baro']
+        if 'lx' in kwargs:
+            metadata['Geometry'][0]['lx'] = kwargs['lx']
+        if 'h' in kwargs:
+            metadata['Geometry'][1]['h'] = kwargs['h']
+        if 'Nf' in kwargs:
+            metadata['Geometry'][2]['Nf'] = kwargs['Nf']
+        if 'temp' in kwargs:
+            metadata['State Vars'][0]['temperature'] = kwargs['temp']
+        if 'den' in kwargs:
+            metadata['State Vars'][1]['density'] = kwargs['den']
+        if 'press' in kwargs:
+            metadata['State Vars'][2]['press'] = kwargs['press']
+        if 'delta_p' in kwargs:
+            metadata['State Vars'][3]['delta_p'] = kwargs['delta_p']
+        if 'mflowrate' in kwargs:
+            metadata['State Vars'][4]['mflowrate'] = kwargs['mflowrate']
+        if 'pump_size' in kwargs:
+            metadata['State Vars'][5]['pump_size'] = kwargs['pump_size']
+        if 'u_shear' in kwargs:
+            metadata['State Vars'][5]['u_shear'] = kwargs['u_shear']
+
+        # write the readme of the dataset
+        write_to = os.path.join(self.sim_uri, 'README.yml')
+        if write:
+            with open(write_to, "w") as f:
+                self.yaml.dump(metadata, f)
+
+        return metadata
+#
