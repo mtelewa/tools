@@ -325,10 +325,31 @@ class traj_to_grid:
             # Wave vectors in the z-direction
             kz = 2. * np.pi * nz / avg_gap_height_div
 
+            fluid_vol = None
+
         else:
             comZ = None
             gap_heights = None
             cell_lengths_updated = [Lx, Ly, Lz]
+
+            # For box volume that changes with time (i.e. NPT ensemble)
+            fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
+                         utils.extrema(fluid_ycoords)['global_min'],
+                         utils.extrema(fluid_ycoords)['global_min']]
+
+            fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
+                         utils.extrema(fluid_ycoords)['global_max'],
+                         utils.extrema(fluid_ycoords)['global_max']]
+
+            fluid_lengths = [utils.extrema(fluid_xcoords)['global_max'] - utils.extrema(fluid_xcoords)['global_min'],
+                             utils.extrema(fluid_ycoords)['global_max'] - utils.extrema(fluid_ycoords)['global_min'],
+                             utils.extrema(fluid_ycoords)['global_max'] - utils.extrema(fluid_ycoords)['global_min']]
+
+            cell_lengths = self.data.variables["cell_lengths"]
+            # print(np.array(cell_lengths[self.start:self.end, 0]).astype(np.float32))
+            fluid_vol = np.array(cell_lengths[self.start:self.end, 0]).astype(np.float32) * \
+                        np.array(cell_lengths[self.start:self.end, 1]).astype(np.float32) * \
+                        np.array(cell_lengths[self.start:self.end, 2]).astype(np.float32)
 
             # Wave vectors in the z-direction
             kz = 2. * np.pi * nz / Lz
@@ -352,7 +373,7 @@ class traj_to_grid:
                             (self.mf/sci.N_A)) / (pump_length * sci.angstrom)       # g/ns
 
             # Bulk --------------------------------------------
-            avg_surfL_end_conv = np.mean(comm.allgather(np.mean(surfL_end_conv)))
+            # avg_surfL_end_conv = np.mean(comm.allgather(np.mean(surfL_end_conv)))
             bulkStartZ, bulkEndZ = (0.4 * Lz) + 1, (0.6 * Lz) + 1     # Boffset is 1 Angstrom
             bulk_height, bulk_region, bulk_zcoords, bulk_vol, bulk_N = \
                 itemgetter('interval', 'mask', 'data', 'vol', 'count')\
@@ -387,7 +408,8 @@ class traj_to_grid:
             fluxes = [mflux_pump, mflowrate_pump, mflux_stable, mflowrate_stable]
 
         else:
-            # bulk_height_time = None
+            bulkStartZ_time = None
+            bulkEndZ_time = None
             fluxes = None
             try:
                 # Voronoi volumes of atoms in the bulk region in each timestep
@@ -429,7 +451,14 @@ class traj_to_grid:
             xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                                 bounds_stable[1], bounds_stable[2])
         else:
-            bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i]
+            # bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i]
+            #                 for i in range(3)]
+            # xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
+
+
+            # Bounds should change for example in NPT simulations
+            # (NEEDED when the Box volume changes e.g. NPT)------------------------------------------------
+            bounds = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_min[i]
                             for i in range(3)]
             xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
 
@@ -458,6 +487,7 @@ class traj_to_grid:
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
         temp_ch = np.zeros_like(vx_ch)
+        uCOMx = np.zeros_like(vx_ch)
 
         N_Upper_mask = np.zeros([self.chunksize, self.Nx], dtype=np.float32)
         N_Lower_mask = np.zeros_like(N_Upper_mask)
@@ -611,11 +641,9 @@ class traj_to_grid:
                     # Density (bulk) -----------------------------------
                     den_bulk_ch[:, i] = (N_bulk_mask[:, i, k] / self.A_per_molecule) / vol_bulk_cell[i, 0, k]
 
-
         else:
             for i in range(self.Nx):
                 for k in range(self.Nz):
-
                     maskx_fluid = utils.region(fluid_xcoords, fluid_xcoords,
                                             xx[i, 0, k], xx[i+1, 0, k])['mask']
                     maskz_fluid = utils.region(fluid_zcoords, fluid_zcoords,
@@ -662,6 +690,7 @@ class traj_to_grid:
                         Wyy_ch = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1)
                         Wzz_ch = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1)
                         vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / (3 * vol_cell[i,0,k])
+
                     except UnboundLocalError:
                         pass
 
@@ -681,6 +710,7 @@ class traj_to_grid:
                 'fluid_vx_avg': fluid_vx_avg,
                 'fluid_vy_avg': fluid_vy_avg,
                 'vx_ch': vx_ch,
+                'uCOMx': uCOMx,
                 'den_ch': den_ch,
                 # 'rho_kx_ch': rho_kx_ch,
                 'sf': sf,
@@ -700,7 +730,8 @@ class traj_to_grid:
                 'surfL_fz_ch':surfL_fz_ch,
                 'den_bulk_ch':den_bulk_ch,
                 'Nf': Nf,
-                'N_fluid_mask':N_fluid_mask}
+                'Nm': Nm,
+                'fluid_vol':fluid_vol}
 
 # # Correction for the converging-diverging channel ---------------------------------------
 #

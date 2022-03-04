@@ -78,39 +78,41 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         cell_lengths, kx, ky, kz, \
         gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
-        vx_ch, den_ch, sf, sf_x, sf_y, \
-        N_fluid_mask, \
+        vx_ch, uCOMx, den_ch, sf, sf_x, sf_y, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
-        den_bulk_ch, Nf = itemgetter('cell_lengths',
-                                      'kx', 'ky', 'kz',
-                                      'gap_heights',
-                                      'bulkStartZ_time',
-                                      'bulkEndZ_time',
-                                      'com',
-                                      'fluxes',
-                                      'totVi',
-                                      'fluid_vx_avg',
-                                      'fluid_vy_avg',
-                                      'vx_ch',
-                                      'den_ch',
-                                      'sf',
-                                      'sf_x',
-                                      'sf_y',
-                                      'N_fluid_mask',
-                                      'jx_ch',
-                                      'vir_ch',
-                                      'Wxy_ch',
-                                      'Wxz_ch',
-                                      'Wyz_ch',
-                                      'temp_ch',
-                                      'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
-                                      'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
-                                      'den_bulk_ch',
-                                      'Nf')(init.get_chunks(stable_start,
-                                        stable_end, pump_start, pump_end, nx, ny, nz))
+        den_bulk_ch, Nf, Nm, \
+        fluid_vol = itemgetter('cell_lengths',
+                                  'kx', 'ky', 'kz',
+                                  'gap_heights',
+                                  'bulkStartZ_time',
+                                  'bulkEndZ_time',
+                                  'com',
+                                  'fluxes',
+                                  'totVi',
+                                  'fluid_vx_avg',
+                                  'fluid_vy_avg',
+                                  'vx_ch',
+                                  'uCOMx',
+                                  'den_ch',
+                                  'sf',
+                                  'sf_x',
+                                  'sf_y',
+                                  'jx_ch',
+                                  'vir_ch',
+                                  'Wxy_ch',
+                                  'Wxz_ch',
+                                  'Wyz_ch',
+                                  'temp_ch',
+                                  'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
+                                  'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
+                                  'den_bulk_ch',
+                                  'Nf', 'Nm',
+                                  'fluid_vol')(init.get_chunks(stable_start,
+                                    stable_end, pump_start, pump_end, nx, ny, nz))
+
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
@@ -149,9 +151,12 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Voronoi vol
             totVi_global = np.zeros_like(gap_height_global)
 
+            fluid_vol_global = np.zeros_like(gap_height_global)
+
             # Dimensions: (time, Nx, Nz)
             # Velocity (chunked in stable region)
             vx_ch_global = np.zeros([time, Nx, Nz], dtype=np.float32)
+            uCOMx_global = np.zeros_like(vx_ch_global)
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
@@ -171,8 +176,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wyz_ch_global = np.zeros_like(vx_ch_global)
             # Temperature
             temp_global = np.zeros_like(vx_ch_global)
-
-            N_fluid_mask_global = np.zeros_like(vx_ch_global)
 
             # Dimensions: (time, Nx)
             # Surface Forces
@@ -196,8 +199,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_pump_global = None
             mflowrate_pump_global = None
             totVi_global = None
+            fluid_vol_global = None
 
             vx_ch_global = None
+            uCOMx_global = None
             den_ch_global = None
             # rho_kx_ch_global = None
             sf_global = None
@@ -213,8 +218,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wyz_ch_global = None
             temp_global = None
 
-            N_fluid_mask_global = None
-
             surfU_fx_ch_global = None
             surfU_fy_ch_global = None
             surfU_fz_ch_global = None
@@ -223,7 +226,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             surfL_fz_ch_global = None
             den_bulk_ch_global = None
 
-        if gap_heights != None:
+        if gap_heights != None:     # If there are walls
             comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
@@ -234,29 +237,32 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
             comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
-
+            comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=surfU_fy_ch, recvbuf=(surfU_fy_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=surfU_fz_ch, recvbuf=(surfU_fz_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
             # comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
             comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=sf_x, recvbuf=(sf_x_global, sendcounts_chunk_fluid_layer_nx), root=0)
             comm.Gatherv(sendbuf=sf_y, recvbuf=(sf_y_global, sendcounts_chunk_fluid_layer_ny), root=0)
-
-
-            # comm.Gatherv(sendbuf=sf_ch_y, recvbuf=(sf_ch_y_global, sendcounts_chunk_fluid_layer), root=0)
-            # comm.Gatherv(sendbuf=rho_kx_im_ch, recvbuf=(rho_kx_im_ch_global, sendcounts_chunk_fluid_layer), root=0)
-            # comm.Gatherv(sendbuf=rho_ky_ch, recvbuf=(rho_ky_ch_global, sendcounts_chunk_fluid_layer), root=0)
 
             # If the virial was not computed, skip
             try:
                 comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
             except TypeError:
                 pass
-        else:
+        else:   # If only bulk
+            comm.Gatherv(sendbuf=fluid_vol, recvbuf=(fluid_vol_global, sendcounts_time), root=0)
             try:
                 comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
             except TypeError:
                 pass
 
+        # For both walls and bulk simulations
         comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=uCOMx, recvbuf=(uCOMx_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=jx_ch, recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=temp_ch, recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
@@ -264,14 +270,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=Wxy_ch, recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxz_ch, recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wyz_ch, recvbuf=(Wyz_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=N_fluid_mask, recvbuf=(N_fluid_mask_global, sendcounts_chunk_fluid), root=0)
-
-        comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=surfU_fy_ch, recvbuf=(surfU_fy_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=surfU_fz_ch, recvbuf=(surfU_fz_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
         comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
 
         if rank == 0:
@@ -287,6 +285,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             out.createDimension('ny', ny)
             out.createDimension('time', time)
             out.createDimension('Nf', Nf)
+            out.createDimension('Nm', Nm)
 
             # Real lattice
             out.setncattr("Lx", cell_lengths[0])
@@ -309,6 +308,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_stable = out.createVariable('mflux_stable', 'f4', ('time'))
             mflowrate_stable = out.createVariable('mflow_rate_stable', 'f4', ('time'))
             voronoi_volumes = out.createVariable('Voronoi_volumes', 'f4', ('time'))
+            fluid_vol_var = out.createVariable('Fluid_Vol', 'f4', ('time'))
 
             vx_var =  out.createVariable('Vx', 'f4', ('time', 'x', 'z'))
             den_var = out.createVariable('Density', 'f4',  ('time', 'x', 'z'))
@@ -316,16 +316,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Reciprocal lattice wave vectors
             kx_var = out.createVariable('kx', 'f4', ('nx'))
             ky_var = out.createVariable('ky', 'f4', ('ny'))
-            # rho_kx = out.createVariable('rho_kx', 'f4', ('time', 'n'))
-            # rho_kx_im = out.createVariable('rho_kx_im', 'f4', ('time', 'n'))
-
             sf_var = out.createVariable('sf', 'f4', ('time', 'nx', 'ny'))
             sf_x_var = out.createVariable('sf_x', 'f4', ('time', 'nx'))
             sf_y_var = out.createVariable('sf_y', 'f4', ('time', 'ny'))
             sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
-
-            # sf_y = out.createVariable('sf_y', 'f4', ('time', 'n'))
-            # sf_im_y = out.createVariable('sf_y_im', 'f4', ('time', 'n'))
 
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
 
@@ -356,6 +350,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_stable[:] = mflux_stable_global
             mflowrate_stable[:] = mflowrate_stable_global
             voronoi_volumes[:] = totVi_global
+            fluid_vol_var[:] = fluid_vol_global
 
             vx_all_var[:] = vx_global_avg
             vy_all_var[:] = vy_global_avg
@@ -365,16 +360,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             kx_var[:] = kx
             ky_var[:] = ky
-            # rho_kx[:] = rho_kx_ch_global.real
-            # rho_kx_im[:] = rho_kx_ch_global.imag
-
             sf_var[:] = sf_global.real
             sf_x_var[:] = sf_x_global.real
             sf_y_var[:] = sf_y_global.real
-
             sf_im[:] = sf_global.imag
-            # sf_y[:] = sf_ch_y_global.real
-            # sf_im_y[:] = sf_ch_y_global.imag
 
             jx_var[:] = jx_ch_global
             vir_var[:] = vir_ch_global
