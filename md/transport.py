@@ -10,7 +10,7 @@ import get_variables_211018 as gv
 
 def get_parser():
     parser = argparse.ArgumentParser(
-    description='Plot quantities post-processed from a netcdf trajectory.')
+    description='Print quantities post-processed from a netcdf trajectory.')
 
     #Positional arguments
     #--------------------
@@ -23,6 +23,8 @@ def get_parser():
                         Needed for the calculation of mass flux and density')
     parser.add_argument('qtty', metavar='qtty', nargs='+', action='store', type=str,
                     help='the quantity to print')
+    parser.add_argument('--pumpsize', metavar='format', action='store', type=float,
+                    help='Pump size. Needed for the pressure gradient compuation.')
 
     parsed, unknown = parser.parse_known_args()
     for arg in unknown:
@@ -44,10 +46,22 @@ if __name__ == "__main__":
     elif args.fluid=='pentane': mf = 72.15
     elif args.fluid=='heptane': mf = 100.21
 
+    # Get the pump size to calculate the pressure gradient
+    if not args.pumpsize:
+        pumpsize = 0        # equilib (Equilibrium), sd (shear-driven)
+        print('Pump size is set to zero.')
+    else:
+        pumpsize = args.pumpsize  # pd (pressure-driven), sp (superposed)
+        print(f'Pump size is set to {pumpsize} Lx.')
+
     datasets= []
     for key, value in vars(args).items():
-        if key.startswith('ds'):
+        if key.startswith('ds') and value!='all':
             datasets.append(value)
+        if key.startswith('ds') and value=='all':
+            for i in os.listdir(os.getcwd()):
+                if os.path.isdir(i):
+                    datasets.append(i)
 
     datasets_x, datasets_z = [], []
     for k in datasets:
@@ -59,30 +73,31 @@ if __name__ == "__main__":
                     datasets_z.append(os.path.join(root, i))
 
     for i in range(len(datasets)):
-        get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i])
+        get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
 
-        if 'mflux' in args.qtty[0]:
-            params = get.mflux(mf)
+        if 'mflowrate' in args.qtty[0]:
+            params = get.mflux()
             print(f"mdot stable = {np.mean(params['mflowrate_stable']):e} g/ns") #\
                   #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
                   #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
                   #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
-
         if  'gk' in args.qtty[0]:
             get.green_kubo()
         if 'slip_length' in args.qtty[0]:
-            params = get.slip_length(pd=1)
+            params = get.slip_length()
             print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} (m/s)")
         if 'transverse' in args.qtty[0]:
             get.trans()
         if 'pgrad' in args.qtty[0]:
-            get.virial()
+            vir = get.virial(np.float(input('pump_size')))
+            print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
+            print(f"Pressure difference is {vir['pDiff']} MPa")
         if 'sigxz' in args.qtty[0]:
-            get.sigwall()
+            get.sigwall(np.float(input('pump_size')))
         if 'skx' in args.qtty[0]:
             get.struc_factor()
         if 'transport' in args.qtty[0]:
-            params = get.transport(pd=1)
+            params = get.transport(np.float(input('pump_size')))
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
         if 'correlate' in args.qtty[0]:
             get.uncertainty_pDiff(pump_size=0.1)
