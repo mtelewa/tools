@@ -63,6 +63,13 @@ if __name__ == "__main__":
                 if os.path.isdir(i):
                     datasets.append(i)
 
+    # Order as indexed on the FileSystem. Sorting is needed if all datasets are
+    # points on the same curve e.g. EOS
+    try:
+        if args.ds == 'all': datasets.sort()
+    except AttributeError:
+        pass
+
     datasets_x, datasets_z = [], []
     for k in datasets:
         for root, dirs, files in os.walk(k):
