@@ -212,7 +212,6 @@ class traj_to_grid:
 
         # Wall Stresses -------------------------------------------------
         if solid_start != None:
-
             forcesU = self.data.variables["f_fAtomU_avg"]
             forcesL = self.data.variables["f_fAtomL_avg"]
 
@@ -265,7 +264,6 @@ class traj_to_grid:
                                          forcesL_data[:, solid_start:, 1][:,surfL_indices], \
                                          forcesL_data[:, solid_start:, 2][:,surfL_indices]
 
-
             # Check if surfU and surfL are not equal
             N_surfL, N_surfU = len(surfL_indices), len(surfU_indices)
             if N_surfU != N_surfL and rank == 0:
@@ -282,7 +280,6 @@ class traj_to_grid:
             avg_surfU_end, avg_surfL_begin = np.mean(comm.allgather(np.mean(surfU_end))), \
                                              np.mean(comm.allgather(np.mean(surfL_begin)))
 
-
             # The converged and diverged regions fluid, surfU and surfL coordinates
             surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, 0, 0.2*Lx)['data']
             surfL_zcoords_div = utils.region(surfL_zcoords, surfL_xcoords, 0, 0.2*Lx)['data']
@@ -290,8 +287,8 @@ class traj_to_grid:
             surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
 
             # Narrow range because of outliers in the fluid coordinates
-            surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, 0.49*Lx, 0.5*Lx)['data']
-            surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, 0.49*Lx, 0.5*Lx)['data']
+            surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, 0.4*Lx, 0.5*Lx)['data']
+            surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, 0.4*Lx, 0.5*Lx)['data']
             surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
             surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
 
@@ -482,6 +479,7 @@ class traj_to_grid:
         # rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
         sf_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
         sf_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
+        rho_k = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
         sf = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
 
         jx_ch = np.zeros_like(vx_ch)
@@ -524,7 +522,8 @@ class traj_to_grid:
             for i in range(len(kx)):
                 for k in range(len(ky)):
                     # Fourier components of the density
-                    # rho_kx_ch[:, i] = np.sum( np.exp(-1.j * kx[i] * fluid_xcoords * mask_layer) , axis=1) #/ N_layer_mask
+                    rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
+                                        ky[k]*fluid_ycoords_unavgd*mask_layer)) )
                     sf[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
                                         ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1))**2 / N_layer_mask
 
@@ -603,13 +602,13 @@ class traj_to_grid:
                     peculiar_vy = np.transpose(fluid_vy_t) - uCOMy
                     peculiar_vz = np.transpose(fluid_vz_t) - uCOMz
 
-                    peculiar_v = np.sqrt(peculiar_vx**2+peculiar_vy**2+peculiar_vz**2) / self.A_per_molecule
-                    peculiar_v = np.transpose(peculiar_v) * mask_fluid
+                    peculiar_v = np.sqrt(peculiar_vx**2 + peculiar_vy**2 + peculiar_vz**2)
+                    peculiar_v = np.transpose(peculiar_v) * mask_fluid / self.A_per_molecule
 
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        ( 3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule )  # Kelvin
+                                        (3 * N_fluid_mask[:, i, k]* sci.k /self.A_per_molecule )  # Kelvin
 
                     # Virial pressure--------------------------------------
                     # Simulations without virial calculation
@@ -712,7 +711,7 @@ class traj_to_grid:
                 'vx_ch': vx_ch,
                 'uCOMx': uCOMx,
                 'den_ch': den_ch,
-                # 'rho_kx_ch': rho_kx_ch,
+                'rho_k': rho_k,
                 'sf': sf,
                 'sf_x': sf_x,
                 'sf_y': sf_y,
