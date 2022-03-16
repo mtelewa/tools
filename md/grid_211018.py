@@ -20,7 +20,7 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=5):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=200, ny=20, nz=5):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -78,7 +78,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         cell_lengths, kx, ky, kz, \
         gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
-        vx_ch, uCOMx, den_ch, sf, sf_x, sf_y, \
+        vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
@@ -98,6 +98,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'uCOMx',
                                   'den_ch',
                                   'sf',
+                                  'rho_k',
                                   'sf_x',
                                   'sf_y',
                                   'jx_ch',
@@ -160,8 +161,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
-            # rho_kx_ch_global = np.zeros([time, nmax] , dtype=np.complex64)
             sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
+            rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             sf_x_global = np.zeros([time, nx] , dtype=np.complex64)
             sf_y_global = np.zeros([time, ny] , dtype=np.complex64)
 
@@ -206,10 +207,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             den_ch_global = None
             # rho_kx_ch_global = None
             sf_global = None
+            rho_k_global = None
             sf_x_global = None
             sf_y_global = None
             # sf_ch_y_global = None
-            # rho_kx_im_ch_global = None
             # rho_ky_ch_global = None
             jx_ch_global = None
             vir_ch_global = None
@@ -243,8 +244,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
-            # comm.Gatherv(sendbuf=rho_kx_ch, recvbuf=(rho_kx_ch_global, sendcounts_chunk_fluid_layer), root=0)
             comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
+            comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=sf_x, recvbuf=(sf_x_global, sendcounts_chunk_fluid_layer_nx), root=0)
             comm.Gatherv(sendbuf=sf_y, recvbuf=(sf_y_global, sendcounts_chunk_fluid_layer_ny), root=0)
 
@@ -317,6 +318,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             kx_var = out.createVariable('kx', 'f4', ('nx'))
             ky_var = out.createVariable('ky', 'f4', ('ny'))
             sf_var = out.createVariable('sf', 'f4', ('time', 'nx', 'ny'))
+            rho_k_var = out.createVariable('rho_k', 'f4', ('time', 'nx', 'ny'))
             sf_x_var = out.createVariable('sf_x', 'f4', ('time', 'nx'))
             sf_y_var = out.createVariable('sf_y', 'f4', ('time', 'ny'))
             sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
@@ -360,6 +362,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             kx_var[:] = kx
             ky_var[:] = ky
+            rho_k_var[:] = rho_k_global.real
             sf_var[:] = sf_global.real
             sf_x_var[:] = sf_x_global.real
             sf_y_var[:] = sf_y_global.real
