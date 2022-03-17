@@ -20,7 +20,7 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=200, ny=20, nz=5):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=5):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -78,6 +78,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         cell_lengths, kx, ky, kz, \
         gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi,\
         fluid_vx_avg, fluid_vy_avg, \
+        fluid_vx_avg_lte, fluid_vy_avg_lte, \
         vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch,\
@@ -94,6 +95,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'totVi',
                                   'fluid_vx_avg',
                                   'fluid_vy_avg',
+                                  'fluid_vx_avg_lte',
+                                  'fluid_vy_avg_lte',
                                   'vx_ch',
                                   'uCOMx',
                                   'den_ch',
@@ -126,6 +129,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
         fluid_vx_avg = np.array(comm.gather(fluid_vx_avg, root=0))
         fluid_vy_avg = np.array(comm.gather(fluid_vy_avg, root=0))
+        fluid_vx_avg_lte = np.array(comm.gather(fluid_vx_avg_lte, root=0))
+        fluid_vy_avg_lte = np.array(comm.gather(fluid_vy_avg_lte, root=0))
 
         if rank == 0:
 
@@ -134,6 +139,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Average velocity of each atom over all the tsteps in the slice
             vx_global_avg = np.mean(fluid_vx_avg, axis=0)
             vy_global_avg = np.mean(fluid_vy_avg, axis=0)
+
+            vx_global_avg_lte = np.mean(fluid_vx_avg_lte, axis=0)
+            vy_global_avg_lte = np.mean(fluid_vy_avg_lte, axis=0)
 
             # Dimensions: (time)
             # Gap Heights
@@ -297,6 +305,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
             vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
 
+            vx_lte_var = out.createVariable('Fluid_lte_Vx', 'f4', ('Nf'))
+            vy_lte_var = out.createVariable('Fluid_lte_Vy', 'f4', ('Nf'))
+
             time_var = out.createVariable('Time', 'f4', ('time'))
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
             gap_height_conv_var =  out.createVariable('Height_conv', 'f4', ('time'))
@@ -356,6 +367,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_all_var[:] = vx_global_avg
             vy_all_var[:] = vy_global_avg
+
+            vx_lte_var[:] = vx_global_avg_lte
+            vy_lte_var[:] = vy_global_avg_lte
 
             vx_var[:] = vx_ch_global
             den_var[:] = den_ch_global

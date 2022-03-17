@@ -500,6 +500,17 @@ class traj_to_grid:
 
         if solid_start != None:
 
+            # velocity distribution in the channel center to test for LTE
+            maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, 175, 180)['mask']
+            masky_lte = utils.region(fluid_ycoords, fluid_ycoords, 15, 20)['mask']
+            maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, 20, 25)['mask']
+            mask_xy_lte = np.logical_and(maskx_lte, masky_lte)
+            mask_lte = np.logical_and(mask_xy_lte, maskz_lte)
+            # For the velocity distribution
+            fluid_vx_avg_lte = np.mean(fluid_vx*mask_lte, axis=0)
+            fluid_vy_avg_lte = np.mean(fluid_vy*mask_lte, axis=0)
+
+
             # Structure Factor calculation
             maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
             masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
@@ -708,6 +719,8 @@ class traj_to_grid:
                 'totVi': totVi,
                 'fluid_vx_avg': fluid_vx_avg,
                 'fluid_vy_avg': fluid_vy_avg,
+                'fluid_vx_avg_lte': fluid_vx_avg_lte,
+                'fluid_vy_avg_lte': fluid_vy_avg_lte,
                 'vx_ch': vx_ch,
                 'uCOMx': uCOMx,
                 'den_ch': den_ch,
