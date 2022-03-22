@@ -92,19 +92,22 @@ if __name__ == "__main__":
             get.green_kubo()
         if 'slip_length' in args.qtty[0]:
             params = get.slip_length()
-            print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} (m/s)")
+            print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} m/s")
         if 'transverse' in args.qtty[0]:
             get.trans()
         if 'pgrad' in args.qtty[0]:
-            vir = get.virial(np.float(input('pump_size')))
+            vir = get.virial()
             print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
             print(f"Pressure difference is {vir['pDiff']} MPa")
         if 'sigxz' in args.qtty[0]:
-            get.sigwall(np.float(input('pump_size')))
+            get.sigwall()
+        if 'gaph' in args.qtty[0]:
+             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty[0]:
             get.struc_factor()
         if 'transport' in args.qtty[0]:
-            params = get.transport(np.float(input('pump_size')))
+            params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
+            print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']}")
         if 'correlate' in args.qtty[0]:
             get.uncertainty_pDiff(pump_size=0.1)
