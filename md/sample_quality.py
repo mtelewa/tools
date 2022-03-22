@@ -133,7 +133,7 @@ def acf(f_tq):
     return {'non-norm':C_non_norm, 'norm':C_norm}
 
 
-def acf_conjugate(f_tq):
+def acf_conjugate(f):
     """
     Autocorrelation function
     parameters
@@ -143,13 +143,13 @@ def acf_conjugate(f_tq):
     """
     var = np.var(f)
     mean = np.mean(f)
+    print(mean.shape)
     C = np.correlate(f - mean, f - mean, mode="full")
     C = C[C.size // 2:]
     C /= len(C)
     C /= var
 
-
-    return {'non-norm':C_non_norm, 'norm':C_norm}
+    return {'C':C}
 
 
 
@@ -198,12 +198,22 @@ def get_err(f):
     parameters
     ----------
     f: arr
-        input array of any shape
+        input array of shape (time,)
 
     """
     if  f.ndim > 1:         # c.ndim
-        avg = np.mean(f, axis=0)
-        std_dev = np.std(f, axis=0, ddof=1)
+        n = 100 # samples/block
+        if f.shape[1] > 1: blocks = block_ND(f.shape[0], f, f.shape[1], n)  #Qtts along length
+        if f.shape[2] > 1: blocks = block_ND(f.shape[0], f, f.shape[2], n)  #Qtts along height
+        # Discard chunks with zero time average
+        # Get the time average in each chunk
+        blocks_mean = np.mean(blocks, axis=0)
+        blocks = np.transpose(blocks)
+        blocks = blocks[blocks_mean !=0]
+        blocks = np.transpose(blocks)
+
+        avg = np.mean(blocks, axis=0)
+        std_dev = np.std(blocks, axis=0, ddof=1)
 
     else:
         avg = np.mean(f)
@@ -234,7 +244,37 @@ def get_err(f):
     confidence_intervalU = avg + margin_error
 
     return {'values':values, 'probs':probabilities, 'uncertainty':margin_error,
-            'Lo':confidence_intervalL, 'Hi':confidence_intervalU}
+            'lo':confidence_intervalL, 'hi':confidence_intervalU}
+
+
+def prop_uncertainty(f1,f2):
+    """
+    Compute propagated uncertainties from 2 arrays of the same shape
+
+    parameters
+    ----------
+    f1: arr
+        input array of shape (time, Nchunks)
+    f2: arr
+        input array of shape (time, Nchunks)
+    """
+
+    err1 = get_err(f1)['uncertainty']
+    err2 = get_err(f2)['uncertainty']
+
+    # The uncertainty in each chunk is the Propagation of uncertainty of L and U surfaces
+    # Get the covariance in the chunk
+    cov_in_chunk = np.zeros(f1.shape[1])
+    for i in range(f1.shape[1]):
+        cov_in_chunk[i] = np.cov(f1[:,i], f2[:,i])[0,1]
+
+    # Needs to be corrected with a positive sign of the variance for sigxz in PD
+    err = np.sqrt(0.5**2*err1**2 + 0.5**2*err2**2 - 2*0.5*0.5*cov_in_chunk)
+    avg = 0.5 * (np.mean(f1, axis=0) - np.mean(f2, axis=0))
+    lo = avg - err
+    hi = avg + err
+
+    return {'err':err, 'lo':lo, 'hi':hi}
 
 
 
