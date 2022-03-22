@@ -279,7 +279,7 @@ class derive_data:
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
         # Virial pressure at the inlet and the outlet of the pump
-        out_chunk, in_chunk = np.argmax(vir_chunkX), np.argmin(vir_chunkX)
+        out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
         # timeseries of the output and input chunks
         vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
         # Pressure Difference  between inlet and outlet
@@ -413,11 +413,19 @@ class derive_data:
         fluid_vx = np.array(self.data_x.variables["Fluid_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
         fluid_vy = np.array(self.data_x.variables["Fluid_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
 
+        fluid_vx_lte = np.array(self.data_x.variables["Fluid_lte_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+        fluid_vy_lte = np.array(self.data_x.variables["Fluid_lte_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+
         values_x, probabilities_x = sq.get_err(fluid_vx)['values'], sq.get_err(fluid_vx)['probs']
         values_y, probabilities_y = sq.get_err(fluid_vy)['values'], sq.get_err(fluid_vy)['probs']
 
+        values_x_lte, probabilities_x_lte = sq.get_err(fluid_vx_lte)['values'], sq.get_err(fluid_vx_lte)['probs']
+        values_y_lte, probabilities_y_lte = sq.get_err(fluid_vy_lte)['values'], sq.get_err(fluid_vy_lte)['probs']
+
         return {'vx_values': values_x, 'vx_prob': probabilities_x,
-                'vy_values': values_y, 'vy_prob': probabilities_y}
+                'vy_values': values_y, 'vy_prob': probabilities_y,
+                'vx_values_lte': values_x_lte, 'vx_prob_lte': probabilities_x_lte,
+                'vy_values_lte': values_y_lte, 'vy_prob_lte': probabilities_y_lte}
 
     # Derived Quantities ----------------------------------------------------
     # -----------------------------------------------------------------------
@@ -430,38 +438,38 @@ class derive_data:
             Dynamic viscosity
         """
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-        vels = dd.velocity()
+        vels = dd.velocity()['vx_Z']
 
         # sd
         if self.pumpsize==0:
-            coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 1)
-            sigxz_avg = np.mean(dd.sigwall(self.pumpsize)['sigxz_t']) * 1e9      # mPa
+            coeffs_fit = np.polyfit(self.height_array[vels!=0], vels[vels!=0], 1)
+            sigxz_avg = np.mean(dd.sigwall()['sigxz_t']) * 1e9      # mPa
             shear_rate = coeffs_fit[0] * 1e9
             mu = sigxz_avg / shear_rate
 
-            coeffs_fit_lo = np.polyfit(vels['height_array_mod'], dd.uncertainty('vx')['lo'], 1)
+            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0], sq.get_err(dd.velocity()['vx_full_z'])['lo'], 1)
             shear_rate_lo = coeffs_fit_lo[0] * 1e9
             mu_lo = sigxz_avg / shear_rate_lo
 
-            coeffs_fit_hi = np.polyfit(vels['height_array_mod'], dd.uncertainty('vx')['hi'], 1)
+            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0], sq.get_err(dd.velocity()['vx_full_z'])['hi'], 1)
             shear_rate_hi = coeffs_fit_hi[0] * 1e9
             mu_hi = sigxz_avg / shear_rate_hi
 
         # pd, sp
         if self.pumpsize!=0:
             # Get the viscosity
-            sigxz_avg = np.mean(dd.sigwall(self.pumpsize)['sigxz_t']) * 1e9      # mPa
-            pgrad = dd.virial(self.pumpsize)['pGrad']            # MPa/m
+            sigxz_avg = np.mean(dd.sigwall()['sigxz_t']) * 1e9      # mPa
+            pgrad = dd.virial()['pGrad']            # MPa/m
 
-            coeffs_fit = np.polyfit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 2)
+            coeffs_fit = np.polyfit(self.height_array[vels!=0], vels[vels!=0], 2)
             mu = pgrad/(2 * coeffs_fit[0])          # mPa.s
             shear_rate = sigxz_avg / mu
 
-            coeffs_fit_lo = np.polyfit(vels['height_array_mod'], dd.uncertainty('vx')['lo'], 2)
+            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0], sq.get_err(dd.velocity()['vx_full_z'])['lo'], 2)
             mu_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
             shear_rate_lo = sigxz_avg / mu_lo
 
-            coeffs_fit_hi = np.polyfit(vels['height_array_mod'], dd.uncertainty('vx')['hi'], 2)
+            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0], sq.get_err(dd.velocity()['vx_full_z'])['hi'], 2)
             mu_hi = pgrad/(2 * coeffs_fit_hi[0])          # mPa.s
             shear_rate_hi = sigxz_avg / mu_hi
 
@@ -516,19 +524,19 @@ class derive_data:
         vels = dd.velocity()
 
         if self.pumpsize==0:
-            fit_data = funcs.fit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 1)['fit_data']
+            fit_data = funcs.fit(self.height_array, vels['vx_chunkZ_mod'], 1)['fit_data']
         else:
-            fit_data = funcs.fit(vels['height_array_mod'], vels['vx_chunkZ_mod'], 2)['fit_data']
+            fit_data = funcs.fit(self.height_array[vels!=0], vels['vx_chunkZ_mod'], 2)['fit_data']
 
-        npoints = len(vels['height_array_mod'])
+        npoints = len(self.height_array[vels!=0])
         # Positions to inter/extrapolate
-        xdata_left = np.linspace(-12, vels['height_array_mod'][0], npoints)
-        xdata_right = np.linspace(vels['height_array_mod'][-1], 12 , npoints)
+        xdata_left = np.linspace(-12, self.height_array[vels!=0][0], npoints)
+        xdata_right = np.linspace(self.height_array[vels!=0][-1], 12 , npoints)
 
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
         order = 1
         # do inter/extrapolation
-        extrapolate = InterpolatedUnivariateSpline(vels['height_array_mod'], fit_data, k=order)
+        extrapolate = InterpolatedUnivariateSpline(self.height_array[vels!=0], fit_data, k=order)
         coeffs_extrapolate_left = np.polyfit(xdata_left, extrapolate(xdata_left), 1)
         coeffs_extrapolate_right = np.polyfit(xdata_right, extrapolate(xdata_right), 1)
 
@@ -541,7 +549,7 @@ class derive_data:
 
         # Slip length is the extrapolated length in addition to the depletion region: small
         # length where there are no atoms
-        Ls = np.abs(root_left) + vels['height_array_mod'][0]
+        Ls = np.abs(root_left) + self.height_array[vels!=0][0]
 
         # Slip velocity according to Navier boundary
         Vs = Ls * sci.nano * dd.transport()['shear_rate']        # m/s
@@ -554,7 +562,7 @@ class derive_data:
                 'extrapolate_right':extrapolate(xdata_right)}
 
 
-    def dsf(self):
+    def sf(self):
         """
         Returns
         -------
@@ -568,17 +576,12 @@ class derive_data:
 
         # skip here is used to truncate the calculated SF
         sf_real = np.array(self.data_x.variables["sf"])[:self.skip]
-        # sf_im = np.array(self.data_x.variables["sf_im"])
-
         sf_x_real = np.array(self.data_x.variables["sf_x"])[:self.skip]
         sf_y_real = np.array(self.data_x.variables["sf_y"])[:self.skip]
-        # sf_y_im = np.array(self.data_x.variables["sf_y_im"])
 
         # Structure factor averaged over time for each k
-        # sf_x = sf_x_real + 1j * sf_x_im
         sf = np.mean(sf_real, axis=0)
         sf_time = np.mean(sf_real, axis=(1,2))
-
         sf_x = np.mean(sf_x_real, axis=0)
         sf_y = np.mean(sf_y_real, axis=0)
 
@@ -592,41 +595,39 @@ class derive_data:
 
         return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time}
 
-
-        # Intermediate Scattering Function -------------------------------
+    def ISF(self):
+        """
+        Intermediate Scattering Function
+        """
 
         # Fourier components of the density
-        # rho_kx_real = np.array(self.data_x.variables["rho_kx"])
-        # rho_kx_im = np.array(self.data_x.variables["rho_kx_im"])
-        #
-        # rho_kx = rho_kx_real + 1j * rho_kx_im
-        # rho_kx_conj = rho_kx_real - 1j * rho_kx_im
-        #
-        # a = np.mean(rho_kx, axis=0)
-        # b = np.mean(rho_kx_conj, axis=0)
-        # var = np.var(rho_kx, axis=0)
-        # ISFx = np.zeros([len(self.time),len(kx)])
+        rho_k = np.array(self.data_x.variables["rho_k"])
+
+        # a = np.mean(rho_k, axis=0)
+        # var = np.var(rho_k, axis=0)
+
+        ISF = sq.acf_conjugate(rho_k)['norm']
+        print(ISF.shape)
+
+        # ISF = np.zeros([len(self.time),len(kx)])
         # for i in range(len(kx)):
         #     C = np.correlate(rho_kx[:,i]-a[i], rho_kx_conj[:,i]-b[i], mode="full")
         #     C = C[C.size // 2:].real
-        #     ISFx[:,i] = C #/ var[i]
-        # # we get the same with manual acf
-        # # ISFx = sq.acf(rho_kx)['non-norm'].real
-        #
-        # ISFx_mean = np.mean(ISFx, axis=0)
-        #
-        # # Fourier transform of the ISF gives the Dynamical structure factor
-        # DSFx = np.fft.fft(ISFx[:,5]).real
-        # print(DSFx.shape)
-        # DSFx_mean = np.mean(DSFx.real, axis=1)
-        # print(DSFx.shape)
-        # print(DSFx_mean)
+        #     ISF[:,i] = C #/ var[i]
+        # we get the same with manual acf
+        # ISFx = sq.acf(rho_kx)['non-norm'].real
 
-        # # Intermediate Scattering Function (ISF): ACF of Fourier components of density
+        # ISFx_mean = np.mean(ISFx, axis=0)
+
+        # Fourier transform of the ISF gives the Dynamical structure factor
+        # DSFx = np.fft.fft(ISFx[:,5]).real
+        # DSFx_mean = np.mean(DSFx.real, axis=1)
+
+        # Intermediate Scattering Function (ISF): ACF of Fourier components of density
         # ISFx = sq.numpy_acf(rho_kx)#['non-norm']
         # ISFx_mean = np.mean(ISFx, axis=0)
 
-        # return {'kx':kx, 'ISFx':ISFx_mean, 'DSFx': DSFx_mean}
+        return {'ISF':ISF}
 
 
     def transverse_acf(self):
