@@ -337,11 +337,18 @@ class derive_data:
         fy_wall = 0.5 * (fy_Upper - fy_Lower)
         fz_wall = 0.5 * (fz_Upper - fz_Lower)
 
+        # Stress tensort time series
         sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / self.wall_A
+        sigxy_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / (wall_height * self.Lx * 1e-18)
         sigyz_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / self.wall_A
         sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / self.wall_A
 
-        sigxy_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / (wall_height * self.Lx * 1e-18)
+        # Error calculation for the time series
+        fxL, fxU = np.sum(fx_Lower,axis=1) , np.sum(fx_Upper,axis=1)
+        sigxz_err = sq.prop_uncertainty(fxL, fxU)['err'] * pa_to_Mpa / self.wall_A
+
+        fzL, fzU = np.sum(fz_Lower,axis=1) , np.sum(fz_Upper,axis=1)
+        sigzz_err = sq.prop_uncertainty(fzL, fzU)['err'] * pa_to_Mpa / self.wall_A
 
         sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / self.chunk_A
         sigyz_chunkX = np.mean(fy_wall,axis=0) * pa_to_Mpa / self.chunk_A
@@ -363,18 +370,11 @@ class derive_data:
         pDiff = np.mean(sigzz_wall_out) - np.mean(sigzz_wall_in)
         pGrad = - pDiff / pd_length       # MPa/nm
 
-        # For error computation in the chunks
-        sigzzU_full = fz_Upper * pa_to_Mpa / self.chunk_A
-        sigzzL_full = fz_Lower * pa_to_Mpa / self.chunk_A
-        sigxzU_full = fx_Upper * pa_to_Mpa / self.chunk_A
-        sigxzL_full = fx_Lower * pa_to_Mpa / self.chunk_A
-
         return {'sigxz_X':sigxz_chunkX, 'sigzz_X':sigzz_chunkX,
                 'sigxz_t':sigxz_t, 'sigyz_t':sigyz_t, 'sigzz_t':sigzz_t,
                 'sigxy_t':sigxy_t, 'pDiff':pDiff, 'sigzz_wall_out':sigzz_wall_out,
-                'sigzz_wall_in':sigzz_wall_in, 'sigxzU_full': sigxzU_full,
-                'sigxzL_full': sigxzL_full, 'sigzzU_full': sigzzU_full,
-                'sigzzL_full': sigzzL_full}
+                'sigzz_wall_in':sigzz_wall_in, 'sigxz_err': sigxz_err,
+                'sigzz_err':sigzz_err}
 
     def temp(self):
         """
@@ -521,12 +521,12 @@ class derive_data:
             Extrapolated data
         """
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-        vels = dd.velocity()
+        vels = dd.velocity()['vx_Z']
 
         if self.pumpsize==0:
-            fit_data = funcs.fit(self.height_array, vels['vx_chunkZ_mod'], 1)['fit_data']
+            fit_data = funcs.fit(self.height_array[vels!=0], vels[vels!=0], 1)['fit_data']
         else:
-            fit_data = funcs.fit(self.height_array[vels!=0], vels['vx_chunkZ_mod'], 2)['fit_data']
+            fit_data = funcs.fit(self.height_array[vels!=0], vels[vels!=0], 2)['fit_data']
 
         npoints = len(self.height_array[vels!=0])
         # Positions to inter/extrapolate

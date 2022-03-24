@@ -81,7 +81,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         fluid_vx_avg_lte, fluid_vy_avg_lte, \
         vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
         jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
-        temp_ch,\
+        temp_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
         den_bulk_ch, Nf, Nm, \
@@ -110,6 +110,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'Wxz_ch',
                                   'Wyz_ch',
                                   'temp_ch',
+                                  'temp_ch_solid',
                                   'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
                                   'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
                                   'den_bulk_ch',
@@ -195,6 +196,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             surfL_fy_ch_global = np.zeros_like(surfU_fx_ch_global)
             surfL_fz_ch_global = np.zeros_like(surfU_fx_ch_global)
             den_bulk_ch_global = np.zeros_like(surfU_fx_ch_global)
+            temp_solid_global = np.zeros_like(surfU_fx_ch_global)
 
         else:
             gap_height_global = None
@@ -226,6 +228,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wxz_ch_global = None
             Wyz_ch_global = None
             temp_global = None
+            temp_solid_global = None
 
             surfU_fx_ch_global = None
             surfU_fy_ch_global = None
@@ -252,6 +255,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=sf_x, recvbuf=(sf_x_global, sendcounts_chunk_fluid_layer_nx), root=0)
@@ -341,6 +345,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wxz_var = out.createVariable('Wxz', 'f4', ('time', 'x', 'z'))
             Wyz_var = out.createVariable('Wyz', 'f4', ('time', 'x', 'z'))
             temp_var =  out.createVariable('Temperature', 'f4', ('time', 'x', 'z'))
+            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
             fy_U_var =  out.createVariable('Fy_Upper', 'f4',  ('time', 'x'))
@@ -395,6 +400,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             fx_L_var[:] = surfL_fx_ch_global
             fy_L_var[:] = surfL_fy_ch_global
             fz_L_var[:] = surfL_fz_ch_global
+            temp_solid_var[:] = temp_solid_global
             density_bulk_var[:] = den_bulk_ch_global
 
             out.close()

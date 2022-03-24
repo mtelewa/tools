@@ -212,6 +212,7 @@ class traj_to_grid:
 
         # Wall Stresses -------------------------------------------------
         if solid_start != None:
+            # Forces -----------------------------------
             forcesU = self.data.variables["f_fAtomU_avg"]
             forcesL = self.data.variables["f_fAtomL_avg"]
 
@@ -255,14 +256,18 @@ class traj_to_grid:
             surfU_xcoords, surfU_zcoords = solid_xcoords[:,surfU_indices], \
                                            solid_zcoords[:,surfU_indices]
 
+            surfU_fx,surfU_fy,surfU_fz = forcesU_data[:,surfU_indices, 0], \
+                                         forcesU_data[:,surfU_indices, 1], \
+                                         forcesU_data[:,surfU_indices, 2]
 
-            surfU_fx,surfU_fy,surfU_fz = forcesU_data[:, solid_start:, 0][:,surfU_indices], \
-                                         forcesU_data[:, solid_start:, 1][:,surfU_indices], \
-                                         forcesU_data[:, solid_start:, 2][:,surfU_indices]
+            surfL_fx,surfL_fy,surfL_fz = forcesL_data[:,surfL_indices, 0], \
+                                         forcesL_data[:,surfL_indices, 1], \
+                                         forcesL_data[:,surfL_indices, 2]
 
-            surfL_fx,surfL_fy,surfL_fz = forcesL_data[:, solid_start:, 0][:,surfL_indices], \
-                                         forcesL_data[:, solid_start:, 1][:,surfL_indices], \
-                                         forcesL_data[:, solid_start:, 2][:,surfL_indices]
+            # Velocities --------------------------------
+            solid_vx_t, solid_vy_t, solid_vz_t = vels_t[:,surfU_indices, 0], \
+                                                 vels_t[:,surfU_indices, 1], \
+                                                 vels_t[:,surfU_indices, 2]
 
             # Check if surfU and surfL are not equal
             N_surfL, N_surfU = len(surfL_indices), len(surfU_indices)
@@ -497,6 +502,7 @@ class traj_to_grid:
         surfL_fy_ch = np.zeros_like(surfU_fx_ch)
         surfL_fz_ch = np.zeros_like(surfU_fx_ch)
         den_bulk_ch = np.zeros_like(surfU_fx_ch)
+        temp_ch_solid = np.zeros_like(surfU_fx_ch)
 
         if solid_start != None:
 
@@ -608,18 +614,37 @@ class traj_to_grid:
                     uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
                     uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
 
+                    # In the upper surface
+                    uCOMx_solid = np.sum(solid_vx_t * maskxU, axis=1) / (N_Upper_mask[:, i])
+                    uCOMy_solid = np.sum(solid_vy_t * maskxU, axis=1) / (N_Upper_mask[:, i])
+                    uCOMz_solid = np.sum(solid_vz_t * maskxU, axis=1) / (N_Upper_mask[:, i])
+
                     # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
                     peculiar_vx = np.transpose(fluid_vx_t) - uCOMx
                     peculiar_vy = np.transpose(fluid_vy_t) - uCOMy
                     peculiar_vz = np.transpose(fluid_vz_t) - uCOMz
 
+                    # In the upper surface
+                    peculiar_vx_solid = np.transpose(solid_vx_t) - uCOMx_solid
+                    peculiar_vy_solid = np.transpose(solid_vy_t) - uCOMy_solid
+                    peculiar_vz_solid = np.transpose(solid_vz_t) - uCOMz_solid
+
                     peculiar_v = np.sqrt(peculiar_vx**2 + peculiar_vy**2 + peculiar_vz**2)
                     peculiar_v = np.transpose(peculiar_v) * mask_fluid / self.A_per_molecule
+
+                    peculiar_v_solid = np.sqrt(peculiar_vx_solid**2 + peculiar_vy_solid**2 + peculiar_vz_solid**2)
+                    peculiar_v_solid = np.transpose(peculiar_v_solid) * maskxU / self.A_per_molecule
 
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k]* sci.k /self.A_per_molecule )  # Kelvin
+                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+
+
+                    temp_ch_solid[:, i] = ((self.mf * sci.gram / sci.N_A) * \
+                                        np.sum(peculiar_v_solid**2 , axis=1) * \
+                                        A_per_fs_to_m_per_s**2)  / \
+                                        (3 * N_Upper_mask[:, i] * sci.k /self.A_per_molecule )  # Kelvin
 
                     # Virial pressure--------------------------------------
                     # Simulations without virial calculation
@@ -734,6 +759,7 @@ class traj_to_grid:
                 'Wxz_ch': Wxz_ch,
                 'Wyz_ch': Wyz_ch,
                 'temp_ch': temp_ch,
+                'temp_ch_solid': temp_ch_solid,
                 'surfU_fx_ch':surfU_fx_ch,
                 'surfU_fy_ch':surfU_fy_ch,
                 'surfU_fz_ch':surfU_fz_ch,
