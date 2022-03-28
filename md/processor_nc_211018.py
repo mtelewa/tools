@@ -604,6 +604,9 @@ class traj_to_grid:
                     maskxU_vib = utils.region(surfU_vib_xcoords, surfU_vib_xcoords,
                                             xx[i, 0, 0], xx[i+1, 0, 0])['mask']
                     N_Upper_vib_mask[:, i] = np.sum(maskxU_vib, axis=1)
+                    # To avoid warning with flat rigid walls
+                    Nzero_vib = np.less(N_Upper_vib_mask[:, i], 1)
+                    N_Upper_vib_mask[Nzero_vib, i] = 1
 
             # SurfL -----------------------------------
                     maskxL = utils.region(surfL_xcoords, surfL_xcoords,
