@@ -58,6 +58,7 @@ if __name__ == "__main__":
         mFluid = 100.21
         tolX, tolY, tolZ = 10 , 4 , 3
     elif args.name == 'lj':
+        tolX, tolY, tolZ = 5 , 5 , 5
         mFluid = 39.948
 
     # Initialize either by modifying the LAMMPS init file or running moltemplate
