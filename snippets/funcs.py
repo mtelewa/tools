@@ -2,17 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from scipy.optimize import curve_fit
 
 def quadratic(x,a,b,c):
     return a*x**2+b*x+c
 
-# def quadratic_cosine_series(x,a,b,c,d):
-#     return a*x**2+b*x+c+(d*np.cos(2*np.pi*x/h))
-
 # Define parabola derivative
 def quad_slope(x,a,b):
     return np.abs(2*a*x+b)
-
 
 def linear(x,a,b):
     x = np.array(x)
@@ -68,7 +65,6 @@ def quartic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m,y,z):
           (l *np.cos(18*np.pi*x/height)) + (m *np.cos(20*np.pi*x/height))
 
     return y
-
 
 
 def fourier_series_coeff(f, T, N, return_complex=False):
@@ -135,3 +131,42 @@ def fourierSeries(coeffs,x,n):
 
     print(len(value))
     return value
+
+
+def fit(x,y,order):
+    """
+    Returns
+    -------
+    xdata : arr
+        x-axis range for the fitting parabola
+    polynom(xdata): floats
+        Fitting parameters for the velocity profile
+    """
+    # Fitting coefficients
+    coeffs_fit = np.polyfit(x, y, order)     #returns the polynomial coefficients
+    # construct the polynomial
+    polynom = np.poly1d(coeffs_fit)
+
+    return {'fit_data': polynom(x), 'coeffs':coeffs_fit}
+
+
+def fit_with_cos(x,y,order):
+
+    if order == 2:
+        coeffs,_ = curve_fit(quadratic_cosine_series, x, y)
+        fitted = funcs.quadratic_cosine_series(x,*coeffs)
+    if order == 4:
+        coeffs,_ = curve_fit(quartic_cosine_series, x, y)
+        fitted = funcs.quartic_cosine_series(x,*coeffs)
+
+    return {'fit_data': fitted, 'coeffs':coeffs}
+
+
+def fit_with_fourier(x,y,order):
+    T = 1
+    n_coeffs = len(xdata)
+    coeffs = fourier_series_coeff(np.cos,T,n_coeffs)[0]
+    for i in range(1,n+1):
+        fit_data.append(dd.fit(x,y,order)['fit_data'] + coeffs[1][i-1]*np.cos(i*np.pi*x/l))
+
+    return {'fit_data': fitted, 'coeffs':coeffs}
