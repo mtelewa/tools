@@ -229,6 +229,8 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
     fluidStartZ = nUnitsZ*unitlengthZ + offset          # Lower bound in the Z-direction
     fluidEndZ = h + fluidStartZ       # Upper bound for initialization
     # Upper wall region
+    surfLEndZ = nUnitsZ * unitlengthZ
+    # Upper wall region
     surfUStartZ = fluidEndZ + offset
     surfUEndZ = surfUStartZ + nUnitsZ*unitlengthZ
 
@@ -245,9 +247,13 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
         line = re.sub(r'region          fluid block.+',
                       r'region          fluid block INF INF INF INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
         line = re.sub(r'region          surfL block.+',
-                      r'region          surfL block INF INF INF INF -1e-5 %.2f units box' %(unitlengthZ), line)
+                      r'region          surfL block 1e-5 INF INF INF 1.00 %.2f units box' %(surfLEndZ+1), line)
         line = re.sub(r'region          surfU block.+',
-                      r'region          surfU block INF INF INF INF %.2f %.2f units box' %(surfUStartZ, surfUEndZ), line)
+                      r'region          surfU block 1e-5 INF INF INF %.2f %.2f units box' %(surfUStartZ, surfUEndZ), line)
+        # For the converging-diverging channel (to empty a region in the middle - the gap height)
+        line = re.sub(r'variable        surfU_div_begin equal.+',
+                      r'variable        surfU_div_begin equal %.2f' %surfUStartZ, line)
+
         fout = open("init2.LAMMPS", "a")
         fout.write(line)
 
