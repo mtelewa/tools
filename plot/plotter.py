@@ -4,13 +4,6 @@
 import sys, os
 import argparse
 import numpy as np
-
-# Qplot = input('Quick plot yes(y) or no(n): ')
-# if Qplot == 'y':
-#     import plot_main_211018 as pm
-# else:
-#     import plot_main_220204 as pm
-
 from pathlib import Path
 import yaml
 
@@ -36,9 +29,10 @@ def get_parser():
     parser.add_argument('--config', metavar='config', action='store', type=str,
                     help='Config Yaml file to import plot settings from.')
 
+    # Get the datasets
     parsed, unknown = parser.parse_known_args()
     for arg in unknown:
-        if arg.startswith(("-")):
+        if arg.startswith(("-ds")):
             # you can pass any arguments to add_argument
             parser.add_argument(arg.split('=')[0], type=str,
                                 help='datasets for plotting')
@@ -73,12 +67,23 @@ if __name__ == "__main__":
     else:
         import plot_main_211018 as pm
 
-    datasets, txtfiles, arr = [], [], []
+    datasets, txtfiles = [], []
     for key, value in vars(args).items():
-        if key.startswith('ds'):
+        if key.startswith('ds') and value!='all':
             datasets.append(value)
+        if key.startswith('ds') and value=='all':
+            for i in os.listdir(os.getcwd()):
+                if os.path.isdir(i):
+                    datasets.append(i)
         elif key.startswith('txt'):
             txtfiles.append(value)
+
+    # Order as indexed on the FileSystem. Sorting is needed if all datasets are
+    # points on the same curve e.g. EOS
+    try:
+        if args.ds == 'all': datasets.sort()
+    except AttributeError:
+        pass
 
     a = []
     for k in txtfiles:
@@ -102,46 +107,28 @@ if __name__ == "__main__":
         else:
             plot = pm.plot_from_ds(args.skip, datasets_x, datasets_z, mf, pumpsize)
         # Quantity profiles with the 0204 module
-        if '_dim' in args.qtty[0]:
-            plot.qtty_dim(args.qtty)
-        # Quantity profiles with the 1018 module
-        if '_length' in args.qtty[0]:
-            plot.qtty_len(args.qtty, draw_vlines='y', legend='y', opacity=0.8)
-        if '_height' in args.qtty[0]:
-            plot.qtty_height(args.qtty, pd='y', legend='y', opacity=1)
-        if '_time' in args.qtty[0]:
-            plot.qtty_time(args.qtty, lt='-', legend='y', opacity=0.3)
-
+        if '_dim' in args.qtty[0]: plot.qtty_dim(args.qtty)
         # Velocity Distibution
-        if 'distrib' in args.qtty[0]:
-            plot.v_distrib(legend='y', opacity=0.5)
-
+        if 'distrib' in args.qtty: plot.v_distrib()
         # Transport Coefficients
-        if 'pgrad_mflowrate' in args.qtty[0]:
-            plot.pgrad_mflowrate(legend='y')
-        if 'pgrad_viscosity' in args.qtty[0]:
-            plot.pgrad_viscosity(legend='y')
-        if 'rate_stress' in args.qtty[0]:
-            plot.rate_stress(legend='y', couette=1)
-        if 'rate_viscosity' in args.qtty[0]:
-            plot.rate_viscosity(legend='y')
-        if 'rate_slip' in args.qtty[0]:
-            plot.rate_slip(legend='y')
-
-        # Inlet-Outlet pump quantities
-        if 'pt_ratio' in args.qtty[0]:
-            plot.pt_ratio()
-
-        if press_temp in args.qtty[0]:
-            plot.press_temp()
-
+        if 'pgrad_mflowrate' in args.qtty: plot.pgrad_mflowrate()
+        if 'rate_stress' in args.qtty: plot.rate_stress()
+        if 'rate_viscosity' in args.qtty: plot.rate_viscosity()
+        if 'rate_slip' in args.qtty: plot.rate_slip()
+        if 'rate_temp' in args.qtty: plot.rate_temp()
+        # Non-isothermal flow
+        # if 'pt_ratio' in args.qtty[0]: plot.pt_ratio()
+        if 'eos' in args.qtty: plot.eos()
         # ACFs
-        if 'acf' in args.qtty[0]:
-            plot.acf(legend='y')
-        if 'transverse' in args.qtty[0]:
-            plot.transverse(legend='y')
-        if 'sk' in args.qtty[0]:
-            plot.struc_factor(legend='y')
+        if 'acf' in args.qtty: plot.acf()
+        if 'transverse' in args.qtty: plot.transverse()
+        if 'sk' in args.qtty: plot.struc_factor()
+        if 'isf' in args.qtty: plot.isf()
+
+        # Quantity profiles with the 1018 module
+        if '_length' in args.qtty[0]: plot.qtty_len(args.qtty, draw_vlines='y', legend='y',opacity=0.8)
+        if '_height' in args.qtty[0]: plot.qtty_height(args.qtty, legend='y',opacity=0.8)
+        if '_time' in args.qtty[0]: plot.qtty_time(args.qtty, legend='y', opacity=0.3)
 
         if args.config:
             for ax in plot.axes_array:
