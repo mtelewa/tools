@@ -92,18 +92,17 @@ def init_moltemp(density, Np, name, mass, tolX, tolY, tolZ):
      0    {zlength}   zlo zhi \n\
     }}\n"
 
+    # Note: The boudnaries have to start from zero, otherwise problems in post-processing.
 
     in_f=open('geometry.lt','w')
     in_f.write(in_script)
     in_f.close()
 
 
-def init_lammps(Np, density, mass):
+def init_lammps(density, Np, name, mass):
 
-    # Number density (#/A^3)
-    num_density_real = float(density)* 1e-24 * sci.N_A / mass
-    # Volume (A^3)
-    volume = Np * mass * 1e24 / (density * sci.N_A)
+    num_density = density * 1e-24 * sci.N_A / mass # Number density (#/A^3)
+    volume = Np * mass * 1e24 / (density * sci.N_A)  #(A^3)
 
     cellX = volume**(1/3)
     cellY = volume**(1/3)
@@ -111,10 +110,14 @@ def init_lammps(Np, density, mass):
 
     for line in open('init.LAMMPS','r').readlines():
         line = re.sub(r'region          box block.+',
-                      r'region          box block %.2f %.2f %.2f %.2f %.2f %.2f units box' \
-                            %(-cellX/2.,cellX/2.,-cellY/2.,cellY/2.,-cellZ/2.,cellZ/2.), line)
-        line = re.sub(r'create_atoms    0 random.+',
-                      r'create_atoms    0 random %i 206649 NULL mol pentane 175649' %Np, line)
+                      r'region          box block 0.0 %.2f 0.0 %.2f 0.0 %.2f units box' \
+                            %(cellX, cellY, cellZ), line)
+        if name == 'pentane':
+            line = re.sub(r'create_atoms    0 random.+',
+                          r'create_atoms    0 random %i 206649 NULL mol pentane 175649' %Np, line)
+        if name == 'lj':
+            line = re.sub(r'create_atoms    1 random.+',
+                          r'create_atoms    1 random %i 206649 fluid' %Np, line)
         fout = open("init2.LAMMPS", "a")
         fout.write(line)
 
