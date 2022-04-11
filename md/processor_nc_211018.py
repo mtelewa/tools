@@ -521,7 +521,6 @@ class traj_to_grid:
 
             # velocity distribution in the channel center to test for LTE
             xcom, ycom, zcom = cell_lengths_updated[0]/2, cell_lengths_updated[1]/2, cell_lengths_updated[2]/2
-            print(zcom-2.5)
             # LTE region: 5x5x5 Ang^3 in the middle of the box
             maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-2.5, xcom+2.5)['mask']
             masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-2.5, ycom+2.5)['mask']
@@ -531,13 +530,14 @@ class traj_to_grid:
             N_lte = np.sum(mask_lte, axis=1) # no. of atoms in the lte box in every timestep
             Nzero_lte = np.less(N_lte, 1)
             N_lte[Nzero_lte] = 1
-            print(N_lte)
 
             # For the velocity distribution
-            uCOM_lte = np.sum(fluid_vx_t * mask_lte, axis=1) / N_lte # timeseries
+            uCOMx_lte = np.sum(fluid_vx_t * mask_lte, axis=1) / N_lte # timeseries
+            uCOMy_lte = np.sum(fluid_vy_t * mask_lte, axis=1) / N_lte # timeseries
+
             # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
-            peculiar_vx = np.transpose(fluid_vx_t) - uCOM_lte
-            peculiar_vy = np.transpose(fluid_vy_t) - uCOM_lte
+            peculiar_vx = np.transpose(fluid_vx_t) - uCOMx_lte
+            peculiar_vy = np.transpose(fluid_vy_t) - uCOMy_lte
 
             fluid_vx_avg_lte = np.mean(np.transpose(peculiar_vx)*mask_lte, axis=0) #np.mean(fluid_vx*mask_lte, axis=0)
             fluid_vy_avg_lte = np.mean(np.transpose(peculiar_vy)*mask_lte, axis=0)
