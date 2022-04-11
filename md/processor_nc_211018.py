@@ -520,14 +520,27 @@ class traj_to_grid:
         if solid_start != None:
 
             # velocity distribution in the channel center to test for LTE
-            maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, 175, 180)['mask']
-            masky_lte = utils.region(fluid_ycoords, fluid_ycoords, 15, 20)['mask']
-            maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, 20, 25)['mask']
+            xcom, ycom, zcom = cell_lengths_updated[0]/2, cell_lengths_updated[1]/2, cell_lengths_updated[2]/2
+            print(zcom-2.5)
+            # LTE region: 5x5x5 Ang^3 in the middle of the box
+            maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-2.5, xcom+2.5)['mask']
+            masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-2.5, ycom+2.5)['mask']
+            maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, zcom-2.5, zcom+2.5)['mask']
             mask_xy_lte = np.logical_and(maskx_lte, masky_lte)
             mask_lte = np.logical_and(mask_xy_lte, maskz_lte)
+            N_lte = np.sum(mask_lte, axis=1) # no. of atoms in the lte box in every timestep
+            Nzero_lte = np.less(N_lte, 1)
+            N_lte[Nzero_lte] = 1
+            print(N_lte)
+
             # For the velocity distribution
-            fluid_vx_avg_lte = np.mean(fluid_vx*mask_lte, axis=0)
-            fluid_vy_avg_lte = np.mean(fluid_vy*mask_lte, axis=0)
+            uCOM_lte = np.sum(fluid_vx_t * mask_lte, axis=1) / N_lte # timeseries
+            # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
+            peculiar_vx = np.transpose(fluid_vx_t) - uCOM_lte
+            peculiar_vy = np.transpose(fluid_vy_t) - uCOM_lte
+
+            fluid_vx_avg_lte = np.mean(np.transpose(peculiar_vx)*mask_lte, axis=0) #np.mean(fluid_vx*mask_lte, axis=0)
+            fluid_vy_avg_lte = np.mean(np.transpose(peculiar_vy)*mask_lte, axis=0)
 
             # Structure Factor calculation
             maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
@@ -696,6 +709,10 @@ class traj_to_grid:
                     den_bulk_ch[:, i] = (N_bulk_mask[:, i, k] / self.A_per_molecule) / vol_bulk_cell[i, 0, k]
 
         else:
+            # For the velocity distribution
+            fluid_vx_avg_lte = np.mean(fluid_vx, axis=0)
+            fluid_vy_avg_lte = np.mean(fluid_vy, axis=0)
+
             for i in range(self.Nx):
                 for k in range(self.Nz):
                     maskx_fluid = utils.region(fluid_xcoords, fluid_xcoords,
@@ -721,17 +738,17 @@ class traj_to_grid:
 
                     # Temperature ----------------------------
                     # COM velocity in the bin
-                    uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    # uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    # uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    # uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
 
                     # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
-                    peculiar_vx = np.transpose(fluid_vx_t) - uCOMx
-                    peculiar_vy = np.transpose(fluid_vy_t) - uCOMy
-                    peculiar_vz = np.transpose(fluid_vz_t) - uCOMz
+                    # peculiar_vx = np.transpose(fluid_vx_t) #- uCOMx
+                    # peculiar_vy = np.transpose(fluid_vy_t) #- uCOMy
+                    # peculiar_vz = np.transpose(fluid_vz_t) #- uCOMz
 
-                    peculiar_v = np.sqrt(peculiar_vx**2+peculiar_vy**2+peculiar_vz**2) / self.A_per_molecule
-                    peculiar_v = np.transpose(peculiar_v) * mask_fluid
+                    peculiar_v = np.sqrt(fluid_vx_t**2+fluid_vy_t**2+fluid_vz_t**2) * mask_fluid / self.A_per_molecule
+                    # peculiar_v = np.transpose(peculiar_v) * mask_fluid
 
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
