@@ -88,7 +88,7 @@ if __name__ == "__main__":
                   #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
                   #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
                   #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
-        if  'gk' in args.qtty[0]:
+        if 'gk' in args.qtty[0]:
             get.green_kubo()
         if 'slip_length' in args.qtty[0]:
             params = get.slip_length()
@@ -100,9 +100,9 @@ if __name__ == "__main__":
             print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
             print(f"Pressure difference is {vir['pDiff']} MPa")
         if 'sigxz' in args.qtty[0]:
-            get.sigwall()
+            print(f"Avg. sigma_xz {np.mean(get.sigwall()['sigxz_t'])} MPa")
         if 'gaph' in args.qtty[0]:
-             print(f"Gap height {np.mean(get.h)} nm")
+            print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty[0]:
             get.struc_factor()
         if 'transport' in args.qtty[0]:
