@@ -55,6 +55,11 @@ while getopts ":h:i:N:f:s:e:p:x:" option; do
        ;;
   esac
 done
+
+# Write the arguments to a text file
+args=("$@") ;
+echo "Flags: ${args[@]}" > args.txt
+
 # call the shift command at the end of the processing loop to remove options that
 # have already been handled from $@
 shift $((OPTIND - 1))
@@ -69,3 +74,4 @@ else
   cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
   cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
 fi
+
