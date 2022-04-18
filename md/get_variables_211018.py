@@ -22,7 +22,8 @@ from scipy.stats import pearsonr, spearmanr
 
 
 # Converions
-ang_to_cm = 1e-8
+ang_to_cm = 1e-7
+nm_to_cm = 1e-7
 A_per_fs_to_m_per_s = 1e5
 g_to_kg = 1e-3
 pa_to_Mpa = 1e-6
@@ -72,6 +73,8 @@ class derive_data:
         self.data_x = netCDF4.Dataset(self.infile_x)
         self.data_z = netCDF4.Dataset(self.infile_z)
         self.mf = mf
+        if self.mf == 72.15: self.A_per_molecule = 5.
+        if self.mf == 39.948 : self.A_per_molecule = 1.
         self.pumpsize = pumpsize
         self.Nf = len(self.data_x.dimensions["Nf"])     # No. of fluid atoms
 
@@ -119,10 +122,10 @@ class derive_data:
         # The length and height arrays for plotting
         self.length_array = np.arange(dx/2.0, self.Lx, dx)   #nm
 
-        if self.avg_gap_height != 0:
+        if self.avg_gap_height != 0:    # Simulation with walls
             dz = self.avg_gap_height / self.Nz
             self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)     #nm
-
+            self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm3
             # If the bulk height is given
             try:
                 # USE THIS
@@ -146,10 +149,10 @@ class derive_data:
             except KeyError:
                 pass
 
-
-        else:
+        else:       # Bulk simulation
             dz = self.Lz / self.Nz
             self.height_array = np.arange(dz/2.0, self.Lz, dz)     #nm
+            self.vol = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * 1e-3 # nm3
 
     # Thermodynamic properties-----------------------------------------------
     # -----------------------------------------------------------------------
@@ -214,10 +217,10 @@ class derive_data:
         den_X = np.mean(density_Bulk, axis=0)    # g/cm^3
 
         if np.mean(self.h) == 0: # Bulk simulation
-            vol_t = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * ang_to_cm**3
-            Nm = len(self.data_x.dimensions["Nm"])     # No. of fluid molecules
+            # TODO: No.
+            Nf = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
             mass = Nm * (self.mf/sci.N_A)
-            den_t = mass / vol_t
+            den_t = mass / (self.vol * nm_to_cm**3)    # g/cm3
         else:
             den_t = np.mean(density_Bulk, axis=1)
 
@@ -390,15 +393,47 @@ class derive_data:
 
         tempX = np.mean(temp_full_x,axis=(0,2))
         tempZ = np.mean(temp_full_z,axis=(0,1))
-        temp_t = (np.mean(temp_full_x,axis=(1,2)) + np.mean(temp_full_z,axis=(1,2))) / 2.
+        temp_t = np.mean(temp_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
 
         # Inlet and outlet of the pump region
         temp_out = np.max(tempX)
         temp_in = np.min(tempX)
-        temp_ratio = temp_out/temp_in
+        temp_ratio = temp_out / temp_in
 
-        return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
-                'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z}
+        pd_length = self.Lx - self.pumpsize*self.Lx      # nm
+        temp_grad = - (temp_out - temp_in) / pd_length
+
+        try:
+            temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
+            tempX_solid = np.mean(temp_full_x_solid, axis=0)
+            temp_t_solid = np.mean(temp_full_x_solid, axis=1)
+        except KeyError:
+            pass
+
+        try:
+            return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
+                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
+                    'temp_full_x_solid':temp_full_x_solid, 'tempX_solid':tempX_solid,
+                    'temp_t_solid':temp_t_solid, temp_grad:'temp_grad'}
+        except NameError:
+            return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
+                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, temp_grad:'temp_grad'}
+
+
+    def heat_flux(self):
+        """
+        Calculate the heat flux according to Irving-Kirkwood expression
+        """
+
+        # From post-processing we get kcal/mol * A/fs ---> J * m/s
+        conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
+
+        # Heat flux vector
+        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+
+        return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
 
 
     def vel_distrib(self):
@@ -478,30 +513,60 @@ class derive_data:
                 'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi}
 
 
+    def lambda_gk(self):
+        """
+        Calculate thermal conductivity (lambda) from equilibrium MD
+        (based on ACF of the of the heat flux - Green-Kubo relation)
+        """
+
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+        T = np.mean(dd.temp()['temp_t']) # K
+        prefac =  np.mean(self.vol*1e-27)/(sci.k*T**2)        # m3/(J*K)
+
+        # GK relation to get lambda from Equilibrium
+        lambda_x = prefac * np.sum(sq.acf(dd.heat_flux()['je_x'])['non-norm']* 1e-15)      # J/mKs
+        lambda_y = prefac * np.sum(sq.acf(dd.heat_flux()['je_y'])['non-norm']* 1e-15)      # J/mKs
+        lambda_z = prefac * np.sum(sq.acf(dd.heat_flux()['je_z'])['non-norm']* 1e-15)      # J/mKs
+        lambda_tot = (lambda_x+lambda_y+lambda_z)/3.
+
+        return lambda_tot
+
+
+    def lambda_nemd(self):
+        """
+        Calculate thermal conductivity (lambda) from Fourier's law
+        """
+
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+        T = np.mean(dd.temp()['temp_t']) # K
+
+        je_x = dd.heat_flux()['je_x']
+        lambda_x = -(je_x)/(dd.temp()['temp_grad'])
+
+        return {'lambda_x':lambda_x}
+
+
     def viscosity_gk(self):
         """
         Calculate dynamic viscosity from equilibrium MD
         (based on ACF of the shear stress - Green-Kubo relation)
         """
-        cutoff = -1
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
 
-        sigxy_t = dd.sigwall(self.pumpsize)['sigxy_t'][:cutoff] * 1e6
-        sigxz_t = dd.sigwall(self.pumpsize)['sigxz_t'][:cutoff] * 1e6  # cut after the correlation time, here i assume 10 timesteps, units in Pa
-        sigyz_t = dd.sigwall(self.pumpsize)['sigyz_t'][:cutoff] * 1e6  # cut after the correlation time, here i assume 10 timesteps, units in Pa
+        # TODO: Replace with fluid stress tensor
+        sigxy_t = dd.sigwall()['sigxy_t'] * 1e9  # mPa
+        sigxz_t = dd.sigwall()['sigxz_t'] * 1e9
+        sigyz_t = dd.sigwall()['sigyz_t'] * 1e9
 
         temp = np.mean(dd.temp()['temp_t'])         # K
-        vol = self.Lx * self.Ly * self.avg_gap_height * 1e-27 # m^3
 
-        c_xy = sq.acf(sigxy_t[:cutoff])['non-norm']
-        c_xz = sq.acf(sigxz_t[:cutoff])['non-norm']
-        c_yz = sq.acf(sigyz_t[:cutoff])['non-norm']
+        prefac = self.vol* 1e-27 / (sci.k * temp )
 
-        v_xy = (vol / (sci.k * temp )) * np.sum(c_xy) * 1e-15 * 1e3  # mPa.s
-        v_xz = (vol / (sci.k * temp )) * np.sum(c_xz) * 1e-15 * 1e3  # mPa.s
-        v_yz = (vol / (sci.k * temp )) * np.sum(c_yz) * 1e-15 * 1e3  # mPa.s
+        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm']) * 1e-15  # mPa.s
+        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm']) * 1e-15  # mPa.s
+        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm']) * 1e-15  # mPa.s
 
-        viscosity = (1./3.)*(v_xz+v_yz+v_xy)
+        viscosity = (v_xz+v_yz+v_xy)/3.
 
         return viscosity
 
