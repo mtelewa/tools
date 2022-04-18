@@ -203,8 +203,14 @@ def get_err(f):
     """
     if  f.ndim > 1:         # c.ndim
         n = 100 # samples/block
-        if f.shape[1] > 1: blocks = block_ND(f.shape[0], f, f.shape[1], n)  #Qtts along length
-        if f.shape[2] > 1: blocks = block_ND(f.shape[0], f, f.shape[2], n)  #Qtts along height
+        # For arrays with dim (time, Nx, Nz)
+        if f.ndim>2:
+            if f.shape[1] > 1: blocks = block_ND(f.shape[0], f, f.shape[1], n)  #Qtts along length
+            if f.shape[2] > 1: blocks = block_ND(f.shape[0], f, f.shape[2], n)  #Qtts along height
+        # For time-series arrays
+        else:
+            blocks = block_1D(f, n)
+
         # Discard chunks with zero time average
         # Get the time average in each chunk
         blocks_mean = np.mean(blocks, axis=0)
@@ -259,17 +265,21 @@ def prop_uncertainty(f1,f2):
         input array of shape (time, Nchunks)
     """
 
+    n = 100 # samples/block
+    # blocks1 = block_ND(f1.shape[0], f1, f1.shape[1], n)
+    # blocks2 = block_ND(f2.shape[0], f2, f2.shape[1], n)
+
     err1 = get_err(f1)['uncertainty']
     err2 = get_err(f2)['uncertainty']
 
     # The uncertainty in each chunk is the Propagation of uncertainty of L and U surfaces
     # Get the covariance in the chunk
-    cov_in_chunk = np.zeros(f1.shape[1])
-    for i in range(f1.shape[1]):
-        cov_in_chunk[i] = np.cov(f1[:,i], f2[:,i])[0,1]
+    # cov_in_chunk = np.zeros(f1.shape[1])
+    # for i in range(f1.shape[1]):
+    #     cov_in_chunk[i] = np.cov(f1[:,i], f2[:,i])[0,1]
 
     # Needs to be corrected with a positive sign of the variance for sigxz in PD
-    err = np.sqrt(0.5**2*err1**2 + 0.5**2*err2**2 - 2*0.5*0.5*cov_in_chunk)
+    err = np.sqrt(err1**2 + err2**2) #- 2*0.5*0.5*cov_in_chunk)
     avg = 0.5 * (np.mean(f1, axis=0) - np.mean(f2, axis=0))
     lo = avg - err
     hi = avg + err
