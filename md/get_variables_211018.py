@@ -414,10 +414,10 @@ class derive_data:
             return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
                     'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
                     'temp_full_x_solid':temp_full_x_solid, 'tempX_solid':tempX_solid,
-                    'temp_t_solid':temp_t_solid, temp_grad:'temp_grad'}
+                    'temp_t_solid':temp_t_solid, 'temp_grad':temp_grad}
         except NameError:
             return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
-                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, temp_grad:'temp_grad'}
+                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, 'temp_grad':temp_grad}
 
 
     def heat_flux(self):
@@ -538,10 +538,10 @@ class derive_data:
         """
 
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-        T = np.mean(dd.temp()['temp_t']) # K
 
         je_x = dd.heat_flux()['je_x']
-        lambda_x = -(je_x)/(dd.temp()['temp_grad'])
+        temp_grad = dd.temp()['temp_grad']*1e9    # K/m
+        lambda_x = -np.mean(je_x) / temp_grad
 
         return {'lambda_x':lambda_x}
 

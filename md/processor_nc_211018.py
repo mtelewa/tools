@@ -447,23 +447,23 @@ class traj_to_grid:
             # Heat flux --------------
 
             try:
-                je_x = np.sum( (fluid_energy_y * fluid_vz_t) - \
-                       (fluid_energy_z * fluid_vy_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_xx * fluid_vx_t) - \
-                        (fluid_stress_xy * fluid_vy_t) - \
-                        (fluid_stress_xz * fluid_vz_t)), axis=1)
+                je_x = np.sum( (fluid_energy_y * fluid_vz_t * stable_region) - \
+                       (fluid_energy_z * fluid_vy_t * stable_region) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_xx * fluid_vx_t * stable_region) - \
+                        (fluid_stress_xy * fluid_vy_t * stable_region) - \
+                        (fluid_stress_xz * fluid_vz_t * stable_region)), axis=1)
 
-                je_y = np.sum( (fluid_energy_z * fluid_vx_t) - \
-                       (fluid_energy_x * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_yx * fluid_vx_t) - \
-                        (fluid_stress_yy * fluid_vy_t) - \
-                        (fluid_stress_yz * fluid_vz_t)), axis=1)
+                je_y = np.sum( (fluid_energy_z * fluid_vx_t * stable_region) - \
+                       (fluid_energy_x * fluid_vx_t * stable_region) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_yx * fluid_vx_t * stable_region) - \
+                        (fluid_stress_yy * fluid_vy_t * stable_region) - \
+                        (fluid_stress_yz * fluid_vz_t * stable_region)), axis=1)
 
-                je_z = np.sum( (fluid_energy_x * fluid_vy_t) - \
-                       (fluid_energy_y * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_zx * fluid_vx_t) - \
-                        (fluid_stress_zy * fluid_vy_t) - \
-                        (fluid_stress_zz * fluid_vz_t)), axis=1)
+                je_z = np.sum( (fluid_energy_x * fluid_vy_t * stable_region) - \
+                       (fluid_energy_y * fluid_vx_t * stable_region) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_zx * fluid_vx_t * stable_region) - \
+                        (fluid_stress_zy * fluid_vy_t * stable_region) - \
+                        (fluid_stress_zz * fluid_vz_t * stable_region)), axis=1)
             except UnboundLocalError:
                 je_x, je_y, je_z = None, None, None
 
@@ -501,7 +501,7 @@ class traj_to_grid:
                         (fluid_stress_zy * fluid_vy_t) - \
                         (fluid_stress_zz * fluid_vz_t)), axis=1)
             except UnboundLocalError:
-                je_x, je_y, je_z = None, None, None 
+                je_x, je_y, je_z = None, None, None
 
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------

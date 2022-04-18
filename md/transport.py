@@ -109,8 +109,8 @@ if __name__ == "__main__":
             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty[0]:
             get.struc_factor()
-        if 'je' in args.qtty[0]:
-            get.heat_flux()
+        if 'lambda' in args.qtty[0]:
+            print(f"Thermal Conductivity: {get.lambda_nemd()['lambda_x']} W/mK")
         if 'transport' in args.qtty[0]:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
