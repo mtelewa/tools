@@ -33,10 +33,12 @@ class manipulate_ds:
         # Get the simulation dataset uuid
         try:    # For ProtoDataSets
             self.sim_dataset = dtoolcore.ProtoDataSet.from_uri(self.dataset_name)
+        # TODO: Handle the exceptions
         except dtoolcore.DtoolCoreTypeError: # If it is not a dataset
-            pass
+             pass
         except TypeError:  # For frozen datasets
             self.sim_dataset = dtoolcore.DataSet.from_uri(self.dataset_name)
+            print(self.sim_dataset)
 
     def create_dataset(self, **kwargs):
         """
@@ -159,20 +161,20 @@ class manipulate_ds:
             metadata['Force_fields/Potentials'][3]['dt'] = kwargs['dt']
         if 'method' in kwargs:
             metadata['Method'] = kwargs['method']
-        if 'thermo' in kwargs:
-            metadata['Thermostat'] = kwargs['thermo']
-        if 'baro' in kwargs:
-            metadata['Barostat'] = kwargs['baro']
+        if 'thermostat' in kwargs:
+            metadata['Thermostat'] = kwargs['thermostat']
+        if 'barostat' in kwargs:
+            metadata['Barostat'] = kwargs['barostat']
         if 'lx' in kwargs:
             metadata['Geometry'][0]['lx'] = kwargs['lx']
         if 'h' in kwargs:
             metadata['Geometry'][1]['h'] = kwargs['h']
         if 'Nf' in kwargs:
             metadata['Geometry'][2]['Nf'] = kwargs['Nf']
-        if 'temp' in kwargs:
-            metadata['State Vars'][0]['temperature'] = kwargs['temp']
-        if 'den' in kwargs:
-            metadata['State Vars'][1]['density'] = kwargs['den']
+        if 'temperature' in kwargs:
+            metadata['State Vars'][0]['temperature'] = kwargs['temperature']
+        if 'density' in kwargs:
+            metadata['State Vars'][1]['density'] = kwargs['density']
         if 'press' in kwargs:
             metadata['State Vars'][2]['press'] = kwargs['press']
         if 'delta_p' in kwargs:
