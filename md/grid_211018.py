@@ -80,7 +80,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         fluid_vx_avg, fluid_vy_avg, \
         fluid_vx_avg_lte, fluid_vy_avg_lte, \
         vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
-        jx_ch, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
+        jx_ch, je_x, je_y, je_z, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
@@ -105,6 +105,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'sf_x',
                                   'sf_y',
                                   'jx_ch',
+                                  'je_x',
+                                  'je_y',
+                                  'je_z',
                                   'vir_ch',
                                   'Wxy_ch',
                                   'Wxz_ch',
@@ -158,6 +161,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflowrate_pump_global = np.zeros_like(gap_height_global)
             mflux_stable_global = np.zeros_like(gap_height_global)
             mflowrate_stable_global = np.zeros_like(gap_height_global)
+            je_x_global = np.zeros_like(gap_height_global)
+            je_y_global = np.zeros_like(gap_height_global)
+            je_z_global = np.zeros_like(gap_height_global)
+
             # Voronoi vol
             totVi_global = np.zeros_like(gap_height_global)
 
@@ -223,6 +230,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # sf_ch_y_global = None
             # rho_ky_ch_global = None
             jx_ch_global = None
+            je_x_global = None
+            je_y_global = None
+            je_z_global = None
             vir_ch_global = None
             Wxy_ch_global = None
             Wxz_ch_global = None
@@ -273,7 +283,15 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             except TypeError:
                 pass
 
-        # For both walls and bulk simulations
+        # For both walls and bulk simulations ------
+
+        # If the heat flux was not computed, skip
+        try:
+            comm.Gatherv(sendbuf=je_x, recvbuf=(je_x_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=je_y, recvbuf=(je_y_global, sendcounts_time), root=0)
+            comm.Gatherv(sendbuf=je_z, recvbuf=(je_z_global, sendcounts_time), root=0)
+        except TypeError:
+            pass
         comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=uCOMx, recvbuf=(uCOMx_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
@@ -339,6 +357,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
 
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
+            je_x_var =  out.createVariable('JeX', 'f4', ('time'))
+            je_y_var =  out.createVariable('JeY', 'f4', ('time'))
+            je_z_var =  out.createVariable('JeZ', 'f4', ('time'))
 
             vir_var = out.createVariable('Virial', 'f4', ('time', 'x', 'z'))
             Wxy_var = out.createVariable('Wxy', 'f4', ('time', 'x', 'z'))
@@ -388,6 +409,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             sf_im[:] = sf_global.imag
 
             jx_var[:] = jx_ch_global
+            je_x_var[:] = je_x_global
+            je_y_var[:] = je_y_global
+            je_z_var[:] = je_z_global
             vir_var[:] = vir_ch_global
             Wxy_var[:] = Wxy_ch_global
             Wxz_var[:] = Wxz_ch_global

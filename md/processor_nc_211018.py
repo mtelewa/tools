@@ -21,9 +21,10 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-# Constants
+# Conversions
 fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
+atmA3_to_kcal = 0.024*1e-27
 
 # Set the Mass and no. of atoms per molecule for each fluid
 mCH2, mCH3, mCH_avg = 12, 13, 12.5
@@ -159,12 +160,41 @@ class traj_to_grid:
         vels_data_unavgd = self.data.variables["velocities"]     # Used for temp. calculation
 
         # In some trajectories, virial is not computed (faster simulation)
+        # Fluid Virial Pressure ----------------------------------
         try:
             voronoi_vol_data = self.data.variables["f_Vi_avg"]
             virial_data = self.data.variables["f_Wi_avg"]
+            voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
+            virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
         except KeyError:
             if rank == 0:
                 print('Virial was not computed during LAMMPS Run!')
+            pass
+
+        # try:
+        #
+        # except UnboundLocalError:
+        #     pass
+
+        # In some trajectories, total energy is computed
+        try:
+            tot_energy_data = self.data.variables["f_te"]
+            centroid_vir_data = self.data.variables["f_W"]
+            tot_energy = np.array(tot_energy_data[self.start:self.end]).astype(np.float32)
+            centroid_vir = np.array(centroid_vir_data[self.start:self.end]).astype(np.float32)
+
+            fluid_energy_x, fluid_energy_y, fluid_energy_z = tot_energy[:, fluid_idx, 0], \
+                                                             tot_energy[:, fluid_idx, 1], \
+                                                             tot_energy[:, fluid_idx, 2]
+
+            fluid_stress_xx, fluid_stress_yy, fluid_stress_zz, \
+            fluid_stress_xy, fluid_stress_xz, fluid_stress_yz, \
+            fluid_stress_yx, fluid_stress_zx, fluid_stress_zy \
+            = centroid_vir[:, fluid_idx, 0] , centroid_vir[:, fluid_idx, 1] , centroid_vir[:, fluid_idx, 2] , \
+              centroid_vir[:, fluid_idx, 3] , centroid_vir[:, fluid_idx, 4] , centroid_vir[:, fluid_idx, 5] , \
+              centroid_vir[:, fluid_idx, 6] , centroid_vir[:, fluid_idx, 7] , centroid_vir[:, fluid_idx, 8]
+
+        except KeyError:
             pass
 
         # for i in range(self.Nslices):
@@ -203,13 +233,6 @@ class traj_to_grid:
 
         # fluid_v_t = np.sqrt(fluid_vx_t**2 + fluid_vy_t**2 + fluid_vz_t**2) / self.A_per_molecule
 
-
-        # Fluid Virial Pressure ----------------------------------
-        try:
-            voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
-            virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
-        except UnboundLocalError:
-            pass
 
         # Wall Stresses -------------------------------------------------
         if solid_start != None:
@@ -421,6 +444,30 @@ class traj_to_grid:
 
             fluxes = [mflux_pump, mflowrate_pump, mflux_stable, mflowrate_stable]
 
+            # Heat flux --------------
+
+            try:
+                je_x = np.sum( (fluid_energy_y * fluid_vz_t) - \
+                       (fluid_energy_z * fluid_vy_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_xx * fluid_vx_t) - \
+                        (fluid_stress_xy * fluid_vy_t) - \
+                        (fluid_stress_xz * fluid_vz_t)), axis=1)
+
+                je_y = np.sum( (fluid_energy_z * fluid_vx_t) - \
+                       (fluid_energy_x * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_yx * fluid_vx_t) - \
+                        (fluid_stress_yy * fluid_vy_t) - \
+                        (fluid_stress_yz * fluid_vz_t)), axis=1)
+
+                je_z = np.sum( (fluid_energy_x * fluid_vy_t) - \
+                       (fluid_energy_y * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_zx * fluid_vx_t) - \
+                        (fluid_stress_zy * fluid_vy_t) - \
+                        (fluid_stress_zz * fluid_vz_t)), axis=1)
+            except UnboundLocalError:
+                je_x, je_y, je_z = None, None, None
+
+
         else:
             bulkStartZ_time = None
             bulkEndZ_time = None
@@ -433,6 +480,28 @@ class traj_to_grid:
             except UnboundLocalError:
                 totVi = 0
                 pass
+
+            # Heat flux --------------
+            try:
+                je_x = np.sum( (fluid_energy_y * fluid_vz_t) - \
+                       (fluid_energy_z * fluid_vy_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_xx * fluid_vx_t) - \
+                        (fluid_stress_xy * fluid_vy_t) - \
+                        (fluid_stress_xz * fluid_vz_t)), axis=1)
+
+                je_y = np.sum( (fluid_energy_z * fluid_vx_t) - \
+                       (fluid_energy_x * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_yx * fluid_vx_t) - \
+                        (fluid_stress_yy * fluid_vy_t) - \
+                        (fluid_stress_yz * fluid_vz_t)), axis=1)
+
+                je_z = np.sum( (fluid_energy_x * fluid_vy_t) - \
+                       (fluid_energy_y * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
+                       ((fluid_stress_zx * fluid_vx_t) - \
+                        (fluid_stress_zy * fluid_vy_t) - \
+                        (fluid_stress_zz * fluid_vz_t)), axis=1)
+            except UnboundLocalError:
+                je_x, je_y, je_z = None, None, None 
 
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -630,7 +699,7 @@ class traj_to_grid:
             # Cell Averages ---------------------------------------
             # -----------------------------------------------------
                     # Velocities in the stable region
-                    vx_ch[:, i, k] =  np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
+                    vx_ch[:, i, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
 
                     # Density (whole fluid) ----------------------------
                     den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_fluid[i, 0, k]
@@ -790,6 +859,9 @@ class traj_to_grid:
                 'sf_x': sf_x,
                 'sf_y': sf_y,
                 'jx_ch' : jx_ch,
+                'je_x': je_x,
+                'je_y': je_y,
+                'je_z': je_z,
                 'vir_ch': vir_ch,
                 'Wxy_ch': Wxy_ch,
                 'Wxz_ch': Wxz_ch,

@@ -88,8 +88,12 @@ if __name__ == "__main__":
                   #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
                   #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
                   #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
-        if 'gk' in args.qtty[0]:
-            get.green_kubo()
+        if 'gk_viscosity' in args.qtty[0]:
+            mu = get.viscosity_gk()
+            print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
+        if 'gk_lambda' in args.qtty[0]:
+            lambda_tot = get.lambda_gk()
+            print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
         if 'slip_length' in args.qtty[0]:
             params = get.slip_length()
             print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} m/s")
@@ -105,6 +109,8 @@ if __name__ == "__main__":
             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty[0]:
             get.struc_factor()
+        if 'je' in args.qtty[0]:
+            get.heat_flux()
         if 'transport' in args.qtty[0]:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
