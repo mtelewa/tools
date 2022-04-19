@@ -540,7 +540,7 @@ class derive_data:
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
 
         je_x = dd.heat_flux()['je_x']
-        temp_grad = dd.temp()['temp_grad']*1e9    # K/m
+        temp_grad = dd.temp()['temp_grad'] * 1e9    # K/m
         lambda_x = -np.mean(je_x) / temp_grad
 
         return {'lambda_x':lambda_x}
