@@ -81,7 +81,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         fluid_vx_avg_lte, fluid_vy_avg_lte, \
         vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
         jx_ch, je_x, je_y, je_z, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
-        temp_ch, temp_ch_solid,\
+        temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
         den_bulk_ch, Nf, Nm, \
@@ -113,6 +113,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'Wxz_ch',
                                   'Wyz_ch',
                                   'temp_ch',
+                                  'tempx_ch',
+                                  'tempy_ch',
+                                  'tempz_ch',
                                   'temp_ch_solid',
                                   'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
                                   'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
@@ -193,6 +196,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wyz_ch_global = np.zeros_like(vx_ch_global)
             # Temperature
             temp_global = np.zeros_like(vx_ch_global)
+            tempx_global = np.zeros_like(vx_ch_global)
+            tempy_global = np.zeros_like(vx_ch_global)
+            tempz_global = np.zeros_like(vx_ch_global)
 
             # Dimensions: (time, Nx)
             # Surface Forces
@@ -238,6 +244,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wxz_ch_global = None
             Wyz_ch_global = None
             temp_global = None
+            tempx_global = None
+            tempy_global = None
+            tempz_global = None
             temp_solid_global = None
 
             surfU_fx_ch_global = None
@@ -297,6 +306,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=jx_ch, recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=temp_ch, recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=tempx_ch, recvbuf=(tempx_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=tempy_ch, recvbuf=(tempy_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=tempz_ch, recvbuf=(tempz_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vir_ch, recvbuf=(vir_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxy_ch, recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxz_ch, recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
@@ -366,6 +378,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wxz_var = out.createVariable('Wxz', 'f4', ('time', 'x', 'z'))
             Wyz_var = out.createVariable('Wyz', 'f4', ('time', 'x', 'z'))
             temp_var =  out.createVariable('Temperature', 'f4', ('time', 'x', 'z'))
+            tempx_var =  out.createVariable('TemperatureX', 'f4', ('time', 'x', 'z'))
+            tempy_var =  out.createVariable('TemperatureY', 'f4', ('time', 'x', 'z'))
+            tempz_var =  out.createVariable('TemperatureZ', 'f4', ('time', 'x', 'z'))
             temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
@@ -417,6 +432,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             Wxz_var[:] = Wxz_ch_global
             Wyz_var[:] = Wyz_ch_global
             temp_var[:] = temp_global
+            tempx_var[:] = tempx_global
+            tempy_var[:] = tempy_global
+            tempz_var[:] = tempz_global
 
             fx_U_var[:] = surfU_fx_ch_global
             fy_U_var[:] = surfU_fy_ch_global
