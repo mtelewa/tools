@@ -741,19 +741,19 @@ class traj_to_grid:
                     tempx_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vxa**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     peculiar_vya =  np.transpose(peculiar_vy) * mask_fluid / self.A_per_molecule
                     tempy_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vya**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     peculiar_vza =  np.transpose(peculiar_vz) * mask_fluid / self.A_per_molecule
                     tempz_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vza**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     peculiar_v_solid = np.sqrt(peculiar_vx_surfU**2 + peculiar_vy_surfU**2 + peculiar_vz_surfU**2)
                     peculiar_v_solid = np.transpose(peculiar_v_solid) * maskxU_vib
