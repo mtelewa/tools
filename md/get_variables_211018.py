@@ -408,16 +408,48 @@ class derive_data:
             tempX_solid = np.mean(temp_full_x_solid, axis=0)
             temp_t_solid = np.mean(temp_full_x_solid, axis=1)
         except KeyError:
-            pass
+            temp_full_x_solid, temp_t_solid, tempX_solid = 0,0,0
 
         try:
-            return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
-                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
-                    'temp_full_x_solid':temp_full_x_solid, 'tempX_solid':tempX_solid,
-                    'temp_t_solid':temp_t_solid, 'temp_grad':temp_grad}
-        except NameError:
-            return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
-                    'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, 'temp_grad':temp_grad}
+            # Temp in X-direction
+            tempX_full_x = np.array(self.data_x.variables["TemperatureX"])[self.skip:]
+            tempX_full_z = np.array(self.data_z.variables["TemperatureX"])[self.skip:]
+            tempX_len = np.mean(tempX_full_x,axis=(0,2))
+            tempX_height = np.mean(tempX_full_z,axis=(0,1))
+            tempX_t = np.mean(tempX_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
+
+            # Temp in Y-direction
+            tempY_full_x = np.array(self.data_x.variables["TemperatureY"])[self.skip:]
+            tempY_full_z = np.array(self.data_z.variables["TemperatureY"])[self.skip:]
+            tempY_len = np.mean(tempY_full_x,axis=(0,2))
+            tempY_height = np.mean(tempY_full_z,axis=(0,1))
+            tempY_t = np.mean(tempY_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
+
+            # Temp in Y-direction
+            tempZ_full_x = np.array(self.data_x.variables["TemperatureZ"])[self.skip:]
+            tempZ_full_z = np.array(self.data_z.variables["TemperatureZ"])[self.skip:]
+            tempZ_len = np.mean(tempZ_full_x,axis=(0,2))
+            tempZ_height = np.mean(tempZ_full_z,axis=(0,1))
+            tempZ_t = np.mean(tempZ_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
+
+        except KeyError:
+            temp_full_x_solid, temp_t_solid, tempX_solid = 0,0,0
+
+
+        # try:
+        return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
+                'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
+                'temp_full_x_solid':temp_full_x_solid, 'tempX_solid':tempX_solid,
+                'temp_t_solid':temp_t_solid, 'temp_grad':temp_grad,
+                'tempX_full_x':tempX_full_x, 'tempX_full_z':tempX_full_z, 'tempX_len':tempX_len,
+                'tempX_height':tempX_height, 'tempX_t':tempX_t,
+                'tempY_full_x':tempY_full_x, 'tempY_full_z':tempY_full_z, 'tempY_len':tempY_len,
+                'tempY_height':tempY_height, 'tempY_t':tempY_t,
+                'tempZ_full_x':tempZ_full_x, 'tempZ_full_z':tempZ_full_z, 'tempZ_len':tempZ_len,
+                'tempZ_height':tempZ_height, 'tempZ_t':tempZ_t}
+        # except NameError:
+        #     return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
+        #             'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, 'temp_grad':temp_grad}
 
 
     def heat_flux(self):
@@ -529,7 +561,7 @@ class derive_data:
         lambda_z = prefac * np.sum(sq.acf(dd.heat_flux()['je_z'])['non-norm']* 1e-15)      # J/mKs
         lambda_tot = (lambda_x+lambda_y+lambda_z)/3.
 
-        return lambda_tot
+        return {'lambda_tot':lambda_tot}
 
 
     def lambda_nemd(self):
@@ -539,6 +571,7 @@ class derive_data:
 
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
 
+        # TODO: need to get this from the energy-time slope
         je_x = dd.heat_flux()['je_x']
         temp_grad = dd.temp()['temp_grad'] * 1e9    # K/m
         lambda_x = -np.mean(je_x) / temp_grad
