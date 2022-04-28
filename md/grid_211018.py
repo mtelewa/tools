@@ -7,7 +7,8 @@ import scipy.constants as sci
 import time as timer
 from mpi4py import MPI
 import netCDF4
-import processor_nc_211018 as pnc
+# import processor_nc_211018 as pnc
+import processor_nc_220204 as pnc
 from operator import itemgetter
 import re
 
@@ -76,9 +77,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
         # Get the data
         cell_lengths, kx, ky, kz, \
-        gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi,\
-        fluid_vx_avg, fluid_vy_avg, \
-        fluid_vx_avg_lte, fluid_vy_avg_lte, \
+        gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi, mytotVi,\
+        fluid_vx_avg, fluid_vy_avg, fluid_vz_avg, \
+        fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
         vx_ch, uCOMx, den_ch, sf, rho_k, sf_x, sf_y, \
         jx_ch, je_x, je_y, je_z, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
@@ -93,10 +94,13 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'com',
                                   'fluxes',
                                   'totVi',
+                                  'mytotVi',
                                   'fluid_vx_avg',
                                   'fluid_vy_avg',
+                                  'fluid_vz_avg',
                                   'fluid_vx_avg_lte',
                                   'fluid_vy_avg_lte',
+                                  'fluid_vz_avg_lte',
                                   'vx_ch',
                                   'uCOMx',
                                   'den_ch',
@@ -136,8 +140,10 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
         fluid_vx_avg = np.array(comm.gather(fluid_vx_avg, root=0))
         fluid_vy_avg = np.array(comm.gather(fluid_vy_avg, root=0))
+        fluid_vz_avg = np.array(comm.gather(fluid_vz_avg, root=0))
         fluid_vx_avg_lte = np.array(comm.gather(fluid_vx_avg_lte, root=0))
         fluid_vy_avg_lte = np.array(comm.gather(fluid_vy_avg_lte, root=0))
+        fluid_vz_avg_lte = np.array(comm.gather(fluid_vz_avg_lte, root=0))
 
         if rank == 0:
 
@@ -146,9 +152,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Average velocity of each atom over all the tsteps in the slice
             vx_global_avg = np.mean(fluid_vx_avg, axis=0)
             vy_global_avg = np.mean(fluid_vy_avg, axis=0)
+            vz_global_avg = np.mean(fluid_vz_avg, axis=0)
 
             vx_global_avg_lte = np.mean(fluid_vx_avg_lte, axis=0)
             vy_global_avg_lte = np.mean(fluid_vy_avg_lte, axis=0)
+            vz_global_avg_lte = np.mean(fluid_vz_avg_lte, axis=0)
 
             # Dimensions: (time)
             # Gap Heights
@@ -170,6 +178,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             # Voronoi vol
             totVi_global = np.zeros_like(gap_height_global)
+            mytotVi_global = np.zeros_like(gap_height_global)
+
 
             fluid_vol_global = np.zeros_like(gap_height_global)
 
@@ -223,6 +233,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_pump_global = None
             mflowrate_pump_global = None
             totVi_global = None
+            mytotVi_global = None
             fluid_vol_global = None
 
             vx_ch_global = None
@@ -283,6 +294,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # If the virial was not computed, skip
             try:
                 comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
+                comm.Gatherv(sendbuf=mytotVi, recvbuf=(mytotVi_global, sendcounts_time), root=0)
             except TypeError:
                 pass
         else:   # If only bulk
@@ -338,9 +350,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
             vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
+            vz_all_var = out.createVariable('Fluid_Vz', 'f4', ('Nf'))
 
             vx_lte_var = out.createVariable('Fluid_lte_Vx', 'f4', ('Nf'))
             vy_lte_var = out.createVariable('Fluid_lte_Vy', 'f4', ('Nf'))
+            vz_lte_var = out.createVariable('Fluid_lte_Vz', 'f4', ('Nf'))
 
             time_var = out.createVariable('Time', 'f4', ('time'))
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
@@ -354,6 +368,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_stable = out.createVariable('mflux_stable', 'f4', ('time'))
             mflowrate_stable = out.createVariable('mflow_rate_stable', 'f4', ('time'))
             voronoi_volumes = out.createVariable('Voronoi_volumes', 'f4', ('time'))
+            voronoi_volumes_new = out.createVariable('Voronoi_volumes_new', 'f4', ('time'))
+
             fluid_vol_var = out.createVariable('Fluid_Vol', 'f4', ('time'))
 
             vx_var =  out.createVariable('Vx', 'f4', ('time', 'x', 'z'))
@@ -404,13 +420,17 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             mflux_stable[:] = mflux_stable_global
             mflowrate_stable[:] = mflowrate_stable_global
             voronoi_volumes[:] = totVi_global
+            voronoi_volumes_new[:] = mytotVi_global
+
             fluid_vol_var[:] = fluid_vol_global
 
             vx_all_var[:] = vx_global_avg
             vy_all_var[:] = vy_global_avg
+            vz_all_var[:] = vz_global_avg
 
             vx_lte_var[:] = vx_global_avg_lte
             vy_lte_var[:] = vy_global_avg_lte
+            vz_lte_var[:] = vz_global_avg_lte
 
             vx_var[:] = vx_ch_global
             den_var[:] = den_ch_global
