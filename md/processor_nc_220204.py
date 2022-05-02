@@ -46,6 +46,7 @@ class traj_to_grid:
         self.Nx, self.Ny, self.Nz = comm.bcast(Nx, root=0), comm.bcast(Ny, root=0), comm.bcast(Nz, root=0)
         self.mf, self.A_per_molecule = mf, A_per_molecule
         self.ms = 196.96 # gold atom
+        self.tessellate = tessellate
 
     def get_dimensions(self):
         # Box dimensions
@@ -434,7 +435,7 @@ class traj_to_grid:
                 pass
 
             # Perform Delaunay triangulation: (Could be useful for cavitation)
-            if tessellate==1:
+            if self.tessellate==1:
                 bulk_xcoords = fluid_xcoords * bulk_region
                 bulk_ycoords = fluid_ycoords * bulk_region
                 bulk_zcoords = fluid_zcoords * bulk_region
