@@ -57,7 +57,7 @@ while getopts ":h:i:N:f:s:e:p:x:" option; do
 done
 
 args=("$@")
-echo ${args[@]} > flags.txt
+echo ${args[@]} > ${MOAB_SUBMITDIR}/flags.txt
 
 # call the shift command at the end of the processing loop to remove options that
 # have already been handled from $@
