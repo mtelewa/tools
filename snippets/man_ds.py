@@ -35,7 +35,7 @@ class manipulate_ds:
             self.sim_dataset = dtoolcore.ProtoDataSet.from_uri(self.dataset_name)
         # TODO: Handle the exceptions
         except dtoolcore.DtoolCoreTypeError: # If it is not a dataset
-             pass
+            pass
         except TypeError:  # For frozen datasets
             self.sim_dataset = dtoolcore.DataSet.from_uri(self.dataset_name)
             print(self.sim_dataset)
