@@ -218,7 +218,7 @@ class derive_data:
 
         if np.mean(self.h) == 0: # Bulk simulation
             # TODO: No.
-            Nf = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
+            Nm = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
             mass = Nm * (self.mf/sci.N_A)
             den_t = mass / (self.vol * nm_to_cm**3)    # g/cm3
         else:
@@ -275,7 +275,7 @@ class derive_data:
             vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:, 10:-10, :] * sci.atm * pa_to_Mpa
             vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:, :, 10:-10] * sci.atm * pa_to_Mpa
 
-        vir_t = (np.mean(vir_full_x, axis=(1,2)) + np.mean(vir_full_z, axis=(1,2))) / 2.
+        vir_t = np.mean(vir_full_x, axis=(1,2)) #+ np.mean(vir_full_z, axis=(1,2))) / 2.
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
 
@@ -349,9 +349,13 @@ class derive_data:
         # Error calculation for the time series
         fxL, fxU = np.sum(fx_Lower,axis=1) , np.sum(fx_Upper,axis=1)
         sigxz_err = sq.prop_uncertainty(fxL, fxU)['err'] * pa_to_Mpa / self.wall_A
+        sigxz_lo = sq.prop_uncertainty(fxL, fxU)['lo'] * pa_to_Mpa / self.wall_A
+        sigxz_hi = sq.prop_uncertainty(fxL, fxU)['hi'] * pa_to_Mpa / self.wall_A
 
         fzL, fzU = np.sum(fz_Lower,axis=1) , np.sum(fz_Upper,axis=1)
         sigzz_err = sq.prop_uncertainty(fzL, fzU)['err'] * pa_to_Mpa / self.wall_A
+        sigzz_lo = sq.prop_uncertainty(fzL, fzU)['lo'] * pa_to_Mpa / self.wall_A
+        sigzz_hi = sq.prop_uncertainty(fzL, fzU)['hi'] * pa_to_Mpa / self.wall_A
 
         sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / self.chunk_A
         sigyz_chunkX = np.mean(fy_wall,axis=0) * pa_to_Mpa / self.chunk_A
@@ -377,7 +381,8 @@ class derive_data:
                 'sigxz_t':sigxz_t, 'sigyz_t':sigyz_t, 'sigzz_t':sigzz_t,
                 'sigxy_t':sigxy_t, 'pDiff':pDiff, 'sigzz_wall_out':sigzz_wall_out,
                 'sigzz_wall_in':sigzz_wall_in, 'sigxz_err': sigxz_err,
-                'sigzz_err':sigzz_err}
+                'sigxz_lo': sigxz_lo, 'sigxz_hi': sigxz_hi,
+                'sigzz_err':sigzz_err, 'sigzz_lo':sigzz_lo,'sigzz_hi':sigzz_hi}
 
     def temp(self):
         """
@@ -433,8 +438,9 @@ class derive_data:
             tempZ_t = np.mean(tempZ_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
 
         except KeyError:
-            temp_full_x_solid, temp_t_solid, tempX_solid = 0,0,0
-
+            tempX_full_x, tempX_full_z, tempX_len, tempX_height, tempX_t = 0,0,0,0,0
+            tempY_full_x, tempY_full_z, tempY_len, tempY_height, tempY_t = 0,0,0,0,0
+            tempZ_full_x, tempZ_full_z, tempZ_len, tempZ_height, tempZ_t = 0,0,0,0,0
 
         # try:
         return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
@@ -479,20 +485,26 @@ class derive_data:
         """
         fluid_vx = np.array(self.data_x.variables["Fluid_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
         fluid_vy = np.array(self.data_x.variables["Fluid_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+        fluid_vz = np.array(self.data_x.variables["Fluid_Vz"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
 
         fluid_vx_lte = np.array(self.data_x.variables["Fluid_lte_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
         fluid_vy_lte = np.array(self.data_x.variables["Fluid_lte_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+        fluid_vz_lte = np.array(self.data_x.variables["Fluid_lte_Vz"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
 
         values_x, probabilities_x = sq.get_err(fluid_vx)['values'], sq.get_err(fluid_vx)['probs']
         values_y, probabilities_y = sq.get_err(fluid_vy)['values'], sq.get_err(fluid_vy)['probs']
+        values_z, probabilities_z = sq.get_err(fluid_vz)['values'], sq.get_err(fluid_vz)['probs']
 
         values_x_lte, probabilities_x_lte = sq.get_err(fluid_vx_lte)['values'], sq.get_err(fluid_vx_lte)['probs']
         values_y_lte, probabilities_y_lte = sq.get_err(fluid_vy_lte)['values'], sq.get_err(fluid_vy_lte)['probs']
+        values_z_lte, probabilities_z_lte = sq.get_err(fluid_vz_lte)['values'], sq.get_err(fluid_vz_lte)['probs']
 
         return {'vx_values': values_x, 'vx_prob': probabilities_x,
                 'vy_values': values_y, 'vy_prob': probabilities_y,
+                'vz_values': values_z, 'vz_prob': probabilities_z,
                 'vx_values_lte': values_x_lte, 'vx_prob_lte': probabilities_x_lte,
-                'vy_values_lte': values_y_lte, 'vy_prob_lte': probabilities_y_lte}
+                'vy_values_lte': values_y_lte, 'vy_prob_lte': probabilities_y_lte,
+                'vz_values_lte': values_z_lte, 'vz_prob_lte': probabilities_z_lte}
 
     # Derived Quantities ----------------------------------------------------
     # -----------------------------------------------------------------------
