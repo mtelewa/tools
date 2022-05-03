@@ -88,17 +88,20 @@ if __name__ == "__main__":
                   #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
                   #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
                   #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
+        if 'density' in args.qtty[0]:
+            rho = np.mean(get.density()['den_X'])
+            print(f'Bulk density (rho) = {rho:.5f} g/cm3')
         if 'gk_viscosity' in args.qtty[0]:
             mu = get.viscosity_gk()
             print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
-        if 'gk_lambda' in args.qtty[0]:
-            lambda_tot = get.lambda_gk()
-            print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
         if 'slip_length' in args.qtty[0]:
             params = get.slip_length()
             print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} m/s")
         if 'transverse' in args.qtty[0]:
             get.trans()
+        if 'tgrad' in args.qtty[0]:
+            temp_grad = get.temp()['temp_grad']
+            print(f"Temp gradient is {temp_grad*1e9:e} K/m")
         if 'pgrad' in args.qtty[0]:
             vir = get.virial()
             print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
@@ -109,8 +112,12 @@ if __name__ == "__main__":
             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty[0]:
             get.struc_factor()
-        if 'lambda' in args.qtty[0]:
-            print(f"Thermal Conductivity: {get.lambda_nemd()['lambda_x']} W/mK")
+        if 'gk_lambda' in args.qtty[0]:
+            lambda_tot = get.lambda_gk()['lambda_tot']
+            print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
+        if 'lambda_nemd' in args.qtty[0]:
+            thermo_out = datasets[i]+'/data/thermo.out'
+            print(f"Thermal Conductivity: {get.lambda_nemd(thermo_out)['lambda_x']} W/mK")
         if 'transport' in args.qtty[0]:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
