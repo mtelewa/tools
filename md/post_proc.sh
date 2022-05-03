@@ -58,7 +58,7 @@ done
 
 # Write the arguments to a text file
 args=("$@") ;
-echo "Flags: ${args[@]}" > args.txt
+echo "Flags: ${args[@]}" > flags.txt
 
 # call the shift command at the end of the processing loop to remove options that
 # have already been handled from $@
