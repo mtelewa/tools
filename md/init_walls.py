@@ -94,15 +94,16 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     diff = Nfluid - new_Nfluid
 
     ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
-    # if new_Nfluid/Nfluid <= 98:
-    #     Nz+=1
-    #     Nx-=14
-    #
+    if new_Nfluid/Nfluid <= 0.98:   # If the error in the number of desired atoms deviates from the actual created by 2%
+        Nx = Nx + np.int(input('New Nx:'))
+        Nz = Nz + np.int(input('New Nz:'))
+
     Nfluid_mod = Nx * Ny * Nz
     diff2 = Nfluid - Nfluid_mod
 
     print('Created %g molecules by moltemplate' %new_Nfluid)
-    print('Created %g molecules after modification' %Nfluid_mod)
+    print(f'Created {Nfluid_mod:g} molecules after modification with a deviation\
+    of {100-(Nfluid_mod*100/Nfluid):.3f}% from the desired value')
 
     add_molecules,remove_molecules = 0,0
     add_molecules_mod = 0
