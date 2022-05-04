@@ -210,6 +210,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             tempx_global = np.zeros_like(vx_ch_global)
             tempy_global = np.zeros_like(vx_ch_global)
             tempz_global = np.zeros_like(vx_ch_global)
+            temp_solid_global = np.zeros_like(vx_ch_global)
 
             # Dimensions: (time, Nx)
             # Surface Forces
@@ -220,7 +221,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             surfL_fy_ch_global = np.zeros_like(surfU_fx_ch_global)
             surfL_fz_ch_global = np.zeros_like(surfU_fx_ch_global)
             den_bulk_ch_global = np.zeros_like(surfU_fx_ch_global)
-            temp_solid_global = np.zeros_like(surfU_fx_ch_global)
 
         else:
             gap_height_global = None
@@ -329,6 +329,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
 
         if rank == 0:
+            print(temp_solid_global.shape)
 
             # Write to netCDF file  ------------------------------------------
             outfile = f"{infile.split('.')[0]}_{Nx}x{Nz}_{slice:0>3}.nc"
