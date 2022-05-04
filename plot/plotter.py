@@ -22,7 +22,7 @@ def get_parser():
                         Needed for the calculation of mass flux and density')
     parser.add_argument('qtty', metavar='qtty', nargs='+', action='store', type=str,
                     help='the quantity to plot')
-    parser.add_argument('--pumpsize', metavar='format', action='store', type=float,
+    parser.add_argument('--pumpsize', metavar='pumpsize', action='store', type=float,
                     help='Pump size. Needed for the pressure gradient compuation.')
     parser.add_argument('--format', metavar='format', action='store', type=str,
                     help='format of the saved figure. Default: PNG')
@@ -36,7 +36,10 @@ def get_parser():
             # you can pass any arguments to add_argument
             parser.add_argument(arg.split('=')[0], type=str,
                                 help='datasets for plotting')
-
+        if arg.startswith(("-txt")):
+            # you can pass any arguments to add_argument
+            parser.add_argument(arg.split('=')[0], type=str,
+                                help='files for plotting')
     return parser
 
 
@@ -85,12 +88,12 @@ if __name__ == "__main__":
     except AttributeError:
         pass
 
-    a = []
+    txts = []
     for k in txtfiles:
         for root, dirs, files in os.walk(k):
             for i in files:
                 if i.endswith('thermo.out') or i.endswith('.txt'):
-                    a.append(os.path.join(root, i))
+                    txts.append(os.path.join(root, i))
 
     datasets_x, datasets_z = [], []
     for k in datasets:
@@ -116,9 +119,9 @@ if __name__ == "__main__":
         if 'rate_viscosity' in args.qtty: plot.rate_viscosity()
         if 'rate_slip' in args.qtty: plot.rate_slip()
         if 'rate_temp' in args.qtty: plot.rate_temp()
-        # Non-isothermal flow
         # if 'pt_ratio' in args.qtty[0]: plot.pt_ratio()
         if 'eos' in args.qtty: plot.eos()
+        if 'lambda' in args.qtty: plot.thermal_conduct()
         # ACFs
         if 'acf' in args.qtty: plot.acf()
         if 'transverse' in args.qtty: plot.transverse()
@@ -147,5 +150,11 @@ if __name__ == "__main__":
             plot.fig.savefig(args.qtty[0]+'.png' , format='png')
 
     if len(txtfiles) > 0.:
-        ptxt = pm.plot_from_txt()
-        ptxt.plot_from_txt(args.skip, a, args.qtty[0])
+        ptxt = pm.plot_from_txt(args.skip, txts, args.config)
+        p = ptxt.plot_txt(args.qtty)
+        ptxt.fig.savefig(args.qtty[0]+'.png' , format='png')
+
+
+
+
+#
