@@ -19,10 +19,10 @@ import funcs
 import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.stats import pearsonr, spearmanr
-
+from scipy.optimize import curve_fit
 
 # Converions
-ang_to_cm = 1e-7
+ang_to_cm = 1e-8
 nm_to_cm = 1e-7
 A_per_fs_to_m_per_s = 1e5
 g_to_kg = 1e-3
@@ -401,24 +401,28 @@ class derive_data:
         temp_t = np.mean(temp_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
 
         # Inlet and outlet of the pump region
-        temp_out = np.max(tempX)
-        temp_in = np.min(tempX)
-        temp_ratio = temp_out / temp_in
+        temp_bulk = np.max(tempZ)
+        temp_walls = 300 # K #TODO: should be calculated
+        temp_ratio = temp_walls / temp_bulk
+        print(temp_walls , temp_bulk)
+        # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
+        # pump_length = self.pumpsize * self.Lx      # nm
 
-        pd_length = self.Lx - self.pumpsize*self.Lx      # nm
-        temp_grad = - (temp_out - temp_in) / pd_length
+        temp_grad = (temp_walls - temp_bulk) * 1e9 / 1     # K/m        Here: assumed that the bulk temp is 1 nm away from the walls.
 
         try:
             temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
-            tempX_solid = np.mean(temp_full_x_solid, axis=0)
-            temp_t_solid = np.mean(temp_full_x_solid, axis=1)
+            temp_full_z_solid = np.array(self.data_z.variables["Temperature_solid"])[self.skip:]
+            tempS_len = np.mean(temp_full_x_solid, axis=(0,2))
+            tempS_height = np.mean(temp_full_z_solid, axis=(0,2))
+            tempS_t = np.mean(temp_full_x_solid, axis=(1,2))
         except KeyError:
-            temp_full_x_solid, temp_t_solid, tempX_solid = 0,0,0
+            temp_full_x_solid, temp_full_z_solid, tempS_t, tempS_len, tempS_height = 0,0,0,0,0
 
         try:
             # Temp in X-direction
-            tempX_full_x = np.array(self.data_x.variables["TemperatureX"])[self.skip:]
-            tempX_full_z = np.array(self.data_z.variables["TemperatureX"])[self.skip:]
+            tempX_full_x = np.array(self.data_x.variables["TemperatureX"])[self.skip:]  # Along length
+            tempX_full_z = np.array(self.data_z.variables["TemperatureX"])[self.skip:]  # Along height
             tempX_len = np.mean(tempX_full_x,axis=(0,2))
             tempX_height = np.mean(tempX_full_z,axis=(0,1))
             tempX_t = np.mean(tempX_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
@@ -445,8 +449,9 @@ class derive_data:
         # try:
         return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
                 'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
-                'temp_full_x_solid':temp_full_x_solid, 'tempX_solid':tempX_solid,
-                'temp_t_solid':temp_t_solid, 'temp_grad':temp_grad,
+                'temp_full_x_solid':temp_full_x_solid, 'temp_full_z_solid':temp_full_z_solid,
+                'tempS_len':tempS_len, 'tempS_height':tempS_height,
+                'tempS_t':tempS_t, 'temp_grad':temp_grad,
                 'tempX_full_x':tempX_full_x, 'tempX_full_z':tempX_full_z, 'tempX_len':tempX_len,
                 'tempX_height':tempX_height, 'tempX_t':tempX_t,
                 'tempY_full_x':tempY_full_x, 'tempY_full_z':tempY_full_z, 'tempY_len':tempY_len,
@@ -576,19 +581,50 @@ class derive_data:
         return {'lambda_tot':lambda_tot}
 
 
-    def lambda_nemd(self):
+    def lambda_ecouple(self, thermo_out):
         """
         Calculate thermal conductivity (lambda) from Fourier's law
+        The heat flux is computed from the energy removed by the thermostat,
+        LAMMPS keyword is Ecouple.
         """
 
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
 
-        # TODO: need to get this from the energy-time slope
-        je_x = dd.heat_flux()['je_x']
-        temp_grad = dd.temp()['temp_grad'] * 1e9    # K/m
-        lambda_x = -np.mean(je_x) / temp_grad
+        # Ecouple from the thermostat:
+        delta_energy = np.loadtxt(thermo_out, skiprows=1, dtype=float)[:,2] # kcal/mol
+        cut = self.skip + 5000 # Consider the energy slope in a window of 5 ns
+
+        slope, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
+
+        # Heat flux
+        j =  slope * 4184 / (2 * self.wall_A * sci.N_A * 1e-15) # J/(m2.s)
+
+        temp_grad = dd.temp()['temp_grad']     # K/m
+        print(f'Tgrad = {temp_grad:e} K/m')
+
+        lambda_x = -j / temp_grad
 
         return {'lambda_x':lambda_x}
+
+
+
+    def lambda_flux(self):
+        """
+        Calculate thermal conductivity (lambda) from Fourier's law
+        The heat flux is computed from IK expression, i.e. the heat_flux function.
+        """
+
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+
+        je_x = dd.heat_flux()['je_x']
+
+        temp_grad = dd.temp()['temp_grad'] * 1e9    # K/m
+        print(f'Tgrad = {temp_grad:e} K/m')
+
+        lambda_x = -je_x / temp_grad
+
+        return {'lambda_x':lambda_x}
+
 
 
     def viscosity_gk(self):
