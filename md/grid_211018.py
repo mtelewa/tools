@@ -136,6 +136,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         sendcounts_chunk_fluid_layer_nx = np.array(comm.gather(sf_x.size, root=0))
         sendcounts_chunk_fluid_layer_ny = np.array(comm.gather(sf_y.size, root=0))
         sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
+        sendcounts_chunk_vib = np.array(comm.gather(temp_ch_solid.size, root=0))
         sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
         fluid_vx_avg = np.array(comm.gather(fluid_vx_avg, root=0))
@@ -285,7 +286,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_solid), root=0)
+            comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
             comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=sf_x, recvbuf=(sf_x_global, sendcounts_chunk_fluid_layer_nx), root=0)
@@ -397,7 +398,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             tempx_var =  out.createVariable('TemperatureX', 'f4', ('time', 'x', 'z'))
             tempy_var =  out.createVariable('TemperatureY', 'f4', ('time', 'x', 'z'))
             tempz_var =  out.createVariable('TemperatureZ', 'f4', ('time', 'x', 'z'))
-            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x'))
+            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x', 'z'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
             fy_U_var =  out.createVariable('Fy_Upper', 'f4',  ('time', 'x'))
