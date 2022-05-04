@@ -322,7 +322,7 @@ class traj_to_grid:
                                     0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
             if TW_away == 1: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
                 surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                        0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
+                                    0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
             avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
             surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
             surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
