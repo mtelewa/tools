@@ -82,45 +82,48 @@ if __name__ == "__main__":
     for i in range(len(datasets)):
         get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
 
-        if 'mflowrate' in args.qtty[0]:
+        if 'mflowrate' in args.qtty:
             params = get.mflux()
             print(f"mdot stable = {np.mean(params['mflowrate_stable']):e} g/ns") #\
                   #\nJx stable = {np.mean(params['jx_stable']):.4f} g/m2.ns \
                   #\nJx pump = {np.mean(params['jx_pump']):.4f} g/m2.ns \
                   #\nmdot pump = {np.mean(params['mflowrate_pump']):e} g/ns")
-        if 'density' in args.qtty[0]:
+        if 'density' in args.qtty:
             rho = np.mean(get.density()['den_X'])
             print(f'Bulk density (rho) = {rho:.5f} g/cm3')
-        if 'gk_viscosity' in args.qtty[0]:
+        if 'temp' in args.qtty:
+            temp = np.mean(get.temp()['temp_t'])
+            print(f'Average temperature = {temp:.2f} K')
+        if 'gk_viscosity' in args.qtty:
             mu = get.viscosity_gk()
             print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
-        if 'slip_length' in args.qtty[0]:
+        if 'slip_length' in args.qtty:
             params = get.slip_length()
             print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} m/s")
-        if 'transverse' in args.qtty[0]:
+        if 'transverse' in args.qtty:
             get.trans()
-        if 'tgrad' in args.qtty[0]:
+        if 'tgrad' in args.qtty:
             temp_grad = get.temp()['temp_grad']
             print(f"Temp gradient is {temp_grad*1e9:e} K/m")
-        if 'pgrad' in args.qtty[0]:
+        if 'pgrad' in args.qtty:
             vir = get.virial()
             print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
             print(f"Pressure difference is {vir['pDiff']} MPa")
-        if 'sigxz' in args.qtty[0]:
+        if 'sigxz' in args.qtty:
             print(f"Avg. sigma_xz {np.mean(get.sigwall()['sigxz_t'])} MPa")
-        if 'gaph' in args.qtty[0]:
+        if 'gaph' in args.qtty:
             print(f"Gap height {np.mean(get.h)} nm")
-        if 'skx' in args.qtty[0]:
+        if 'skx' in args.qtty:
             get.struc_factor()
-        if 'gk_lambda' in args.qtty[0]:
+        if 'gk_lambda' in args.qtty:
             lambda_tot = get.lambda_gk()['lambda_tot']
             print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
-        if 'lambda_nemd' in args.qtty[0]:
+        if 'lambda_nemd' in args.qtty:
             thermo_out = datasets[i]+'/data/thermo.out'
-            print(f"Thermal Conductivity: {get.lambda_nemd(thermo_out)['lambda_x']} W/mK")
-        if 'transport' in args.qtty[0]:
+            print(f"Thermal Conductivity = {get.lambda_ecouple(thermo_out)['lambda_x']} W/mK")
+        if 'transport' in args.qtty:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']}")
-        if 'correlate' in args.qtty[0]:
+        if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
