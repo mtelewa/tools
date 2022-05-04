@@ -64,75 +64,121 @@ plt.style.use('imtek')
 
 class plot_from_txt:
 
-    def plot_from_txt(self, skip, txtfiles, outfile, lt='-', mark='o', opacity=1.0):
+    def __init__(self, skip, txtfiles, configfile):
 
-        fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
+        self.skip = skip
+        self.txts = txtfiles
+        self.configfile = configfile
+        self.fig, self.ax = plt.subplots(nrows=1, ncols=1, sharex=True)
 
-        # fig.tight_layout()
-        ax.xaxis.set_ticks_position('both')
-        ax.yaxis.set_ticks_position('both')
+        # Read the yaml file
+        with open(configfile, 'r') as f:
+            self.config = yaml.safe_load(f)
 
-        ax.set_xlabel(labels[7])
-        ax.set_ylabel(labels[3])
+    def plot_txt(self, *arr_to_plot):
 
-        verlet_den_data, verlet_p_data = [], []
-        gautschi_den_data, gautschi_p_data = [], []
-        verlet_den_data_4, verlet_p_data_4 = [], []
-        gautschi_den_data_4, gautschi_p_data_4 = [], []
+        qtts = arr_to_plot[0]
 
-        exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
-        exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+        self.ax.xaxis.set_ticks_position('both')
+        self.ax.yaxis.set_ticks_position('both')
 
-        for idx, val in enumerate(txtfiles):
-
-            if 'gautschi' in val and '4fs' not in val:
-                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
+        if 'eos' in qtts:
+            x_data, y_data = [], []
+            self.ax.set_xlabel(labels[7])
+            self.ax.set_ylabel(labels[3])
+            exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+            exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            for idx, val in enumerate(self.txts):
+                data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
                 xdata = data[:,10]
                 ydata = data[:,12]
+                x_data.append(np.mean(xdata))
+                y_data.append(np.mean(ydata) * sci.atm * 1e-6)
 
-                gautschi_den_data.append(np.mean(xdata))
-                gautschi_p_data.append(np.mean(ydata) * sci.atm * 1e-6)
+        if 'fp' in qtts:
+            self.ax.set_xlabel(labels[2])
+            self.ax.set_ylabel('$F_p$ (nN)')
+            for idx, val in enumerate(self.txts):
+                data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+                xdata = data[:,0] * 1e-6      # ns
+                ydata = data[:,14] * 1e9     # nanoN
+                self.ax.plot(xdata, ydata)
+                self.ax.axhline(y = np.mean(ydata))
 
-            if 'verlet' in val and '4fs' not in val:
-                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
-                xdata = data[:,10]
-                ydata = data[:,12]
+        if 'fw' in qtts:
+            self.ax.set_xlabel(labels[2])
+            self.ax.set_ylabel('$F_w$ (nN)')
+            for idx, val in enumerate(self.txts):
+                data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+                xdata = data[:,0] * 1e-6      # ns
+                ydata = data[:,15] * 1e9     # nanoN
+                self.ax.plot(xdata, ydata)
+                self.ax.axhline(y = np.mean(ydata))
 
-                verlet_den_data.append(np.mean(xdata))
-                verlet_p_data.append(np.mean(ydata) * sci.atm * 1e-6)
+        if 'fpump' in qtts:
+            kcalpermolA_to_N = 6.9477e-11
+            self.ax.set_xlabel(labels[2])
+            self.ax.set_ylabel(r'$F_{pump}$ (pN)')
+            for idx, val in enumerate(self.txts):
+                data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+                xdata = data[:,0] * 1e-6      # ns
+                ydata = data[:,16] * kcalpermolA_to_N * 1e12     # picoN
+                self.ax.plot(xdata, ydata)
+                self.ax.axhline(y = np.mean(ydata))
 
-            if 'gautschi' in val and '4fs' in val:
-                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
-                xdata = data[:,10]
-                ydata = data[:,12]
+        if 'npump' in qtts:
+            self.ax.set_xlabel(labels[2])
+            self.ax.set_ylabel(r'$N_{pump}$')
+            for idx, val in enumerate(self.txts):
+                data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+                xdata = data[:,0] * 1e-6      # ns
+                ydata = data[:,13]
+                self.ax.plot(xdata, ydata)
+                self.ax.axhline(y = np.mean(ydata))
 
-                gautschi_den_data_4.append(np.mean(xdata))
-                gautschi_p_data_4.append(np.mean(ydata) * sci.atm * 1e-6)
 
-            if 'verlet' in val and '4fs' in val:
-                data = np.loadtxt(txtfiles[idx], skiprows=skip, dtype=float)
-                xdata = data[:,10]
-                ydata = data[:,12]
 
-                verlet_den_data_4.append(np.mean(xdata))
-                verlet_p_data_4.append(np.mean(ydata) * sci.atm * 1e-6)
+        ptxt = plot_from_txt(self.skip, self.txts, self.configfile)
+        ptxt.plot_settings(self, xdata)
 
-        ax.plot(verlet_p_data, verlet_den_data, ls='-', marker='o', color=colors[0], alpha=1, label='Verlet',)
-        ax.plot(verlet_p_data_4, verlet_den_data_4, ls='--', marker=' ', color=colors[0], alpha=1, label=None,)
 
-        if gautschi_den_data:
-            ax.plot(gautschi_p_data, gautschi_den_data, ls='-', marker='x', color=colors[1], alpha=1, label='Gautschi',)
-            ax.plot(gautschi_p_data_4, gautschi_den_data_4, ls='--', marker=' ', color=colors[1], alpha=1, label=None,)
+    def plot_settings(self, pt, x):
 
-        ax.plot(exp_press, exp_density, ls=' ', marker='*', alpha=1, color=colors[2], label='Expt. (Liu et al. 2010)',)
+        ptxt = plot_from_txt(self.skip, self.txts, self.configfile)
 
-            # popt, pcov = curve_fit(funcs.linear, xdata, ydata)
-            # ax.plot(xdata, funcs.linear(xdata, *popt))
-            # ax.errorbar(xdata, ydata1 , yerr=err1, ls=lt, fmt=mark, label= 'Expt. (Gehrig et al. 1978)', capsize=3, alpha=opacity)
+        # Make a list that contains all the lines in all the axes starting from the last axes.
+        # lines = []  # list to append all the lines to
+        # for ax in pt.axes_array:
+        lines = pt.ax.get_lines()
 
-        ax.legend()
-        fig.savefig(outfile)
+        # lines = [item for sublist in lines for item in sublist]
+        print(f'Lines on the figure: {len(lines)}')
 
+        for i, line in enumerate(lines):
+            if self.config[f'lstyle_{i}']=='pop':
+                line.set_linestyle(' ')
+                line.set_marker(' ')
+                line.set_label(None)
+            else:
+                line.set_linestyle(self.config[f'lstyle_{i}'])
+                line.set_marker(self.config[f'mstyle_{i}'])
+                line.set_color(self.config[f'color_{i}'])
+                line.set_label(self.config[f'label_{i}'])
+                line.set_alpha(self.config[f'alpha_{i}'])
+            print(line.get_label())
+
+        if self.config['legend_elements'] is not None:
+            pt.ax.legend(frameon=False) #pds.add_legend(pt.axes_array[self.config['legend_on_ax']])
+        # for i, ax in enumerate(pt.ax): # TODO Generalize if the range is percentage or exact value
+        if self.config['xlo_0'] is not None:
+            pt.ax.set_xlim(left=self.config[f'xlo_0'])
+        if self.config['xhi_0'] is not None:
+            pt.ax.set_xlim(right=self.config[f'xhi_0']*np.max(x))
+        if self.config['ylo_0'] is not None:
+            pt.ax.set_ylim(bottom=self.config[f'ylo_0'])
+        if self.config['yhi_0'] is not None:
+            pt.ax.set_ylim(top=self.config[f'yhi_0'])
+        # if self.config['set_ax_height'] is not None: ptxt.set_ax_height(pt)
 
 
 class plot_from_ds:
@@ -247,7 +293,8 @@ class plot_from_ds:
         #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
         #                    Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
-        legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
+        # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2, ls='--', marker=' ', label='Wall temp.')]
 
         handles.extend(legend_elements)
 
@@ -356,19 +403,19 @@ class plot_from_ds:
             lo, hi = sq.get_err(arr)['lo'][y!=0], sq.get_err(arr)['hi'][y!=0]
             pds.plot_err_fill(ax, x[y!=0] ,lo ,hi)
 
-        # Wall stresses
-        if self.config['err_caps'] is not None and arr2 is not None:
-            # blocks1 = sq.block_ND(len(self.time[self.skip:]), arr, self.Nx, n)
-            # blocks2 = sq.block_ND(len(self.time[self.skip:]), arr2, self.Nx, n)
-            err = sq.prop_uncertainty(arr, arr2)['uncertainty'][1:-1]
-            pds.plot_err_caps(ax, x ,y, None ,err)
-
-        if self.config['err_fill'] is not None and arr2 is not None:
-            # blocks1 = sq.block_ND(len(self.time[self.skip:]), arr, self.Nx, n)
-            # blocks2 = sq.block_ND(len(self.time[self.skip:]), arr2, self.Nx, n)
-            lo = sq.prop_uncertainty(arr, arr2)['lo'][1:-1]
-            hi = sq.prop_uncertainty(arr, arr2)['hi'][1:-1]
-            pds.plot_err_fill(ax, x ,lo ,hi)
+        # # Wall stresses
+        # if self.config['err_caps'] is not None and arr2 is not None:
+        #     # blocks1 = sq.block_ND(len(self.time[self.skip:]), arr, self.Nx, n)
+        #     # blocks2 = sq.block_ND(len(self.time[self.skip:]), arr2, self.Nx, n)
+        #     # err = sq.prop_uncertainty(arr, arr2)['uncertainty'][1:-1]
+        #     pds.plot_err_caps(ax, x ,y, None ,err)
+        #
+        # if self.config['err_fill'] is not None and arr2 is not None:
+        #     # blocks1 = sq.block_ND(len(self.time[self.skip:]), arr, self.Nx, n)
+        #     # blocks2 = sq.block_ND(len(self.time[self.skip:]), arr2, self.Nx, n)
+        #     lo = sq.prop_uncertainty(arr, arr2)['lo'][1:-1]
+        #     hi = sq.prop_uncertainty(arr, arr2)['hi'][1:-1]
+        #     pds.plot_err_fill(ax, x ,lo ,hi)
 
     def plot_settings(self, pt, x):
 
@@ -539,21 +586,35 @@ class plot_from_ds:
             if 'sigzz_dim' in qtts:
                 self.axes_array[n].set_ylabel(labels[7])
                 if self.config['dim'] == 'l':
-                    arr, arr2, y = data.sigwall()['sigzzU_full'],\
-                                   data.sigwall()['sigzzL_full'], data.sigwall()['sigzz_X']
+                    arr, arr2, y = None, None, data.sigwall()['sigzz_X']
+                    pds.ax_settings(self.axes_array[n], x, y, arr, arr2)
                 if self.config['dim'] == 't':
                     arr, y = None, data.sigwall()['sigzz_t']
-                pds.ax_settings(self.axes_array[n], x, y, arr, arr2)
+                    pds.ax_settings(self.axes_array[n], x, y, arr)
+                if self.config['err_caps'] is not None:
+                    err =  data.sigwall()['sigzz_err']
+                    pds.plot_err_caps(ax, x, y, None, err)
+                if self.config['err_fill'] is not None:
+                    lo =  data.sigwall()['sigzz_lo']
+                    hi =  data.sigwall()['sigzz_hi']
+                    pds.plot_err_fill(ax, x, lo, hi)
                 if self.nrows>1: n+=1
 
             if 'sigxz_dim' in qtts:
                 self.axes_array[n].set_ylabel('Wall $\sigma_{xz}$ (MPa)')
                 if self.config['dim'] == 'l':
-                    arr, arr2, y = data.sigwall()['sigxzU_full'],\
-                                   data.sigwall()['sigxzL_full'], data.sigwall()['sigxz_X']
+                    arr, arr2, y = None, None, data.sigwall()['sigxz_X']
+                    pds.ax_settings(self.axes_array[n], x, y, arr, arr2)
                 if self.config['dim'] == 't':
                     arr, y = None, data.sigwall()['sigxz_t']
-                pds.ax_settings(self.axes_array[n], x, y, arr, arr2)
+                    pds.ax_settings(self.axes_array[n], x, y, arr)
+                if self.config['err_caps'] is not None:
+                    err =  data.sigwall()['sigxz_err']
+                    pds.plot_err_caps(ax, x, y, None, err)
+                if self.config['err_fill'] is not None:
+                    lo =  data.sigwall()['sigxz_lo']
+                    hi =  data.sigwall()['sigxz_hi']
+                    pds.plot_err_fill(ax, x, lo, hi)
                 if self.nrows>1: n+=1
 
             if 'temp_dim' in qtts:
@@ -570,6 +631,36 @@ class plot_from_ds:
                     fit_data = funcs.fit(x[y!=0][1:-1] ,y[y!=0][1:-1], self.config[f'fit'])['fit_data']
                     self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
                 if self.nrows>1: n+=1
+
+            if 'tempX_dim' in qtts:
+                self.axes_array[n].set_ylabel(labels[6])
+                if self.config['dim'] == 'l':
+                    arr, y = data.temp()['tempX_full_x'], data.temp()['tempX_len']
+                if self.config['dim'] == 'h':
+                    arr, y = data.temp()['tempX_full_z'], data.temp()['tempX_height']
+                if self.config['dim'] == 't':
+                    arr, y = None, data.temp()['tempX_t']
+                pds.ax_settings(self.axes_array[n], x, y, arr)
+
+            if 'tempY_dim' in qtts:
+                self.axes_array[n].set_ylabel(labels[6])
+                if self.config['dim'] == 'l':
+                    arr, y = data.temp()['tempY_full_x'], data.temp()['tempY_len']
+                if self.config['dim'] == 'h':
+                    arr, y = data.temp()['tempY_full_z'], data.temp()['tempY_height']
+                if self.config['dim'] == 't':
+                    arr, y = None, data.temp()['tempY_t']
+                pds.ax_settings(self.axes_array[n], x, y, arr)
+
+            if 'tempZ_dim' in qtts:
+                self.axes_array[n].set_ylabel(labels[6])
+                if self.config['dim'] == 'l':
+                    arr, y = data.temp()['tempZ_full_x'], data.temp()['tempZ_len']
+                if self.config['dim'] == 'h':
+                    arr, y = data.temp()['tempZ_full_z'], data.temp()['tempZ_height']
+                if self.config['dim'] == 't':
+                    arr, y = None, data.temp()['tempZ_t']
+                pds.ax_settings(self.axes_array[n], x, y, arr)
 
             if 'tempS_dim' in qtts:
                 self.axes_array[n].set_ylabel(labels[6])
@@ -618,8 +709,12 @@ class plot_from_ds:
             vy_values = data.vel_distrib()['vy_values_lte']
             vy_prob = data.vel_distrib()['vy_prob_lte']
 
+            vz_values = data.vel_distrib()['vz_values_lte']
+            vz_prob = data.vel_distrib()['vz_prob_lte']
+
             self.axes_array[0].plot(vx_values, vx_prob)
             self.axes_array[0].plot(vy_values, vy_prob)
+            self.axes_array[0].plot(vz_values, vz_prob)
 
             # self.axes_array[0].plot(vx_values, mb_distribution)
 
@@ -964,6 +1059,29 @@ class plot_from_ds:
         elif shear_rate_pd:
             pds.plot_settings(self, shear_rate_pd)
 
+    def thermal_conduct(self):
+        """
+        Plot thermal conductivity with Pressure.
+        """
+
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf, self.configfile, self.pumpsize)
+        self.axes_array[0].set_xlabel(labels[7])
+        self.axes_array[0].set_ylabel('$\lambda$ (W/mK)')
+
+        # Experimal results are from Wang et al. 2020 (At temp. 335 K)
+        exp_lambda = [0.1009,0.1046,0.1113,0.1170]
+        exp_press = [5,10,20,30]
+
+        md_lambda, md_press = [], []
+
+        for idx, val in enumerate(self.datasets_x):
+            data = dd(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
+            md_lambda.append(np.mean(data.lambda_gk()['lambda_tot']))
+
+        self.axes_array[0].plot(exp_press, md_lambda)
+        self.axes_array[0].plot(exp_press, exp_lambda)
+
+        pds.plot_settings(self, exp_press)
 
     # def pt_ratio(self, opacity=1, legend=None, lab_lines=None, couette=None, pd=None, **kwargs):
     #
@@ -1032,14 +1150,13 @@ class plot_from_ds:
             coeff,_ = np.polyfit(press, temp, 1)
             print(f'Joule-Thomson coefficient is {coeff} K/MPa')
 
-
-            if self.config['log']:
-                coeffs_den = curve_fit(funcs.power, den, press, maxfev=8000)
-                coeffs_temp = curve_fit(funcs.power, temp, press, maxfev=8000)
-                print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
-                print(f'Adiabatic exponent (gamma) is {coeffs_temp[0][1]}')
-                self.axes_array[0].plot(den, funcs.power(den, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
-                self.axes_array[1].plot(temp, funcs.power(temp, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
+        if self.config['log'] and ds_nemd:
+            coeffs_den = curve_fit(funcs.power, den, press, maxfev=8000)
+            coeffs_temp = curve_fit(funcs.power, temp, press, maxfev=8000)
+            print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
+            print(f'Adiabatic exponent (gamma) is {coeffs_temp[0][1]}')
+            self.axes_array[0].plot(den, funcs.power(den, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
+            self.axes_array[1].plot(temp, funcs.power(temp, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
 
         # Isotherms -----------------
         for i in ds_isotherms:
@@ -1050,13 +1167,10 @@ class plot_from_ds:
         if self.config['log']:
             den_list /= 0.7 #np.max(den_list)
             press_list /= 250 #np.max(press_list)
-
         if ds_isotherms:
             self.axes_array[0].plot(den_list, press_list)
 
         if self.config['log'] and ds_isotherms:
-            den_list /= 0.7 #np.max(den_list)
-            press_list /= 250 #np.max(press_list)
             coeffs_den = curve_fit(funcs.power, den_list, press_list, maxfev=8000)
             print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
             self.axes_array[0].plot(den_list, funcs.power(den_list, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
@@ -1070,13 +1184,10 @@ class plot_from_ds:
         if self.config['log']:
             temp_list /= 300 #np.max(temp_list)
             press2_list /=  250 #np.max(press2_list)
-
         if ds_isochores:
             self.axes_array[1].plot(temp_list, press2_list)
 
         if self.config['log'] and ds_isochores:
-            temp_list /= 300 #np.max(temp_list)
-            press2_list /=  250 #np.max(press2_list)
             coeffs_temp = curve_fit(funcs.power, temp_list, press2_list, maxfev=8000)
             print(f'Adiabatic exponent (gamma) is {coeffs_temp[0][1]}')
             self.axes_array[1].plot(temp_list, funcs.power(temp_list, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
@@ -1089,45 +1200,6 @@ class plot_from_ds:
         if ds_nemd: pds.plot_settings(self, press)
         elif ds_isotherms: pds.plot_settings(self, press_list)
         elif ds_isochores: pds.plot_settings(self, press2_list)
-
-
-    # def eos(self):
-    #
-    #     mpl.rcParams.update({'lines.markersize': 6})
-    #     pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf, self.configfile, self.pumpsize)
-    #
-    #     if self.config['log']:
-    #         self.axes_array[0].set_xscale('log', base=10)
-    #         self.axes_array[0].set_yscale('log', base=10)
-    #         self.axes_array[0].set_xlabel(r'$\rho/\rho_\mathrm{max}$')
-    #         self.axes_array[0].set_ylabel(r'$P/P_\mathrm{max}$')
-    #     else:
-    #         self.axes_array[0].set_xlabel(labels[3])
-    #         self.axes_array[0].set_ylabel(labels[7])
-    #
-    #     press, den = [], []
-    #
-    #     for i in range(len(self.datasets_x)):
-    #         data = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-    #         den.append(np.mean(data.density()['den_t']))
-    #         press.append(np.mean(data.virial()['vir_t']))
-    #
-    #     if self.config['log']:
-    #         den /= np.max(den)
-    #         press /= np.max(press)
-    #
-    #     self.axes_array[0].plot(den, press)
-    #
-    #     if self.config['log']:
-    #         coeffs_den = curve_fit(funcs.power, den, press, maxfev=8000)
-    #         print(coeffs_den)
-    #         print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
-    #         self.axes_array[0].plot(den, funcs.power(den, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
-    #
-    #     # self.axes_array[0].xaxis.set_minor_formatter(ScalarFormatter())
-    #     # self.axes_array[0].xaxis.major.formatter.set_scientific(False)
-    #
-    #     pds.plot_settings(self, press)
 
 
     def struc_factor(self, **kwargs):
