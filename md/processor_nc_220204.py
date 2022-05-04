@@ -38,7 +38,7 @@ t0 = timer.time()
 
 class traj_to_grid:
 
-    def __init__(self, data, start, end, Nx, Nz, mf, A_per_molecule, Ny=1, tessellate=0):
+    def __init__(self, data, start, end, Nx, Nz, mf, A_per_molecule, Ny=1, tessellate=0, TW_interface=1):
 
         self.data = data
         self.start, self.end = start, end
@@ -47,6 +47,7 @@ class traj_to_grid:
         self.mf, self.A_per_molecule = mf, A_per_molecule
         self.ms = 196.96 # gold atom
         self.tessellate = tessellate
+        self.TW_interface = TW_interface
 
     def get_dimensions(self):
         # Box dimensions
@@ -317,10 +318,10 @@ class traj_to_grid:
             surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
 
             # For vibrating walls ----------------------------------------------
-            if TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
+            if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
                 surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
                                     0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
-            if TW_away == 1: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
+            else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
                 surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
                                     0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
             avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
