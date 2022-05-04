@@ -317,8 +317,12 @@ class traj_to_grid:
             surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
 
             # For vibrating walls ----------------------------------------------
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
+            if TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
+                surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
+                                    0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
+            if TW_away == 1: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
+                surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
+                                        0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
             avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
             surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
             surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
@@ -574,6 +578,7 @@ class traj_to_grid:
         N_fluid_mask = np.zeros([self.chunksize, self.Nx, self.Nz], dtype=np.float32)
         N_stable_mask = np.zeros_like(N_fluid_mask)
         N_bulk_mask = np.zeros_like(N_fluid_mask)
+        N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
 
         vx_ch = np.zeros([self.chunksize, self.Nx, self.Nz], dtype=np.float32)
 
@@ -596,11 +601,11 @@ class traj_to_grid:
         tempx_ch = np.zeros_like(vx_ch)
         tempy_ch = np.zeros_like(vx_ch)
         tempz_ch = np.zeros_like(vx_ch)
+        temp_ch_solid = np.zeros_like(vx_ch)
         uCOMx = np.zeros_like(vx_ch)
 
         N_Upper_mask = np.zeros([self.chunksize, self.Nx], dtype=np.float32)
         N_Lower_mask = np.zeros_like(N_Upper_mask)
-        N_Upper_vib_mask = np.zeros_like(N_Upper_mask)
 
         surfU_fx_ch = np.zeros([self.chunksize, self.Nx], dtype=np.float32)
         surfU_fy_ch = np.zeros_like(surfU_fx_ch)
@@ -609,7 +614,6 @@ class traj_to_grid:
         surfL_fy_ch = np.zeros_like(surfU_fx_ch)
         surfL_fz_ch = np.zeros_like(surfU_fx_ch)
         den_bulk_ch = np.zeros_like(surfU_fx_ch)
-        temp_ch_solid = np.zeros_like(surfU_fx_ch)
 
         if solid_start != None:
 
@@ -713,10 +717,10 @@ class traj_to_grid:
             # Vibrating atoms
                     maskxU_vib = utils.region(surfU_vib_xcoords, surfU_vib_xcoords,
                                             xx[i, 0, 0], xx[i+1, 0, 0])['mask']
-                    N_Upper_vib_mask[:, i] = np.sum(maskxU_vib, axis=1)
+                    N_Upper_vib_mask[:, i, k] = np.sum(maskxU_vib, axis=1)
                     # To avoid warning with flat rigid walls
-                    Nzero_vib = np.less(N_Upper_vib_mask[:, i], 1)
-                    N_Upper_vib_mask[Nzero_vib, i] = 1
+                    Nzero_vib = np.less(N_Upper_vib_mask[:, i, k], 1)
+                    N_Upper_vib_mask[Nzero_vib, i, k] = 1
 
             # SurfL -----------------------------------
                     maskxL = utils.region(surfL_xcoords, surfL_xcoords,
@@ -745,9 +749,9 @@ class traj_to_grid:
                     uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
 
                     # In the upper surface
-                    uCOMx_surfU = np.sum(surfU_vx_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
-                    uCOMy_surfU = np.sum(surfU_vy_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
-                    uCOMz_surfU = np.sum(surfU_vz_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
+                    uCOMx_surfU = np.sum(surfU_vx_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
+                    uCOMy_surfU = np.sum(surfU_vy_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
+                    uCOMz_surfU = np.sum(surfU_vz_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
 
                     # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
                     peculiar_vx = np.transpose(fluid_vx_t) - uCOMx
@@ -788,10 +792,10 @@ class traj_to_grid:
                                         A_per_fs_to_m_per_s**2)  / \
                                         (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
-                    temp_ch_solid[:, i] = ((self.ms * sci.gram / sci.N_A) * \
+                    temp_ch_solid[:, i, k] = ((self.ms * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v_solid**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_Upper_vib_mask[:, i] * sci.k)  # Kelvin
+                                        (3 * N_Upper_vib_mask[:, i, k] * sci.k)  # Kelvin
 
 
                     # Virial pressure--------------------------------------
