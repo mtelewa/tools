@@ -2,7 +2,6 @@
 
 import numpy as np
 from scipy.spatial import Voronoi, ConvexHull, Delaunay
-import matplotlib.pyplot as plt
 
 
 def voronoi_volumes(points):
