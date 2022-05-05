@@ -560,6 +560,57 @@ class traj_to_grid:
             bounds_stable = [stableRangeX, bounds_fluid[1], bounds_fluid[2]]
             xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                                 bounds_stable[1], bounds_stable[2])
+
+
+
+            # Measure the velocity profile evolution along the stream -----------------------
+            # Bounds R1
+            R1Range = np.arange(dim[0] + 1) / dim[0] * pump_length
+            bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds[2]])]
+
+            xx_R1, yy_R1, zz_R1 = np.meshgrid(bounds_R1[0], bounds_R1[1], bounds_R1[2])
+            xx_R1 = np.transpose(xx_R1, (1, 0, 2))
+            yy_R1 = np.transpose(yy_R1, (1, 0, 2))
+            zz_R1 = np.transpose(zz_R1, (1, 0, 2))
+
+            # Bounds R2
+            R2Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R1[0][-1]
+            bounds_R2 = [R2Range, np.array([bounds[1]]), np.array([bounds[2]])]
+
+            xx_R2, yy_R2, zz_R2 = np.meshgrid(bounds_R2[0], bounds_R2[1], bounds_R2[2])
+            xx_R2 = np.transpose(xx_R2, (1, 0, 2))
+            yy_R2 = np.transpose(yy_R2, (1, 0, 2))
+            zz_R2 = np.transpose(zz_R2, (1, 0, 2))
+
+            # Bounds R3
+            R3Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R2[0][-1]
+            bounds_R3 = [R3Range, np.array([bounds[1]]), np.array([bounds[2]])]
+
+            xx_R3, yy_R3, zz_R3 = np.meshgrid(bounds_R3[0], bounds_R3[1], bounds_R3[2])
+            xx_R3 = np.transpose(xx_R3, (1, 0, 2))
+            yy_R3 = np.transpose(yy_R3, (1, 0, 2))
+            zz_R3 = np.transpose(zz_R3, (1, 0, 2))
+
+            # Bounds R4
+            R4Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R3[0][-1]
+            bounds_R4 = [R4Range, np.array([bounds[1]]), np.array([bounds[2]])]
+
+            xx_R4, yy_R4, zz_R4 = np.meshgrid(bounds_R4[0], bounds_R4[1], bounds_R4[2])
+            xx_R4 = np.transpose(xx_R4, (1, 0, 2))
+            yy_R4 = np.transpose(yy_R4, (1, 0, 2))
+            zz_R4 = np.transpose(zz_R4, (1, 0, 2))
+
+            # Bounds R5
+            R5Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R4[0][-1]
+            bounds_R5 = [R5Range, np.array([bounds[1]]), np.array([bounds[2]])]
+
+            xx_R5, yy_R5, zz_R5 = np.meshgrid(bounds_R5[0], bounds_R5[1], bounds_R5[2])
+            xx_R5 = np.transpose(xx_R5, (1, 0, 2))
+            yy_R5 = np.transpose(yy_R5, (1, 0, 2))
+            zz_R5 = np.transpose(zz_R5, (1, 0, 2))
+
+            #---------------------------------------------------------------------
+
         else:
             # bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i]
             #                 for i in range(3)]
@@ -581,7 +632,19 @@ class traj_to_grid:
         N_bulk_mask = np.zeros_like(N_fluid_mask)
         N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
 
+        N_R1 = np.zeros_like(N_fluid_mask)
+        N_R2 = np.zeros_like(N_fluid_mask)
+        N_R3 = np.zeros_like(N_fluid_mask)
+        N_R4 = np.zeros_like(N_fluid_mask)
+        N_R5 = np.zeros_like(N_fluid_mask)
+
         vx_ch = np.zeros([self.chunksize, self.Nx, self.Nz], dtype=np.float32)
+
+        vx_R1 = np.zeros_like(vx_ch)
+        vx_R2 = np.zeros_like(vx_ch)
+        vx_R3 = np.zeros_like(vx_ch)
+        vx_R4 = np.zeros_like(vx_ch)
+        vx_R5 = np.zeros_like(vx_ch)
 
         vir_ch = np.zeros_like(vx_ch)
         Wxy_ch = np.zeros_like(vx_ch)
@@ -728,11 +791,87 @@ class traj_to_grid:
                                             xx[i, 0, 0], xx[i+1, 0, 0])['mask']
                     N_Lower_mask[:, i] = np.sum(maskxL, axis=1)
 
+
+            # Regions along the stream ------------------------------------------
+
+                    # Region R1
+                    maskx_R1 = utils.region(fluid_xcoords, fluid_xcoords,
+                                            xx_R1[i, 0, k], xx_R1[i+1, 0, k])['mask']
+
+                    maskz_R1 = utils.region(fluid_zcoords, fluid_zcoords,
+                                            zz_R1[i, 0, k], zz_R1[i+1, 0, k])['mask']
+
+                    mask_R1 = np.logical_and(maskx_R1, maskz_R1)
+
+                    # Region R2
+                    maskx_R2 = utils.region(fluid_xcoords, fluid_xcoords,
+                                            xx_R2[i, 0, k], xx_R2[i+1, 0, k])['mask']
+
+                    maskz_R2 = utils.region(fluid_zcoords, fluid_zcoords,
+                                            zz_R2[i, 0, k], zz_R2[i+1, 0, k])['mask']
+
+                    mask_R2 = np.logical_and(maskx_R2, maskz_R2)
+
+                    # Region R3
+                    maskx_R3 = utils.region(fluid_xcoords, fluid_xcoords,
+                                            xx_R3[i, 0, k], xx_R3[i+1, 0, k])['mask']
+
+                    maskz_R3 = utils.region(fluid_zcoords, fluid_zcoords,
+                                            zz_R3[i, 0, k], zz_R3[i+1, 0, k])['mask']
+
+                    mask_R3 = np.logical_and(maskx_R3, maskz_R3)
+
+                    # Region R4
+                    maskx_R4 = utils.region(fluid_xcoords, fluid_xcoords,
+                                            xx_R4[i, 0, k], xx_R4[i+1, 0, k])['mask']
+
+                    maskz_R4 = utils.region(fluid_zcoords, fluid_zcoords,
+                                            zz_R4[i, 0, k], zz_R4[i+1, 0, k])['mask']
+
+                    mask_R4 = np.logical_and(maskx_R4, maskz_R4)
+
+                    # Region R5
+                    maskx_R5 = utils.region(fluid_xcoords, fluid_xcoords,
+                                            xx_R5[i, 0, k], xx_R5[i+1, 0, k])['mask']
+
+                    maskz_R5 = utils.region(fluid_zcoords, fluid_zcoords,
+                                            zz_R5[i, 0, k], zz_R5[i+1, 0, k])['mask']
+
+                    mask_R5 = np.logical_and(maskx_R5, maskz_R5)
+
+                    N_R1[:, i, k] = np.sum(mask_R1, axis=1)
+                    Nzero_R1 = np.less(N_R1[:, i, k], 1)
+                    N_R1[Nzero_R1, i, k] = 1
+
+                    N_R2[:, i, k] = np.sum(mask_R2, axis=1)
+                    Nzero_R2 = np.less(N_R2[:, i, k], 1)
+                    N_R2[Nzero_R2, i, k] = 1
+
+                    N_R3[:, i, k] = np.sum(mask_R3, axis=1)
+                    Nzero_R3 = np.less(N_R3[:, i, k], 1)
+                    N_R3[Nzero_R3, i, k] = 1
+
+                    N_R4[:, i, k] = np.sum(mask_R4, axis=1)
+                    Nzero_R4 = np.less(N_R4[:, i, k], 1)
+                    N_R4[Nzero_R4, i, k] = 1
+
+                    N_R5[:, i, k] = np.sum(mask_R5, axis=1)
+                    Nzero_R5 = np.less(N_R5[:, i, k], 1)
+                    N_R5[Nzero_R5, i, k] = 1
+
+
             # -----------------------------------------------------
             # Cell Averages ---------------------------------------
             # -----------------------------------------------------
                     # Velocities in the stable region
                     vx_ch[:, i, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
+
+                    vx_R1[:, i, k] = np.sum(fluid_vx * mask_R1, axis=1) / (N_R1[:, i, k])
+                    vx_R2[:, i, k] = np.sum(fluid_vx * mask_R2, axis=1) / (N_R2[:, i, k])
+                    vx_R3[:, i, k] = np.sum(fluid_vx * mask_R3, axis=1) / (N_R3[:, i, k])
+                    vx_R4[:, i, k] = np.sum(fluid_vx * mask_R4, axis=1) / (N_R4[:, i, k])
+                    vx_R5[:, i, k] = np.sum(fluid_vx * mask_R5, axis=1) / (N_R5[:, i, k])
+
 
                     # Density (whole fluid) ----------------------------
                     den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_fluid[i, 0, k]
@@ -908,6 +1047,11 @@ class traj_to_grid:
                 'fluid_vy_avg_lte': fluid_vy_avg_lte,
                 'fluid_vz_avg_lte': fluid_vz_avg_lte,
                 'vx_ch': vx_ch,
+                'vx_R1': vx_R1,
+                'vx_R2': vx_R2,
+                'vx_R3': vx_R3,
+                'vx_R4': vx_R4,
+                'vx_R5': vx_R5,
                 'uCOMx': uCOMx,
                 'den_ch': den_ch,
                 'rho_k': rho_k,
@@ -937,47 +1081,3 @@ class traj_to_grid:
                 'Nf': Nf,
                 'Nm': Nm,
                 'fluid_vol':fluid_vol}
-
-# # Correction for the converging-diverging channel ---------------------------------------
-#
-#
-# surfU_begin_cell = np.zeros([self.Nx], dtype=np.float32)
-# surfL_end_cell = np.zeros_like(surfU_begin_cell)
-# fluid_begin_cell = np.zeros_like(surfU_begin_cell)
-# fluid_end_cell = np.zeros_like(surfU_begin_cell)
-#
-# for i in range(self.Nx):
-#     cellzU = utils.region(surfU_zcoords, surfU_xcoords, xx[i, 0, 0], xx[i+1, 0, 0])['data']
-#     cellzL = utils.region(surfL_zcoords, surfL_xcoords, xx[i, 0, 0], xx[i+1, 0, 0])['data']
-#     cell_fluid = utils.region(fluid_zcoords, fluid_xcoords, xx[i, 0, 0], xx[i+1, 0, 0])['data']
-#
-#     surfU_begin_cell[i] = np.mean(comm.allgather(utils.cnonzero_min(cellzU)['local_min']))
-#     surfL_end_cell[i] = np.mean(comm.allgather(utils.extrema(cellzL)['local_max']))
-#     fluid_begin_cell[i] = np.mean(comm.allgather(utils.cnonzero_min(cell_fluid)['local_min']))
-#     fluid_end_cell[i] = np.mean(comm.allgather(utils.extrema(cell_fluid)['local_max']))
-#
-#
-# zlo = (fluid_begin_cell + surfL_end_cell) / 2.
-# zhi = (fluid_end_cell + surfU_begin_cell) / 2.
-# gap_height_cell = zhi - zlo
-#
-# # Update the z-bounds to get the right chunk volume
-# if self.Nx > 1:
-#     # # TODO: For now we take the last chunk and repeat it twice to
-#     # get the dimensionality right but shouldn't use this later
-#     zlo = np.append(zlo, zlo[-1])
-#     zhi = np.append(zhi, zhi[-1])
-#
-#     zz_fluid = np.array([zlo, zhi])               # Array of min and max z in the region
-#     zz_fluid = np.expand_dims(zz_fluid, axis=2)
-#     zz_fluid = np.transpose(zz_fluid)                   # Region min and max are in one line
-#     zz_fluid = np.concatenate((zz_fluid, zz_fluid), axis=0)    # Shape it like in the mesh
-#     zz_fluid = np.transpose(zz_fluid, (1, 0, 2))
-#
-#     # Update the z-increment and the volume
-#     dx = xx_fluid[1:, 1:, 1:] - xx_fluid[:-1, :-1, :-1]
-#     dy = yy_fluid[1:, 1:, 1:] - yy_fluid[:-1, :-1, :-1]
-#     dz = zz_fluid[1:, 1:, 1:] - zz_fluid[:-1, :-1, :-1]
-#     vol_fluid = dx * dy * dz
-#
-#
