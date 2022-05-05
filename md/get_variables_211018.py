@@ -171,10 +171,27 @@ class derive_data:
 
         vx_chunkX = np.mean(vx_full_x, axis=(0,2))
         vx_chunkZ = np.mean(vx_full_z, axis=(0,1))
-        vx_t = (np.mean(vx_full_x, axis=(1,2)) + np.mean(vx_full_z, axis=(1,2))) / 2.
+        vx_t = np.mean(vx_full_x, axis=(1,2))
+
+        try:
+            vx_R1_z = np.array(self.data_z.variables["Vx_R1"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
+            vx_R2_z = np.array(self.data_z.variables["Vx_R2"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
+            vx_R3_z = np.array(self.data_z.variables["Vx_R3"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
+            vx_R4_z = np.array(self.data_z.variables["Vx_R4"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
+            vx_R5_z = np.array(self.data_z.variables["Vx_R5"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
+
+            vx_R1 = np.mean(vx_R1_z, axis=(0,1))
+            vx_R2 = np.mean(vx_R2_z, axis=(0,1))
+            vx_R3 = np.mean(vx_R3_z, axis=(0,1))
+            vx_R4 = np.mean(vx_R4_z, axis=(0,1))
+            vx_R5 = np.mean(vx_R5_z, axis=(0,1))
+
+        except KeyError:
+            vx_R1, vx_R2, vx_R3, vx_R4, vx_R5 = 0, 0, 0, 0, 0
 
         return {'vx_X':vx_chunkX, 'vx_Z': vx_chunkZ, 'vx_t': vx_t,
-                'vx_full_x':vx_full_x, 'vx_full_z':vx_full_z}
+                'vx_full_x':vx_full_x, 'vx_full_z':vx_full_z,
+                'vx_R1':vx_R1, 'vx_R2':vx_R2, 'vx_R3':vx_R3, 'vx_R4':vx_R4, 'vx_R5':vx_R5}
 
     def mflux(self):
         """
