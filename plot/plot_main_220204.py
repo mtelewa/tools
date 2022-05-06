@@ -665,8 +665,9 @@ class plot_from_ds:
             if 'tempS_dim' in qtts:
                 self.axes_array[n].set_ylabel(labels[6])
                 try:
-                    if self.config['dim'] == 'l': arr, y = data.temp()['temp_full_x_solid'], data.temp()['tempX_solid']
-                    if self.config['dim'] == 't': arr, y = None, data.temp()['temp_t_solid']
+                    if self.config['dim'] == 'l': arr, y = data.temp()['temp_full_x_solid'], data.temp()['tempS_len']
+                    if self.config['dim'] == 'h': arr, y = data.temp()['temp_full_z_solid'], data.temp()['tempS_height']
+                    if self.config['dim'] == 't': arr, y = None, data.temp()['tempS_t']
                 except KeyError:
                     pass
                 pds.ax_settings(self.axes_array[n], x, y, arr)
@@ -719,6 +720,33 @@ class plot_from_ds:
             # self.axes_array[0].plot(vx_values, mb_distribution)
 
         pds.plot_settings(self, vx_values)
+
+
+    def v_evolution(self, opacity=1, legend=None, lab_lines=None, **kwargs):
+
+        self.axes_array[0].set_xlabel('Height (nm)')
+        self.axes_array[0].set_ylabel('$V_{x}$ (m/s)')
+
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf, self.configfile, self.pumpsize)
+
+
+        for i in range(len(self.datasets_x)):
+            data = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
+            h = data.height_array
+            vx_R1 =  data.velocity()['vx_R1']
+            vx_R2 =  data.velocity()['vx_R2']
+            vx_R3 =  data.velocity()['vx_R3']
+            vx_R4 =  data.velocity()['vx_R4']
+            vx_R5 =  data.velocity()['vx_R5']
+
+            self.axes_array[0].plot(h, vx_R1)
+            self.axes_array[0].plot(h, vx_R2)
+            self.axes_array[0].plot(h, vx_R3)
+            self.axes_array[0].plot(h, vx_R4)
+            self.axes_array[0].plot(h, vx_R5)
+
+        pds.plot_settings(self, h)
+
 
     # def pdiff_pumpsize(self):
     #     """
@@ -809,12 +837,14 @@ class plot_from_ds:
         shear_rate_err, viscosity_err = [], []
         shear_rate_ff, viscosity_ff = [], []
         shear_rate_ff_err, viscosity_ff_err = [], []
+
         shear_rate_fc, viscosity_fc = [], []
         shear_rate_fc_err, viscosity_fc_err = [], []
         shear_rate_vib, viscosity_vib = [], []
         shear_rate_rigid, viscosity_rigid = [], []
 
         for idx, val in enumerate(self.datasets_x):
+
             if 'couette' in val:
                 pumpsize = 0
                 data = dd(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
@@ -863,7 +893,7 @@ class plot_from_ds:
                 popt, pcov = curve_fit(funcs.power, shear_rate_ff, viscosity_ff)
                 if not self.config['err_caps']: self.axes_array[0].plot(shear_rate_ff, viscosity_ff)
                 self.axes_array[0].plot(shear_rate_ff, funcs.power(shear_rate_ff, *popt))
-            if viscosity_ff:
+            if viscosity_fc:
                 popt, pcov = curve_fit(funcs.power, shear_rate_fc, viscosity_fc)
                 if not self.config['err_caps']: self.axes_array[0].plot(shear_rate_fc, viscosity_fc)
                 self.axes_array[0].plot(shear_rate_fc, funcs.power(shear_rate_fc, *popt))
