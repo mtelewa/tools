@@ -92,7 +92,7 @@ if __name__ == "__main__":
     for k in txtfiles:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith('thermo.out') or i.endswith('.txt'):
+                if i.endswith('thermo.out'):# or i.endswith('.txt'):
                     txts.append(os.path.join(root, i))
 
     datasets_x, datasets_z = [], []
@@ -113,6 +113,8 @@ if __name__ == "__main__":
         if '_dim' in args.qtty[0]: plot.qtty_dim(args.qtty)
         # Velocity Distibution
         if 'distrib' in args.qtty: plot.v_distrib()
+        # Velocity evolution
+        if 'evolution' in args.qtty: plot.v_evolution()
         # Transport Coefficients
         if 'pgrad_mflowrate' in args.qtty: plot.pgrad_mflowrate()
         if 'rate_stress' in args.qtty: plot.rate_stress()
