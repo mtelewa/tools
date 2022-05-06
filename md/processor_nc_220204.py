@@ -567,6 +567,7 @@ class traj_to_grid:
             # Bounds R1
             R1Range = np.arange(dim[0] + 1) / dim[0] * pump_length
             bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds[2]])]
+            if rank==0: print(bounds_R1)
 
             xx_R1, yy_R1, zz_R1 = np.meshgrid(bounds_R1[0], bounds_R1[1], bounds_R1[2])
             xx_R1 = np.transpose(xx_R1, (1, 0, 2))
@@ -799,7 +800,7 @@ class traj_to_grid:
                                             xx_R1[i, 0, k], xx_R1[i+1, 0, k])['mask']
 
                     maskz_R1 = utils.region(fluid_zcoords, fluid_zcoords,
-                                            zz_R1[i, 0, k], zz_R1[i+1, 0, k])['mask']
+                                            zz_R1[i, 0, k], zz_R1[i, 0, k+1])['mask']
 
                     mask_R1 = np.logical_and(maskx_R1, maskz_R1)
 
@@ -808,7 +809,7 @@ class traj_to_grid:
                                             xx_R2[i, 0, k], xx_R2[i+1, 0, k])['mask']
 
                     maskz_R2 = utils.region(fluid_zcoords, fluid_zcoords,
-                                            zz_R2[i, 0, k], zz_R2[i+1, 0, k])['mask']
+                                            zz_R2[i, 0, k], zz_R2[i, 0, k+1])['mask']
 
                     mask_R2 = np.logical_and(maskx_R2, maskz_R2)
 
@@ -817,7 +818,7 @@ class traj_to_grid:
                                             xx_R3[i, 0, k], xx_R3[i+1, 0, k])['mask']
 
                     maskz_R3 = utils.region(fluid_zcoords, fluid_zcoords,
-                                            zz_R3[i, 0, k], zz_R3[i+1, 0, k])['mask']
+                                            zz_R3[i, 0, k], zz_R3[i, 0, k+1])['mask']
 
                     mask_R3 = np.logical_and(maskx_R3, maskz_R3)
 
@@ -826,7 +827,7 @@ class traj_to_grid:
                                             xx_R4[i, 0, k], xx_R4[i+1, 0, k])['mask']
 
                     maskz_R4 = utils.region(fluid_zcoords, fluid_zcoords,
-                                            zz_R4[i, 0, k], zz_R4[i+1, 0, k])['mask']
+                                            zz_R4[i, 0, k], zz_R4[i, 0, k+1])['mask']
 
                     mask_R4 = np.logical_and(maskx_R4, maskz_R4)
 
@@ -835,7 +836,7 @@ class traj_to_grid:
                                             xx_R5[i, 0, k], xx_R5[i+1, 0, k])['mask']
 
                     maskz_R5 = utils.region(fluid_zcoords, fluid_zcoords,
-                                            zz_R5[i, 0, k], zz_R5[i+1, 0, k])['mask']
+                                            zz_R5[i, 0, k], zz_R5[i, 0, k+1])['mask']
 
                     mask_R5 = np.logical_and(maskx_R5, maskz_R5)
 
