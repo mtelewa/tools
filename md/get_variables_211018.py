@@ -430,11 +430,12 @@ class derive_data:
         try:
             temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
             temp_full_z_solid = np.array(self.data_z.variables["Temperature_solid"])[self.skip:]
-            tempS_len = np.mean(temp_full_x_solid, axis=(0,2))
-            tempS_height = np.mean(temp_full_z_solid, axis=(0,2))
-            tempS_t = np.mean(temp_full_x_solid, axis=(1,2))
+            tempS_len = np.mean(temp_full_x_solid, axis=(0,2))  #np.mean(temp_full_x_solid, axis=0)
+            tempS_height = np.mean(temp_full_z_solid, axis=(0,1)) # 0
+            tempS_t = np.mean(temp_full_x_solid, axis=(1,2))  #np.mean(temp_full_x_solid, axis=1)
         except KeyError:
             temp_full_x_solid, temp_full_z_solid, tempS_t, tempS_len, tempS_height = 0,0,0,0,0
+            # pass
 
         try:
             # Temp in X-direction
