@@ -169,13 +169,13 @@ class traj_to_grid:
         # Fluid Virial Pressure ----------------------------------
         try:
             voronoi_vol_data = self.data.variables["f_Vi_avg"]
+            voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
         except KeyError:
             if rank == 0:
                 print('Voronoi volume was not computed during LAMMPS Run!')
             pass
         try:
             virial_data = self.data.variables["f_Wi_avg"]
-            voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
             virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
         except KeyError:
             if rank == 0:
