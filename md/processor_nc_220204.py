@@ -571,8 +571,7 @@ class traj_to_grid:
             # Measure the velocity profile evolution along the stream -----------------------
             # Bounds R1
             R1Range = np.arange(dim[0] + 1) / dim[0] * pump_length
-            bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds[2]])]
-            if rank==0: print(bounds_R1)
+            bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R1, yy_R1, zz_R1 = np.meshgrid(bounds_R1[0], bounds_R1[1], bounds_R1[2])
             xx_R1 = np.transpose(xx_R1, (1, 0, 2))
@@ -581,7 +580,7 @@ class traj_to_grid:
 
             # Bounds R2
             R2Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R1[0][-1]
-            bounds_R2 = [R2Range, np.array([bounds[1]]), np.array([bounds[2]])]
+            bounds_R2 = [R2Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R2, yy_R2, zz_R2 = np.meshgrid(bounds_R2[0], bounds_R2[1], bounds_R2[2])
             xx_R2 = np.transpose(xx_R2, (1, 0, 2))
@@ -590,7 +589,7 @@ class traj_to_grid:
 
             # Bounds R3
             R3Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R2[0][-1]
-            bounds_R3 = [R3Range, np.array([bounds[1]]), np.array([bounds[2]])]
+            bounds_R3 = [R3Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R3, yy_R3, zz_R3 = np.meshgrid(bounds_R3[0], bounds_R3[1], bounds_R3[2])
             xx_R3 = np.transpose(xx_R3, (1, 0, 2))
@@ -599,7 +598,7 @@ class traj_to_grid:
 
             # Bounds R4
             R4Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R3[0][-1]
-            bounds_R4 = [R4Range, np.array([bounds[1]]), np.array([bounds[2]])]
+            bounds_R4 = [R4Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R4, yy_R4, zz_R4 = np.meshgrid(bounds_R4[0], bounds_R4[1], bounds_R4[2])
             xx_R4 = np.transpose(xx_R4, (1, 0, 2))
@@ -608,7 +607,7 @@ class traj_to_grid:
 
             # Bounds R5
             R5Range = np.arange(dim[0] + 1) / dim[0] * pump_length + bounds_R4[0][-1]
-            bounds_R5 = [R5Range, np.array([bounds[1]]), np.array([bounds[2]])]
+            bounds_R5 = [R5Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R5, yy_R5, zz_R5 = np.meshgrid(bounds_R5[0], bounds_R5[1], bounds_R5[2])
             xx_R5 = np.transpose(xx_R5, (1, 0, 2))
