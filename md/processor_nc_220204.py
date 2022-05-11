@@ -169,6 +169,11 @@ class traj_to_grid:
         # Fluid Virial Pressure ----------------------------------
         try:
             voronoi_vol_data = self.data.variables["f_Vi_avg"]
+        except KeyError:
+            if rank == 0:
+                print('Voronoi volume was not computed during LAMMPS Run!')
+            pass
+        try:
             virial_data = self.data.variables["f_Wi_avg"]
             voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
             virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
@@ -657,8 +662,11 @@ class traj_to_grid:
         # rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
         sf_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
         sf_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
+        sf_x_solid = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
+        sf_y_solid = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
         rho_k = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
         sf = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
+        sf_solid = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
 
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
@@ -713,19 +721,32 @@ class traj_to_grid:
             masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
             maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10)['mask']
 
+            maskx_layer_solid = utils.region(solid_xcoords, solid_xcoords, 0, Lx)['mask']
+            masky_layer_solid = utils.region(solid_ycoords, solid_ycoords, 0, Ly)['mask']
+            maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 7, 10)['mask']
+
             mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
             mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
+
+            mask_xy_layer_solid = np.logical_and(maskx_layer_solid, masky_layer_solid)
+            mask_layer_solid = np.logical_and(mask_xy_layer_solid, maskz_layer_solid)
 
             # Count particles in the fluid cell
             N_layer_mask = np.sum(mask_layer, axis=1)
             Nzero_stable = np.less(N_layer_mask, 1)
             N_layer_mask[Nzero_stable] = 1
 
+            N_layer_mask_solid = np.sum(mask_layer_solid, axis=1)
+            Nzero_stable_solid = np.less(N_layer_mask_solid, 1)
+            N_layer_mask_solid[Nzero_stable_solid] = 1
+
             # Structure factor
             for i in range(len(kx)):
                 sf_x[:, i] = (np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
+                sf_x_solid[:, i] = (np.sum(np.exp(1.j * kx[i] * solid_xcoords_unavgd * mask_layer_solid), axis=1))**2 / N_layer_mask_solid
             for k in range(len(ky)):
                 sf_y[:, k] = (np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
+                sf_y_solid[:, k] = (np.sum(np.exp(1.j * ky[k] * solid_ycoords_unavgd * mask_layer_solid), axis=1))**2 / N_layer_mask_solid
 
             for i in range(len(kx)):
                 for k in range(len(ky)):
@@ -734,6 +755,8 @@ class traj_to_grid:
                                         ky[k]*fluid_ycoords_unavgd*mask_layer)) )
                     sf[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
                                         ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1))**2 / N_layer_mask
+                    sf_solid[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*solid_xcoords_unavgd*mask_layer_solid +
+                                        ky[k]*solid_ycoords_unavgd*mask_layer_solid) ) , axis=1))**2 / N_layer_mask_solid
 
             for i in range(self.Nx):
                 for k in range(self.Nz):
@@ -1057,8 +1080,11 @@ class traj_to_grid:
                 'den_ch': den_ch,
                 'rho_k': rho_k,
                 'sf': sf,
+                'sf_solid': sf_solid,
                 'sf_x': sf_x,
+                'sf_x_solid': sf_x_solid,
                 'sf_y': sf_y,
+                'sf_y_solid': sf_y_solid,
                 'jx_ch' : jx_ch,
                 'je_x': je_x,
                 'je_y': je_y,
