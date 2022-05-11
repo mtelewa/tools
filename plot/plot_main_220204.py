@@ -36,6 +36,8 @@ from get_variables_211018 import derive_data as dd
 
 import yaml
 
+import pickle
+
 color_cycler = (
     cycler(color=[u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
             u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf'] ) )
@@ -206,7 +208,7 @@ class plot_from_ds:
             self.axes_array[0].xaxis.set_ticks_position('both')
             self.axes_array[0].yaxis.set_ticks_position('both')
 
-        elif self.nrows > 1 or self.ncols > 1:
+        if self.nrows > 1 or self.ncols > 1:
             if self.nrows>1:
                 self.fig, self.ax = plt.subplots(nrows=self.nrows, ncols=self.ncols, sharex=True, figsize=(7,8))
                 self.fig.subplots_adjust(hspace=0.05)
@@ -231,7 +233,7 @@ class plot_from_ds:
                     ax.spines.top.set_visible(False)
                     ax.tick_params(labeltop=False, top=False)  # don't put tick labels at the top
 
-        elif self.config['3d']:
+        if self.config['3d']:
             self.fig, self.ax = plt.figure(dpi=1200), plt.axes(projection='3d')
             self.ax.xaxis.set_ticks_position('both')
             self.ax.yaxis.set_ticks_position('both')
@@ -289,12 +291,12 @@ class plot_from_ds:
         handles, labs = ax.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
-        #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
-        #                    Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
+                           Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
+                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
-        legend_elements = [Line2D([0], [0], color='k', lw=2, ls='--', marker=' ', label='Wall temp.')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2, ls='--', marker=' ', label='Wall temp.')]
 
         handles.extend(legend_elements)
 
@@ -320,9 +322,11 @@ class plot_from_ds:
         [cap.set_alpha(0.5) for cap in caps]
         # [cap.set_markeredgewidth(10)]
 
-    def plot_err_fill(self, ax, x, lo, hi):
-        ## TODO: color of the line
-        ax.fill_between(x, lo, hi, alpha=0.4)
+    def plot_err_fill(self, ax, x, lo, hi, color=None):
+        if color==None:
+            ax.fill_between(x, lo, hi, alpha=0.4)
+        else:
+            ax.fill_between(x, lo, hi, color=color, alpha=0.4)
 
     def plot_inset(self, pt, xpos=0.64, ypos=0.23, w=0.23, h=0.17):
         inset_ax = pt.fig.add_axes([xpos, ypos, w, h]) # X, Y, width, height
@@ -332,12 +336,19 @@ class plot_from_ds:
         # for i in range(len(self.datasets_x)):
         # TODO : Generalize
         data0 = dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
-        data2 = dd(self.skip, self.datasets_x[2], self.datasets_z[2], self.mf, self.pumpsize)
+        # data2 = dd(self.skip, self.datasets_x[2], self.datasets_z[2], self.mf, self.pumpsize)
         data4 = dd(self.skip, self.datasets_x[4], self.datasets_z[4], self.mf, self.pumpsize)
-        inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1])
-        inset_ax.plot(data2.length_array[1:-1], data2.virial()['vir_X'][1:-1])
-        inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1])
+        inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1], color='tab:blue')
+        # inset_ax.plot(data2.length_array[1:-1], data2.virial()['vir_X'][1:-1])
+        inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1], color='tab:green')
+        inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
 
+        lo0, hi0 = sq.get_err(data0.virial()['vir_full_x'])['lo'][1:-1], sq.get_err(data0.virial()['vir_full_x'])['hi'][1:-1]
+        lo4, hi4 = sq.get_err(data4.virial()['vir_full_x'])['lo'][1:-1], sq.get_err(data4.virial()['vir_full_x'])['hi'][1:-1]
+
+        pds = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf, self.configfile, self.pumpsize)
+        pds.plot_err_fill(inset_ax, data0.length_array[1:-1], lo0, hi0, color='tab:blue')
+        pds.plot_err_fill(inset_ax, data4.length_array[1:-1], lo4, hi4, color='tab:green')
 
     def set_ax_height(self, pt):
         gs = GridSpec(len(pt.axes_array), 1, height_ratios=[1,1,1,2])
@@ -1232,37 +1243,39 @@ class plot_from_ds:
         elif ds_isochores: pds.plot_settings(self, press2_list)
 
 
-    def struc_factor(self, **kwargs):
+    def struc_factor(self, solid=0, **kwargs):
 
         data = dd(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
 
         kx = data.sf()['kx']
         ky = data.sf()['ky']
-        k = data.sf()['k']
+        # k = data.sf()['k']
 
         sfx = data.sf()['sf_x']
         sfy = data.sf()['sf_y']
         sf = data.sf()['sf']
+        # sf_solid = data.sf()['sf_solid']
         sf_time = data.sf()['sf_time']
 
         if self.config['3d']:
-            self.axes_array[0].set_xlabel('$k_x (\AA^{-1})$')
-            self.axes_array[0].set_ylabel('$k_y (\AA^{-1})$')
-            self.axes_array[0].set_zlabel('$S(k)$')
-            self.axes_array[0].invert_xaxis()
-            self.axes_array[0].set_ylim(ky[-1]+1,0)
-            self.axes_array[0].zaxis.set_rotate_label(False)
-            self.axes_array[0].set_zticks([])
+            self.ax.set_xlabel('$k_x (\AA^{-1})$')
+            self.ax.set_ylabel('$k_y (\AA^{-1})$')
+            self.ax.set_zlabel('$S(k)$')
+            self.ax.invert_xaxis()
+            self.ax.set_ylim(ky[-1]+1,0)
+            self.ax.zaxis.set_rotate_label(False)
+            self.ax.set_zticks([])
 
             Kx, Ky = np.meshgrid(kx, ky)
-            self.axes_array[0].plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
+            self.ax.plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
                         rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
+            # if solid==1:
+            #     self.ax.plot_surface(Kx, Ky, sf.T, cmap=cmx.jet,
+            #                 rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
             # self.fig.colorbar(surf, shrink=0.5, aspect=5)
-            self.axes_array[0].view_init(35,60)
-            # self.axes_array[0].view_init(0,90)
-
-        # self.axes_array[0].plot(freq, swx, ls= '-', marker='o', alpha=opacity,
-        #             label=input('Label:'))
+            # self.ax.view_init(35,60)
+            self.ax.view_init(90,0)
+            pickle.dump(self.fig, open('FigureObject.fig.pickle', 'wb')) # This is for Python 3 - py2 may need `file` instead of `open`
 
         else:
             a = input('x or y or r or t:')
@@ -1284,7 +1297,7 @@ class plot_from_ds:
             elif a=='t':
                 self.axes_array[0].set_xlabel('$t (fs)$')
                 self.axes_array[0].set_ylabel('$S(K)$')
-                self.axes_array[0].plot(self.time[:self.skip], sf_time, ls= '-', marker=' ', alpha=opacity,
+                self.axes_array[0].plot(self.time[self.skip:], sf_time, ls= '-', marker=' ', alpha=opacity,
                            label=input('Label:'))
 
     def isf(self, **kwargs):
