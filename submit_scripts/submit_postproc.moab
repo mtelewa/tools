@@ -1,5 +1,5 @@
 #!/bin/bash
-#MSUB -l nodes=3:ppn=20
+#MSUB -l nodes=4:ppn=20
 #MSUB -q  
 #MSUB -l walltime=1:00:00
 #MSUB -v MPIRUN_OPTIONS="--bind-to core --map-by core -report-bindings"
