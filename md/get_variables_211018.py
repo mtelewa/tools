@@ -257,7 +257,10 @@ class derive_data:
         vir_t : Avg. shear stress in the walls with time.
         """
 
-        totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
+        try:
+            totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
+        except KeyError:
+            pass
 
         # Off-Diagonal components
         try:
@@ -421,7 +424,7 @@ class derive_data:
         temp_bulk = np.max(tempZ)
         temp_walls = 300 # K #TODO: should be calculated
         temp_ratio = temp_walls / temp_bulk
-        print(temp_walls , temp_bulk)
+        print(f'Temp. at the walls {temp_walls} and in the bulk {temp_bulk}')
         # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
         # pump_length = self.pumpsize * self.Lx      # nm
 
@@ -626,7 +629,7 @@ class derive_data:
 
 
 
-    def lambda_flux(self):
+    def lambda_IK(self):
         """
         Calculate thermal conductivity (lambda) from Fourier's law
         The heat flux is computed from IK expression, i.e. the heat_flux function.
@@ -636,7 +639,7 @@ class derive_data:
 
         je_x = dd.heat_flux()['je_x']
 
-        temp_grad = dd.temp()['temp_grad'] * 1e9    # K/m
+        temp_grad = dd.temp()['temp_grad']   # K/m
         print(f'Tgrad = {temp_grad:e} K/m')
 
         lambda_x = -je_x / temp_grad
@@ -739,15 +742,24 @@ class derive_data:
         ky = np.array(self.data_x.variables["ky"])
 
         # skip here is used to truncate the calculated SF
-        sf_real = np.array(self.data_x.variables["sf"])[:self.skip]
-        sf_x_real = np.array(self.data_x.variables["sf_x"])[:self.skip]
-        sf_y_real = np.array(self.data_x.variables["sf_y"])[:self.skip]
+        sf_real = np.array(self.data_x.variables["sf"])[self.skip:]
+        sf_x_real = np.array(self.data_x.variables["sf_x"])[self.skip:]
+        sf_y_real = np.array(self.data_x.variables["sf_y"])[self.skip:]
+
+        # For the solid
+        # sf_real_solid = np.array(self.data_x.variables["sf_solid"])[self.skip:]
+        # sf_x_real_solid = np.array(self.data_x.variables["sf_x_solid"])[self.skip:]
+        # sf_y_real_solid = np.array(self.data_x.variables["sf_y_solid"])[self.skip:]
 
         # Structure factor averaged over time for each k
         sf = np.mean(sf_real, axis=0)
         sf_time = np.mean(sf_real, axis=(1,2))
         sf_x = np.mean(sf_x_real, axis=0)
         sf_y = np.mean(sf_y_real, axis=0)
+
+        # sf_solid = np.mean(sf_real_solid, axis=0)
+        # sf_x_solid = np.mean(sf_x_real_solid, axis=0)
+        # sf_y_solid = np.mean(sf_y_real_solid, axis=0)
 
         # How to get S(k) in radial direction (In 2D from k=(kx,ky) and the sf=(sfx,sfy))
         # k_vals=[]
@@ -758,6 +770,7 @@ class derive_data:
         #         sf_r.append(np.sqrt(sf_x[i]**2+sf_y[k]**2))
 
         return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time}
+                # 'sf_solid':sf_solid, 'sf_x_solid':sf_x_solid, 'sf_y_solid':sf_y_solid}
 
     def ISF(self):
         """
