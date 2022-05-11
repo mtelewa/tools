@@ -118,9 +118,11 @@ if __name__ == "__main__":
         if 'gk_lambda' in args.qtty:
             lambda_tot = get.lambda_gk()['lambda_tot']
             print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
-        if 'lambda_nemd' in args.qtty:
+        if 'lambda_ecouple' in args.qtty:
             thermo_out = datasets[i]+'/data/thermo.out'
             print(f"Thermal Conductivity = {get.lambda_ecouple(thermo_out)['lambda_x']} W/mK")
+        if 'lambda_IK' in args.qtty:
+            print(f"Thermal Conductivity = {np.mean(get.lambda_IK()['lambda_x'])} W/mK")
         if 'transport' in args.qtty:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
