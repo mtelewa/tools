@@ -652,6 +652,10 @@ class traj_to_grid:
         vx_R5 = np.zeros_like(vx_ch)
 
         vir_ch = np.zeros_like(vx_ch)
+        Wxx_ch = np.zeros_like(vx_ch)
+        Wyy_ch = np.zeros_like(vx_ch)
+        Wzz_ch = np.zeros_like(vx_ch)
+
         Wxy_ch = np.zeros_like(vx_ch)
         Wxz_ch = np.zeros_like(vx_ch)
         Wyz_ch = np.zeros_like(vx_ch)
@@ -964,10 +968,10 @@ class traj_to_grid:
                     # Virial pressure--------------------------------------
                     # Simulations with virial calculation
                     try:
-                        Wxx_ch = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1)
-                        Wyy_ch = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1)
-                        Wzz_ch = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1)
-                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / (3 * vol_bulk_cell[i,0,k])
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / 3.
                     except UnboundLocalError:
                         pass
 
@@ -1041,10 +1045,10 @@ class traj_to_grid:
 
                     # Virial pressure--------------------------------------
                     try:
-                        Wxx_ch = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1)
-                        Wyy_ch = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1)
-                        Wzz_ch = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1)
-                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / (3 * vol_cell[i,0,k])
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
+                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / 3.
 
                     except UnboundLocalError:
                         pass
@@ -1089,6 +1093,9 @@ class traj_to_grid:
                 'je_y': je_y,
                 'je_z': je_z,
                 'vir_ch': vir_ch,
+                'Wxx_ch': Wxx_ch,
+                'Wyy_ch': Wyy_ch,
+                'Wzz_ch': Wzz_ch,
                 'Wxy_ch': Wxy_ch,
                 'Wxz_ch': Wxz_ch,
                 'Wyz_ch': Wyz_ch,

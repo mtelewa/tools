@@ -82,7 +82,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
         vx_ch, vx_R1, vx_R2, vx_R3, vx_R4, vx_R5, \
         uCOMx, den_ch, sf, sf_solid, rho_k, sf_x, sf_x_solid, sf_y, sf_y_solid, \
-        jx_ch, je_x, je_y, je_z, vir_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
+        jx_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
@@ -122,6 +122,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'je_y',
                                   'je_z',
                                   'vir_ch',
+                                  'Wxx_ch',
+                                  'Wyy_ch',
+                                  'Wzz_ch',
                                   'Wxy_ch',
                                   'Wxz_ch',
                                   'Wyz_ch',
@@ -224,6 +227,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             jx_ch_global = np.zeros_like(vx_ch_global)
             # Virial
             vir_ch_global = np.zeros_like(vx_ch_global)
+            Wxx_ch_global = np.zeros_like(vx_ch_global)
+            Wyy_ch_global = np.zeros_like(vx_ch_global)
+            Wzz_ch_global = np.zeros_like(vx_ch_global)
             Wxy_ch_global = np.zeros_like(vx_ch_global)
             Wxz_ch_global = np.zeros_like(vx_ch_global)
             Wyz_ch_global = np.zeros_like(vx_ch_global)
@@ -284,6 +290,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             je_y_global = None
             je_z_global = None
             vir_ch_global = None
+            Wxx_ch_global = None
+            Wyy_ch_global = None
+            Wzz_ch_global = None
             Wxy_ch_global = None
             Wxz_ch_global = None
             Wyz_ch_global = None
@@ -363,6 +372,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=tempy_ch, recvbuf=(tempy_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=tempz_ch, recvbuf=(tempz_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vir_ch, recvbuf=(vir_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=Wxx_ch, recvbuf=(Wxx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=Wyy_ch, recvbuf=(Wyy_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=Wzz_ch, recvbuf=(Wzz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxy_ch, recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wxz_ch, recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=Wyz_ch, recvbuf=(Wyz_ch_global, sendcounts_chunk_fluid), root=0)
@@ -441,6 +453,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             je_z_var =  out.createVariable('JeZ', 'f4', ('time'))
 
             vir_var = out.createVariable('Virial', 'f4', ('time', 'x', 'z'))
+            Wxx_var = out.createVariable('Wxx', 'f4', ('time', 'x', 'z'))
+            Wyy_var = out.createVariable('Wyy', 'f4', ('time', 'x', 'z'))
+            Wzz_var = out.createVariable('Wzz', 'f4', ('time', 'x', 'z'))
             Wxy_var = out.createVariable('Wxy', 'f4', ('time', 'x', 'z'))
             Wxz_var = out.createVariable('Wxz', 'f4', ('time', 'x', 'z'))
             Wyz_var = out.createVariable('Wyz', 'f4', ('time', 'x', 'z'))
@@ -509,6 +524,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             je_y_var[:] = je_y_global
             je_z_var[:] = je_z_global
             vir_var[:] = vir_ch_global
+            Wxx_var[:] = Wxx_ch_global
+            Wyy_var[:] = Wyy_ch_global
+            Wzz_var[:] = Wzz_ch_global
             Wxy_var[:] = Wxy_ch_global
             Wxz_var[:] = Wxz_ch_global
             Wyz_var[:] = Wyz_ch_global
