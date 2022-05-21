@@ -971,7 +971,7 @@ class traj_to_grid:
                         Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
                         Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
                         Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
-                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / 3.
+                        vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
                     except UnboundLocalError:
                         pass
 
@@ -1048,7 +1048,7 @@ class traj_to_grid:
                         Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
                         Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
                         Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
-                        vir_ch[:, i, k] = -(Wxx_ch + Wyy_ch + Wzz_ch) / 3.
+                        vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
 
                     except UnboundLocalError:
                         pass
