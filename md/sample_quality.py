@@ -201,17 +201,29 @@ def get_err(f):
         input array of shape (time,)
 
     """
-    if  f.ndim > 1:         # c.ndim
-        n = 100 # samples/block
-        # For arrays with dim (time, Nx, Nz)
-        if f.ndim>2:
-            if f.shape[1] > 1: blocks = block_ND(f.shape[0], f, f.shape[1], n)  #Qtts along length
-            if f.shape[2] > 1: blocks = block_ND(f.shape[0], f, f.shape[2], n)  #Qtts along height
-        # For time-series arrays
-        else:
-            blocks = block_1D(f, n)
+    # print(f.ndim)
+    # if  f.ndim > 1:         # c.ndim
+    n = 100 # samples/block
+    # For time-series arrays
+    if f.ndim==1:
+        # blocks = block_1D(f, n)
+        avg = np.mean(f)
+        variance = np.var(f, ddof=1)
+        std_dev = np.std(f, ddof=1)
 
-        # Discard chunks with zero time average
+    # For arrays with dim (time, Nx)
+    if f.ndim==2:
+        blocks = block_ND(f.shape[0], f, f.shape[1], n)
+
+        avg = np.mean(blocks, axis=0)
+        variance = np.var(blocks, axis=0, ddof=1) # Fluctuations
+        std_dev = np.std(blocks, axis=0, ddof=1)
+
+    # For arrays with dim (time, Nx, Nz)
+    if f.ndim>2:
+        if f.shape[1] > 1: blocks = block_ND(f.shape[0], f, f.shape[1], n)  #Qtts along length
+        if f.shape[2] > 1: blocks = block_ND(f.shape[0], f, f.shape[2], n)  #Qtts along height
+        # Discard chunks with zero time average (especially for the velocity profile)
         # Get the time average in each chunk
         blocks_mean = np.mean(blocks, axis=0)
         blocks = np.transpose(blocks)
@@ -219,11 +231,8 @@ def get_err(f):
         blocks = np.transpose(blocks)
 
         avg = np.mean(blocks, axis=0)
+        variance = np.var(blocks, axis=0, ddof=1) # Fluctuations
         std_dev = np.std(blocks, axis=0, ddof=1)
-
-    else:
-        avg = np.mean(f)
-        std_dev = np.std(f, ddof=1)
 
     # 3-sigma bounds
     sigma_lower, sigma_upper = avg-(3*std_dev), avg+(3*std_dev)
@@ -250,7 +259,7 @@ def get_err(f):
     confidence_intervalU = avg + margin_error
 
     return {'values':values, 'probs':probabilities, 'uncertainty':margin_error,
-            'lo':confidence_intervalL, 'hi':confidence_intervalU}
+            'lo':confidence_intervalL, 'hi':confidence_intervalU, 'var':variance}
 
 
 def prop_uncertainty(f1,f2):
@@ -259,18 +268,19 @@ def prop_uncertainty(f1,f2):
 
     parameters
     ----------
-    f1: arr
+    f1: arr (must be Lower wall)
         input array of shape (time, Nchunks)
-    f2: arr
+    f2: arr (must be Upper wall)
         input array of shape (time, Nchunks)
     """
 
-    n = 100 # samples/block
+    # n = 100 # samples/block
     # blocks1 = block_ND(f1.shape[0], f1, f1.shape[1], n)
     # blocks2 = block_ND(f2.shape[0], f2, f2.shape[1], n)
 
     err1 = get_err(f1)['uncertainty']
     err2 = get_err(f2)['uncertainty']
+    # print(err1, err2)
 
     # The uncertainty in each chunk is the Propagation of uncertainty of L and U surfaces
     # Get the covariance in the chunk
@@ -280,13 +290,31 @@ def prop_uncertainty(f1,f2):
 
     # Needs to be corrected with a positive sign of the variance for sigxz in PD
     err = np.sqrt(err1**2 + err2**2) #- 2*0.5*0.5*cov_in_chunk)
-    avg = 0.5 * (np.mean(f1, axis=0) - np.mean(f2, axis=0))
+    # print(err1,err2,err)
+
+    # If error in chunk is needed
+    if f1.ndim==2:
+        avg_f1 = np.mean(np.sum(f1,axis=1), axis=0)
+        avg_f2 = np.mean(np.sum(f2,axis=1), axis=0)
+        # If same: Shear-driven or superposed simulations
+        if np.sign(avg_f1) != np.sign(avg_f2):
+            avg = 0.5 * (np.mean(f1, axis=0) - np.mean(f2, axis=0))
+        # Else: Equilibrium or loading, Pressure-driven simulations (walls are static in the x-direction)
+        else:
+            avg = 0.5 * (np.mean(f1, axis=0) + np.mean(f2, axis=0))
+
+    # If error in timeseries is needed
+    else:
+        avg_f1 = np.mean(f1)
+        avg_f2 = np.mean(f2)
+        # If same: Shear-driven or superposed simulations
+        if np.sign(avg_f1) != np.sign(avg_f2):
+            avg = 0.5 * (avg_f1 - avg_f2)
+        # Else: Equilibrium or loading, Pressure-driven simulations (walls are static in the x-direction)
+        else:
+            avg = 0.5 * (avg_f1 + avg_f2)
+
     lo = avg - err
     hi = avg + err
 
-    return {'err':err, 'lo':lo, 'hi':hi}
-
-
-
-
-#
+    return {'err':err, 'lo':lo, 'hi':hi, 'avg':avg}
