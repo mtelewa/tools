@@ -280,12 +280,38 @@ class derive_data:
             Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
             Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
 
-            Wxy_t = (np.mean(Wxy_full_z, axis=(1,2)) + np.mean(Wxy_full_x, axis=(1,2))) / 2.
-            Wxz_t = (np.mean(Wxz_full_z, axis=(1,2)) + np.mean(Wxz_full_x, axis=(1,2))) / 2.
-            Wyz_t = (np.mean(Wyz_full_z, axis=(1,2)) + np.mean(Wyz_full_x, axis=(1,2))) / 2.
+            Wxy_t = np.mean(Wxy_full_x, axis=(1,2))
+            Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
+            Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
 
         except KeyError:
             pass
+
+        # Diagonal components (separately)
+        try:
+            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
+
+            Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wzz_full_z = np.array(self.data_z.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
+
+            Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
+            Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
+            Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
+
+            Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
+            Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
+            Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
+
+            Wxx_t = np.mean(Wxx_full_x, axis=(1,2))
+            Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
+            Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
+
+        except KeyError:
+            pass
+
 
         # Diagonal components
         vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
@@ -297,6 +323,7 @@ class derive_data:
 
         vir_t = np.mean(vir_full_x, axis=(1,2)) #+ np.mean(vir_full_z, axis=(1,2))) / 2.
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+        vir_fluctuations = sq.get_err(vir_full_x)['var']
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
 
         # pressure gradient ---------------------------------------
@@ -311,6 +338,16 @@ class derive_data:
         # Pressure gradient in the simulation domain
         pGrad = - pDiff / pd_length       # MPa/nm
 
+        # try:
+        #     return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
+        #             'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
+        #             'Wxz_X': Wxz_chunkX , 'Wxz_Z': Wxz_chunkZ, 'Wxz_t': Wxz_t,
+        #             'Wxz_full_x': Wxz_full_x, 'Wxz_full_z': Wxz_full_z,
+        #             'Wyz_X': Wyz_chunkX , 'Wyz_Z': Wyz_chunkZ, 'Wyz_t': Wyz_t,
+        #             'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
+        #             'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
+        #             'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
+        #             'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
         try:
             return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
                     'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
@@ -318,6 +355,12 @@ class derive_data:
                     'Wxz_full_x': Wxz_full_x, 'Wxz_full_z': Wxz_full_z,
                     'Wyz_X': Wyz_chunkX , 'Wyz_Z': Wyz_chunkZ, 'Wyz_t': Wyz_t,
                     'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
+                    'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
+                    'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
+                    'Wyy_X': Wyy_chunkX , 'Wyy_Z': Wyy_chunkZ, 'Wyy_t': Wyy_t,
+                    'Wyy_full_x': Wyy_full_x, 'Wyy_full_z': Wyy_full_z,
+                    'Wzz_X': Wzz_chunkX , 'Wzz_Z': Wzz_chunkZ, 'Wzz_t': Wzz_t,
+                    'Wzz_full_x': Wzz_full_x,'Wzz_full_z': Wzz_full_z,
                     'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
                     'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
                     'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
@@ -368,18 +411,28 @@ class derive_data:
 
         # Error calculation for the time series
         fxL, fxU = np.sum(fx_Lower,axis=1) , np.sum(fx_Upper,axis=1)
-        sigxz_err = sq.prop_uncertainty(fxL, fxU)['err'] * pa_to_Mpa / self.wall_A
-        sigxz_lo = sq.prop_uncertainty(fxL, fxU)['lo'] * pa_to_Mpa / self.wall_A
-        sigxz_hi = sq.prop_uncertainty(fxL, fxU)['hi'] * pa_to_Mpa / self.wall_A
-
         fzL, fzU = np.sum(fz_Lower,axis=1) , np.sum(fz_Upper,axis=1)
-        sigzz_err = sq.prop_uncertainty(fzL, fzU)['err'] * pa_to_Mpa / self.wall_A
-        sigzz_lo = sq.prop_uncertainty(fzL, fzU)['lo'] * pa_to_Mpa / self.wall_A
-        sigzz_hi = sq.prop_uncertainty(fzL, fzU)['hi'] * pa_to_Mpa / self.wall_A
+        sigxz_err_t = sq.prop_uncertainty(fxL, fxU)['err'] * pa_to_Mpa / self.wall_A
+        sigxz_lo_t = sq.prop_uncertainty(fxL, fxU)['lo'] * pa_to_Mpa / self.wall_A
+        sigxz_hi_t = sq.prop_uncertainty(fxL, fxU)['hi'] * pa_to_Mpa / self.wall_A
 
+        sigzz_err_t = sq.prop_uncertainty(fzL, fzU)['err'] * pa_to_Mpa / self.wall_A
+        sigzz_lo_t = sq.prop_uncertainty(fzL, fzU)['lo'] * pa_to_Mpa / self.wall_A
+        sigzz_hi_t = sq.prop_uncertainty(fzL, fzU)['hi'] * pa_to_Mpa / self.wall_A
+
+        # Calculation of stress in the chunks
         sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / self.chunk_A
         sigyz_chunkX = np.mean(fy_wall,axis=0) * pa_to_Mpa / self.chunk_A
         sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / self.chunk_A
+
+        # Error calculation for each chunk
+        sigxz_err = sq.prop_uncertainty(fx_Lower, fx_Upper)['err'] * pa_to_Mpa / self.chunk_A
+        sigxz_lo = sq.prop_uncertainty(fx_Lower, fx_Upper)['lo'] * pa_to_Mpa / self.chunk_A
+        sigxz_hi = sq.prop_uncertainty(fx_Lower, fx_Upper)['hi'] * pa_to_Mpa / self.chunk_A
+
+        sigzz_err = sq.prop_uncertainty(fz_Lower, fz_Upper)['err'] * pa_to_Mpa / self.chunk_A
+        sigzz_lo = sq.prop_uncertainty(fz_Lower, fz_Upper)['lo'] * pa_to_Mpa / self.chunk_A
+        sigzz_hi = sq.prop_uncertainty(fz_Lower, fz_Upper)['hi'] * pa_to_Mpa / self.chunk_A
 
         # pressure gradient ----------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
@@ -400,9 +453,11 @@ class derive_data:
         return {'sigxz_X':sigxz_chunkX, 'sigzz_X':sigzz_chunkX,
                 'sigxz_t':sigxz_t, 'sigyz_t':sigyz_t, 'sigzz_t':sigzz_t,
                 'sigxy_t':sigxy_t, 'pDiff':pDiff, 'sigzz_wall_out':sigzz_wall_out,
-                'sigzz_wall_in':sigzz_wall_in, 'sigxz_err': sigxz_err,
-                'sigxz_lo': sigxz_lo, 'sigxz_hi': sigxz_hi,
-                'sigzz_err':sigzz_err, 'sigzz_lo':sigzz_lo,'sigzz_hi':sigzz_hi}
+                'sigzz_wall_in':sigzz_wall_in,
+                'sigxz_err': sigxz_err, 'sigxz_lo': sigxz_lo, 'sigxz_hi': sigxz_hi,
+                'sigzz_err': sigzz_err, 'sigzz_lo': sigzz_lo, 'sigzz_hi': sigzz_hi,
+                'sigxz_err_t': sigxz_err_t, 'sigxz_lo_t': sigxz_lo_t, 'sigxz_hi_t': sigxz_hi_t,
+                'sigzz_err_t': sigzz_err_t, 'sigzz_lo_t' :sigzz_lo_t, 'sigzz_hi_t': sigzz_hi_t}
 
     def temp(self):
         """
@@ -424,7 +479,7 @@ class derive_data:
         temp_bulk = np.max(tempZ)
         temp_walls = 300 # K #TODO: should be calculated
         temp_ratio = temp_walls / temp_bulk
-        print(f'Temp. at the walls {temp_walls} and in the bulk {temp_bulk}')
+        # print(f'Temp. at the walls {temp_walls} and in the bulk {temp_bulk}')
         # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
         # pump_length = self.pumpsize * self.Lx      # nm
 
@@ -433,9 +488,9 @@ class derive_data:
         try:
             temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
             temp_full_z_solid = np.array(self.data_z.variables["Temperature_solid"])[self.skip:]
-            tempS_len = np.mean(temp_full_x_solid, axis=(0,2))  #np.mean(temp_full_x_solid, axis=0)
-            tempS_height = np.mean(temp_full_z_solid, axis=(0,1)) # 0
-            tempS_t = np.mean(temp_full_x_solid, axis=(1,2))  #np.mean(temp_full_x_solid, axis=1)
+            tempS_len = np.mean(temp_full_x_solid, axis=0) # np.mean(temp_full_x_solid, axis=(0,2))  #
+            tempS_height = 0 # np.mean(temp_full_z_solid, axis=(0,1))
+            tempS_t = np.mean(temp_full_x_solid, axis=1) #np.mean(temp_full_x_solid, axis=(1,2))  #
         except KeyError:
             temp_full_x_solid, temp_full_z_solid, tempS_t, tempS_len, tempS_height = 0,0,0,0,0
             # pass
@@ -613,19 +668,24 @@ class derive_data:
 
         # Ecouple from the thermostat:
         delta_energy = np.loadtxt(thermo_out, skiprows=1, dtype=float)[:,2] # kcal/mol
-        cut = self.skip + 5000 # Consider the energy slope in a window of 5 ns
+        cut = self.skip + 10000 # Consider the energy slope in a window of 10 ns
 
-        slope, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
+        # Slope is the heat flow rate
+        qdot_lammps_units, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
+
+        # Heat flow rate
+        qdot = qdot_lammps_units * 4184 / (sci.N_A * 1e-15)     # J/s
+        qdot_continuum = dd.transport()['mu'] * 1e-3 * dd.transport()['shear_rate']**2 * 2 * self.wall_A * 1e-18 * self.avg_gap_height * 1e-9
 
         # Heat flux
-        j =  slope * 4184 / (2 * self.wall_A * sci.N_A * 1e-15) # J/(m2.s)
+        j =  qdot / (2 * self.wall_A) # J/(m2.s)
 
         temp_grad = dd.temp()['temp_grad']     # K/m
         print(f'Tgrad = {temp_grad:e} K/m')
 
         lambda_x = -j / temp_grad
 
-        return {'lambda_x':lambda_x}
+        return {'lambda_x':lambda_x, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
 
@@ -637,14 +697,20 @@ class derive_data:
 
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
 
-        je_x = dd.heat_flux()['je_x']
+        je_z = -dd.heat_flux()['je_z']   # J/m2.s
 
         temp_grad = dd.temp()['temp_grad']   # K/m
-        print(f'Tgrad = {temp_grad:e} K/m')
+        # print(f'Tgrad = {temp_grad:e} K/m')
 
-        lambda_x = -je_x / temp_grad
+        qdot = np.mean(je_z) * self.wall_A * 1e-18  # W
+        qdot_continuum = dd.transport()['mu'] * 1e-3 * dd.transport()['shear_rate']**2 * self.wall_A * 1e-18 * self.avg_gap_height * 1e-9 / 2.
 
-        return {'lambda_x':lambda_x}
+        lambda_z = -je_z / temp_grad
+        print(np.mean(lambda_z))
+        lambda_continuum = - dd.transport()['mu'] * 1e-3 * dd.transport()['shear_rate']**2 * self.avg_gap_height * 1e-9 / (2 * temp_grad)   # W/(m.K)
+        print(lambda_continuum)
+
+        return {'lambda_z':lambda_z, 'lambda_continuum':lambda_continuum, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
 
@@ -697,7 +763,7 @@ class derive_data:
 
         npoints = len(self.height_array[vels!=0])
         # Positions to inter/extrapolate
-        xdata_left = np.linspace(-12, self.height_array[vels!=0][0], npoints)
+        xdata_left = np.linspace(-1, self.height_array[vels!=0][0], npoints)
         xdata_right = np.linspace(self.height_array[vels!=0][-1], 12 , npoints)
 
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
