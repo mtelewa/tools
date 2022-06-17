@@ -186,7 +186,7 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
                        [{Ny}].move(0,{tolY},0) \n\
                        [{Nz}].move(0,0,{tolZ}) \n\
     \n\
-    delete mol[2-17][0-7][0-2] \n\
+    # delete mol[2-17][0-7][0-2] \n\
     \n\
     # import wall building block file\n\
     import 'gold_all.lt'  \n\
@@ -253,7 +253,7 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
         line = re.sub(r'region          fluid block.+',
                       r'region          fluid block INF INF INF INF %.2f %.2f units box' %(fluidStartZ, fluidEndZ), line)
         line = re.sub(r'region          surfL block.+',
-                      r'region          surfL block 1e-5 INF INF INF 1.00 %.2f units box' %(surfLEndZ+1), line)
+                      r'region          surfL block 1e-5 INF INF INF -1e-5 %.2f units box' %(surfLEndZ), line)
         line = re.sub(r'region          surfU block.+',
                       r'region          surfU block 1e-5 INF INF INF %.2f %.2f units box' %(surfUStartZ, surfUEndZ), line)
         # For the converging-diverging channel (to empty a region in the middle - the gap height)
