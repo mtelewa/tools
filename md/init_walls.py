@@ -49,7 +49,10 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     gapHeight = h + 2*offset
     Nfluid= round(sci.N_A * density * xlength * ylength * gapHeight * 1.e-24 / mFluid)  # No. of fluid atoms
 
-    print('At rho=%g g/cm^3, Nf=%g molecules shall be created' %(density,Nfluid))
+    if name=='lj':
+        print('At rho=%g g/cm^3, Nf=%g atoms shall be created' %(density,Nfluid/4.0))
+    else:
+        print('At rho=%g g/cm^3, Nf=%g molecules shall be created' %(density,Nfluid))
 
     # Regions
     #---------
