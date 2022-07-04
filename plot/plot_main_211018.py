@@ -243,15 +243,15 @@ class plot_from_ds:
         for i in range(len(self.datasets_x)):
             if 'virxy_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wxy_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wxy_X'][1:-1]
 
             if 'virxz_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wxz_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wxz_X'][1:-1]
 
             if 'viryz_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wyz_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['Wyz_X'][1:-1]
 
             if 'vir_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
                 self.ax.set_ylabel(labels[7])
@@ -259,12 +259,12 @@ class plot_from_ds:
 
             if 'sigzz_length' in arr_to_plot[0] and len(arr_to_plot[0])==1:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).sigwall(pd=1)['sigzz_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).sigwall(pd=1)['sigzz_X'][1:-1]
 
             if 'sigzz_length' in arr_to_plot[0] and 'vir_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[7])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['vir_X']
-                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).sigwall(pd=1)['sigzz_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).virial()['vir_X'][1:-1]
+                arrays[1, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).sigwall(pd=1)['sigzz_X'][1:-1]
 
             if 'sigxz_length' in arr_to_plot[0]:
                 self.ax.set_ylabel('Wall $\sigma_{xz}$ (MPa)')
@@ -272,11 +272,11 @@ class plot_from_ds:
 
             if 'den_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[3])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).density()['den_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).density()['den_X'][1:-1]
 
             if 'jx_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[4])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['jx_X']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['jx_X'][1:-1]
 
             if 'temp_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[6])
@@ -284,7 +284,7 @@ class plot_from_ds:
 
             if 'self.mflowrate_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[10])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['self.mflowrate_stable']
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['self.mflowrate_stable'][1:-1]
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()
