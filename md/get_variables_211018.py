@@ -313,15 +313,16 @@ class derive_data:
             pass
 
 
-        # Diagonal components
-        vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-        vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-
-        if np.mean(self.h) == 0: # Bulk simulation
+        if np.mean(self.h) != 0:
+            # Diagonal components
+            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_t = np.mean(vir_full_x, axis=(1,2)) #+ np.mean(vir_full_z, axis=(1,2))) / 2.
+        else: # Bulk simulation
             vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:, 10:-10, :] * sci.atm * pa_to_Mpa
             vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:, :, 10:-10] * sci.atm * pa_to_Mpa
+            vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
 
-        vir_t = np.mean(vir_full_x, axis=(1,2)) #+ np.mean(vir_full_z, axis=(1,2))) / 2.
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_fluctuations = sq.get_err(vir_full_x)['var']
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
@@ -871,6 +872,30 @@ class derive_data:
         # ISFx_mean = np.mean(ISFx, axis=0)
 
         return {'ISF':ISF}
+
+
+
+    def surface_tension(self):
+
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+        virxx, viryy, virzz = dd.virial()['Wxx_t'], dd.virial()['Wyy_t'], dd.virial()['Wzz_t']
+
+        gamma = 0.5 * self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
+
+        return gamma
+
+
+    def reynolds_num(self):
+
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+        rho = np.mean(dd.density()['den_t']) * 1e3 # kg/m3
+        u = np.mean(dd.velocity()['vx_t']) # m/s
+        h = self.avg_gap_height * 1e-9 # m
+        mu = dd.transport()['mu'] * 1e-3 # Pa.s
+
+        Re = rho * u * h / mu
+
+        return Re
 
 
     def transverse_acf(self):
