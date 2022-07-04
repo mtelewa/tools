@@ -129,3 +129,9 @@ if __name__ == "__main__":
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']}")
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
+        if 'stension' in args.qtty:
+            gamma = np.mean(get.surface_tension())
+            print(f'Surface tension (gamma) = {gamma} N/m')
+        if 'Re' in args.qtty:
+            Reynolds = get.reynolds_num()
+            print(f'Reynolds number: {Reynolds}')
