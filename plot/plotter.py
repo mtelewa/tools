@@ -36,6 +36,10 @@ def get_parser():
             # you can pass any arguments to add_argument
             parser.add_argument(arg.split('=')[0], type=str,
                                 help='datasets for plotting')
+        if arg.startswith(("-all")):
+            # you can pass any arguments to add_argument
+            parser.add_argument(arg.split('=')[0], type=str,
+                                help='directory with the datasets for plotting')
         if arg.startswith(("-txt")):
             # you can pass any arguments to add_argument
             parser.add_argument(arg.split('=')[0], type=str,
@@ -78,6 +82,12 @@ if __name__ == "__main__":
             for i in os.listdir(os.getcwd()):
                 if os.path.isdir(i):
                     datasets.append(i)
+        if key.startswith('all'):
+            # print(value)
+            for i in os.listdir(value):
+                a = os.path.abspath(f"{value+ '/' +i}")
+                if os.path.isdir(a):
+                    datasets.append(a)
         elif key.startswith('txt'):
             txtfiles.append(value)
 
@@ -88,11 +98,16 @@ if __name__ == "__main__":
     except AttributeError:
         pass
 
+    try:
+        if args.all: datasets.sort()
+    except AttributeError:
+        pass
+
     txts = []
     for k in txtfiles:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith('thermo.out'):# or i.endswith('.txt'):
+                if i.endswith('thermo.out') or i.startswith('press-profile-'):
                     txts.append(os.path.join(root, i))
 
     datasets_x, datasets_z = [], []
@@ -121,6 +136,8 @@ if __name__ == "__main__":
         if 'rate_viscosity' in args.qtty: plot.rate_viscosity()
         if 'rate_slip' in args.qtty: plot.rate_slip()
         if 'rate_temp' in args.qtty: plot.rate_temp()
+        if 'rate_qdot' in args.qtty: plot.rate_qdot()
+        if 'rate_lambda' in args.qtty: plot.rate_lambda()
         # if 'pt_ratio' in args.qtty[0]: plot.pt_ratio()
         if 'eos' in args.qtty: plot.eos()
         if 'lambda' in args.qtty: plot.thermal_conduct()
@@ -143,11 +160,13 @@ if __name__ == "__main__":
 
         if args.format is not None:
             if args.format == 'eps':
-                plot.fig.savefig(args.qtty[0]+'.eps' , format='eps')
+                plot.fig.savefig(args.qtty[0]+'.eps' , format='eps', transparent=True)
             if args.format == 'ps':
                 plot.fig.savefig(args.qtty[0]+'.ps' , format='ps')
             if args.format == 'svg':
                 plot.fig.savefig(args.qtty[0]+'.svg' , format='svg')
+            if args.format == 'pdf':
+                plot.fig.savefig(args.qtty[0]+'.pdf' , format='pdf')
         else:
             plot.fig.savefig(args.qtty[0]+'.png' , format='png')
 
