@@ -174,9 +174,11 @@ class traj_to_grid:
             if rank == 0:
                 print('Voronoi volume was not computed during LAMMPS Run!')
             pass
+
         try:
             virial_data = self.data.variables["f_Wi_avg"]
             virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
+            # if rank == 0: print(virial[124])
         except KeyError:
             if rank == 0:
                 print('Virial was not computed during LAMMPS Run!')
@@ -1061,12 +1063,20 @@ class traj_to_grid:
 
                     # Virial pressure--------------------------------------
                     try:
-                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
-                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
-                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) / vol_bulk_cell[i,0,k]
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
                         vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
-
                     except UnboundLocalError:
+                        pass
+
+                    # Simulations with virial off-diagonal components calculation
+                    try:
+                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+
+                    except (IndexError, UnboundLocalError) as e:
                         pass
 
                     # Density (bulk) -----------------------------------
