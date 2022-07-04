@@ -513,6 +513,22 @@ class traj_to_grid:
                 totVi = 0
                 pass
 
+            # Perform Delaunay triangulation: (Could be useful for cavitation)
+            if self.tessellate==1:
+                bulk_xcoords = fluid_xcoords * bulk_region
+                bulk_ycoords = fluid_ycoords * bulk_region
+                bulk_zcoords = fluid_zcoords * bulk_region
+
+                bulk_coords = np.zeros((self.chunksize, Nf, 3))
+                bulk_coords[:,:,0], bulk_coords[:,:,1], bulk_coords[:,:,2] = \
+                bulk_xcoords, bulk_ycoords, bulk_zcoords
+
+                mytotVi = np.zeros([self.chunksize], dtype=np.float32)
+                for i in range(self.chunksize):
+                    mytotVi[i] = tessellation.delaunay_volumes(bulk_coords[i])
+            else:
+                mytotVi = 0
+
             # Heat flux --------------
             try:
                 je_x = np.sum( (fluid_energy_y * fluid_vz_t) - \
