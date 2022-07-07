@@ -257,6 +257,7 @@ class traj_to_grid:
 
                 forcesU_data = np.array(forcesU[self.start:self.end]).astype(np.float32)
                 forcesL_data = np.array(forcesL[self.start:self.end]).astype(np.float32)
+                solid_forces = 1
             except KeyError:
                 solid_forces = 0
 
