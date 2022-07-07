@@ -251,11 +251,14 @@ class traj_to_grid:
         # Wall Stresses -------------------------------------------------
         if solid_start != None:
             # Forces -----------------------------------
-            forcesU = self.data.variables["f_fAtomU_avg"]
-            forcesL = self.data.variables["f_fAtomL_avg"]
+            try:
+                forcesU = self.data.variables["f_fAtomU_avg"]
+                forcesL = self.data.variables["f_fAtomL_avg"]
 
-            forcesU_data = np.array(forcesU[self.start:self.end]).astype(np.float32)
-            forcesL_data = np.array(forcesL[self.start:self.end]).astype(np.float32)
+                forcesU_data = np.array(forcesU[self.start:self.end]).astype(np.float32)
+                forcesL_data = np.array(forcesL[self.start:self.end]).astype(np.float32)
+            except KeyError:
+                solid_forces = 0
 
             # Instanteneous extrema (array Needed for the gap height at each timestep)
             fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
@@ -294,13 +297,17 @@ class traj_to_grid:
             surfU_xcoords, surfU_zcoords = solid_xcoords[:,surfU_indices], \
                                            solid_zcoords[:,surfU_indices]
 
-            surfU_fx,surfU_fy,surfU_fz = forcesU_data[:, solid_start:, 0][:,surfU_indices], \
-                                         forcesU_data[:, solid_start:, 1][:,surfU_indices], \
-                                         forcesU_data[:, solid_start:, 2][:,surfU_indices]
+            if solid_forces !=0:
+                surfU_fx,surfU_fy,surfU_fz = forcesU_data[:, solid_start:, 0][:,surfU_indices], \
+                                             forcesU_data[:, solid_start:, 1][:,surfU_indices], \
+                                             forcesU_data[:, solid_start:, 2][:,surfU_indices]
 
-            surfL_fx,surfL_fy,surfL_fz = forcesL_data[:, solid_start:, 0][:,surfL_indices], \
-                                         forcesL_data[:, solid_start:, 1][:,surfL_indices], \
-                                         forcesL_data[:, solid_start:, 2][:,surfL_indices]
+                surfL_fx,surfL_fy,surfL_fz = forcesL_data[:, solid_start:, 0][:,surfL_indices], \
+                                             forcesL_data[:, solid_start:, 1][:,surfL_indices], \
+                                             forcesL_data[:, solid_start:, 2][:,surfL_indices]
+            else:
+                surfU_fx, surfU_fy, surfU_fz = 0, 0, 0
+                surfL_fx, surfL_fy, surfL_fz = 0, 0, 0
 
             # Check if surfU and surfL are not equal
             N_surfL, N_surfU = len(surfL_indices), len(surfU_indices)
