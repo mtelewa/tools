@@ -77,11 +77,12 @@ if __name__ == "__main__":
     datasets, txtfiles = [], []
     for key, value in vars(args).items():
         if key.startswith('ds') and value!='all':
-            datasets.append(value)
+            datasets.append(os.path.abspath(value))
         if key.startswith('ds') and value=='all':
+            # print(os.path.abspath(os.getcwd()))
             for i in os.listdir(os.getcwd()):
                 if os.path.isdir(i):
-                    datasets.append(i)
+                    datasets.append(f"{os.path.abspath(os.getcwd())+ '/' + i}")
         if key.startswith('all'):
             # print(value)
             for i in os.listdir(value):
@@ -98,8 +99,9 @@ if __name__ == "__main__":
     except AttributeError:
         pass
 
-    try:
-        if args.all: datasets.sort()
+    try: # TODO: Generalize
+        if args.all1 or args.all2 or args.all3 or args.all4:
+            datasets.sort()
     except AttributeError:
         pass
 
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     for k in txtfiles:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith('thermo.out') or i.startswith('press-profile-'):
+                if i.endswith('log.lammps'): #or i.startswith('press-profile-'):
                     txts.append(os.path.join(root, i))
 
     datasets_x, datasets_z = [], []
