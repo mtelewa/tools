@@ -670,6 +670,7 @@ class traj_to_grid:
 
         vx_ch = np.zeros([self.chunksize, self.Nx, self.Nz], dtype=np.float32)
 
+        vx_ch_whole = np.zeros_like(vx_ch)
         vx_R1 = np.zeros_like(vx_ch)
         vx_R2 = np.zeros_like(vx_ch)
         vx_R3 = np.zeros_like(vx_ch)
@@ -917,6 +918,8 @@ class traj_to_grid:
             # -----------------------------------------------------
                     # Velocities in the stable region
                     vx_ch[:, i, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
+                    # Velocities in the whole domain
+                    vx_ch_whole[:, i, k] = np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask[:, i, k]
 
                     vx_R1[:, i, k] = np.sum(fluid_vx * mask_R1, axis=1) / (N_R1[:, i, k])
                     vx_R2[:, i, k] = np.sum(fluid_vx * mask_R2, axis=1) / (N_R2[:, i, k])
@@ -929,10 +932,10 @@ class traj_to_grid:
                     den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_fluid[i, 0, k]
 
                     # Mass flux (whole fluid) ----------------------------
-                    jx_ch[:, i, k] = vx_ch[:, i, k] * den_ch[:, i, k]
+                    jx_ch[:, i, k] = vx_ch_whole[:, i, k] * den_ch[:, i, k]
 
                     # Mass flow rate (whole fluid) -----------------------
-                    mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch[:, i, k]
+                    mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch_whole[:, i, k]
 
                     # Temperature ----------------------------
                     # COM velocity in the bin
@@ -1040,7 +1043,7 @@ class traj_to_grid:
                     Nzero_fluid = np.less(N_fluid_mask[:, i, k], 1)
                     N_fluid_mask[Nzero_fluid, i, k] = 1
 
-                    # Velocities in the stable region
+                    # Velocities of the fluid atoms
                     vx_ch[:, i, k] =  np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask[:, i, k]
 
                     # Density (whole fluid) ----------------------------
@@ -1110,6 +1113,7 @@ class traj_to_grid:
                 'fluid_vy_avg_lte': fluid_vy_avg_lte,
                 'fluid_vz_avg_lte': fluid_vz_avg_lte,
                 'vx_ch': vx_ch,
+                'vx_ch_whole':vx_ch_whole,
                 'vx_R1': vx_R1,
                 'vx_R2': vx_R2,
                 'vx_R3': vx_R3,

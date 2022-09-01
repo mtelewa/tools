@@ -79,7 +79,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi, mytotVi,\
         fluid_vx_avg, fluid_vy_avg, fluid_vz_avg, \
         fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
-        vx_ch, vx_R1, vx_R2, vx_R3, vx_R4, vx_R5, \
+        vx_ch, vx_ch_whole, vx_R1, vx_R2, vx_R3, vx_R4, vx_R5, \
         uCOMx, den_ch, sf, sf_solid, rho_k, sf_x, sf_x_solid, sf_y, sf_y_solid, \
         jx_ch, mflowrate_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
@@ -102,6 +102,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'fluid_vy_avg_lte',
                                   'fluid_vz_avg_lte',
                                   'vx_ch',
+                                  'vx_ch_whole',
                                   'vx_R1',
                                   'vx_R2',
                                   'vx_R3',
@@ -203,6 +204,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # Velocity (chunked in stable region)
             vx_ch_global = np.zeros([time, Nx, Nz], dtype=np.float32)
 
+            vx_ch_whole_global = np.zeros_like(vx_ch_global)
             vx_R1_global = np.zeros_like(vx_ch_global)
             vx_R2_global = np.zeros_like(vx_ch_global)
             vx_R3_global = np.zeros_like(vx_ch_global)
@@ -268,6 +270,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_ch_global = None
 
+            vx_ch_whole_global = None
             vx_R1_global = None
             vx_R2_global = None
             vx_R3_global = None
@@ -360,6 +363,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             pass
         comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
 
+        comm.Gatherv(sendbuf=vx_ch_whole, recvbuf=(vx_ch_whole_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vx_R1, recvbuf=(vx_R1_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vx_R2, recvbuf=(vx_R2_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=vx_R3, recvbuf=(vx_R3_global, sendcounts_chunk_fluid), root=0)
@@ -430,6 +434,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_var =  out.createVariable('Vx', 'f4', ('time', 'x', 'z'))
 
+            vx_whole_var = out.createVariable('Vx_whole', 'f4', ('time', 'x', 'z'))
             vx_R1_var =  out.createVariable('Vx_R1', 'f4', ('time', 'x', 'z'))
             vx_R2_var =  out.createVariable('Vx_R2', 'f4', ('time', 'x', 'z'))
             vx_R3_var =  out.createVariable('Vx_R3', 'f4', ('time', 'x', 'z'))
@@ -504,6 +509,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
 
             vx_var[:] = vx_ch_global
 
+            vx_whole_var[:] = vx_ch_whole_global
             vx_R1_var[:] = vx_R1_global
             vx_R2_var[:] = vx_R2_global
             vx_R3_var[:] = vx_R3_global
