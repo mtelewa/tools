@@ -622,11 +622,11 @@ class plot_from_ds:
 
 
             if 'mflowrate_dim' in qtts:
-                self.axes_array[n].set_ylabel(r'${\mathrm{\dot{m}}}}$ (g/ns)')
+                self.axes_array[n].set_ylabel(r'${\mathrm{\dot{m}}}$ (g/ns)')
                 if self.config['dim'] == 'l':
-                    arr, y = None, data.mflux()['mflowrate_X']#*1e20
+                    arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']#*1e20
                 if self.config['dim'] == 't':
-                    arr, y = None, data.mflux()['mflowrate_t']#*1e18
+                    arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']#*1e18
                 pds.ax_settings(self.axes_array[n], x, y, arr)
                 if self.nrows>1: n+=1
 
