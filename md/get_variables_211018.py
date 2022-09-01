@@ -20,6 +20,7 @@ import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.stats import pearsonr, spearmanr
 from scipy.optimize import curve_fit
+from math import isclose
 
 # Converions
 ang_to_cm = 1e-8
@@ -94,7 +95,7 @@ class derive_data:
         dim = self.data_x.__dict__
         self.Lx = dim["Lx"] / 10      # nm
         self.Ly = dim["Ly"] / 10      # nm
-        # Bulk simulations have Lz dimension
+        # Old simulations have no Lz dimension (Only gap height)
         try:
             self.Lz = dim["Lz"] / 10      # nm
         except KeyError:
@@ -128,7 +129,6 @@ class derive_data:
             self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm3
             # If the bulk height is given
             try:
-                # USE THIS
                 bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
                 bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
                 avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
@@ -257,6 +257,7 @@ class derive_data:
         vir_t : Avg. shear stress in the walls with time.
         """
 
+        # Voronoi volume
         try:
             totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
         except KeyError:
@@ -285,7 +286,8 @@ class derive_data:
             Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
 
         except KeyError:
-            pass
+            Wxy_full_x, Wxz_full_x, Wyz_full_x, Wxy_full_z, Wxz_full_z, Wyz_full_z, Wxy_chunkX, Wxz_chunkX, Wyz_chunkX, \
+            Wxy_chunkZ, Wxz_chunkZ, Wyz_chunkZ, Wxy_t, Wxz_t, Wyz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
         # Diagonal components (separately)
         try:
@@ -309,23 +311,44 @@ class derive_data:
             Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
             Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
 
+            if np.mean(self.h) != 0:
+                # Diagonal components
+                # If in LAMMPS we switched off the flow direction to compute the virial
+                # and used only the y-direction (perp. to flow perp. to loading), then
+                # we conisder only that direction in the virial calcualtion..
+                if isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rel_tol=0.2, abs_tol=0.0):
+                    vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+                    vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+                    vir_t = np.mean(vir_full_x, axis=(1,2))
+                else:
+                    vir_full_x = -Wyy_full_x
+                    vir_full_z = -Wyy_full_z
+                    vir_t = np.mean(vir_full_x, axis=(1,2))
+            else: # Bulk simulation
+                vir_full_x = -(Wxx_full_x[:, 10:-10, :] + Wyy_full_x[:, 10:-10, :] + Wzz_full_x[:, 10:-10, :]) / 3.
+                vir_full_z = -(Wxx_full_z[:, :, 10:-10] + Wyy_full_z[:, :, 10:-10] + Wzz_full_z[:, :, 10:-10]) / 3.
+                vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
+
+        except KeyError:
+            Wxx_full_x, Wyy_full_x, Wzz_full_x, Wxx_full_z, Wyy_full_z, Wzz_full_z, Wxx_chunkX, Wyy_chunkX, Wzz_chunkX, \
+            Wxx_chunkZ, Wyy_chunkZ, Wzz_chunkZ, Wxx_t, Wyy_t, Wzz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+        try:
+            if np.mean(self.h) != 0:
+                vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+                vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+                vir_t = np.mean(vir_full_x, axis=(1,2))
+            else: # Bulk simulation
+                vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:, 10:-10, :] * sci.atm * pa_to_Mpa
+                vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:, :, 10:-10] * sci.atm * pa_to_Mpa
+                vir_t = np.mean(vir_full_x, axis=(1,2))
+
         except KeyError:
             pass
 
-
-        if np.mean(self.h) != 0:
-            # Diagonal components
-            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-            vir_t = np.mean(vir_full_x, axis=(1,2)) #+ np.mean(vir_full_z, axis=(1,2))) / 2.
-        else: # Bulk simulation
-            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:, 10:-10, :] * sci.atm * pa_to_Mpa
-            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:, :, 10:-10] * sci.atm * pa_to_Mpa
-            vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
-
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-        vir_fluctuations = sq.get_err(vir_full_x)['var']
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+        vir_fluctuations = sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
@@ -339,36 +362,26 @@ class derive_data:
         # Pressure gradient in the simulation domain
         pGrad = - pDiff / pd_length       # MPa/nm
 
-        # try:
-        #     return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
-        #             'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
-        #             'Wxz_X': Wxz_chunkX , 'Wxz_Z': Wxz_chunkZ, 'Wxz_t': Wxz_t,
-        #             'Wxz_full_x': Wxz_full_x, 'Wxz_full_z': Wxz_full_z,
-        #             'Wyz_X': Wyz_chunkX , 'Wyz_Z': Wyz_chunkZ, 'Wyz_t': Wyz_t,
-        #             'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
-        #             'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
+        return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
+                'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
+                'Wxz_X': Wxz_chunkX , 'Wxz_Z': Wxz_chunkZ, 'Wxz_t': Wxz_t,
+                'Wxz_full_x': Wxz_full_x, 'Wxz_full_z': Wxz_full_z,
+                'Wyz_X': Wyz_chunkX , 'Wyz_Z': Wyz_chunkZ, 'Wyz_t': Wyz_t,
+                'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
+                'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
+                'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
+                'Wyy_X': Wyy_chunkX , 'Wyy_Z': Wyy_chunkZ, 'Wyy_t': Wyy_t,
+                'Wyy_full_x': Wyy_full_x, 'Wyy_full_z': Wyy_full_z,
+                'Wzz_X': Wzz_chunkX , 'Wzz_Z': Wzz_chunkZ, 'Wzz_t': Wzz_t,
+                'Wzz_full_x': Wzz_full_x,'Wzz_full_z': Wzz_full_z,
+                'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
+                'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
+                'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
+
+        # except NameError:
+        #     return {'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
         #             'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
         #             'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
-        try:
-            return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
-                    'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
-                    'Wxz_X': Wxz_chunkX , 'Wxz_Z': Wxz_chunkZ, 'Wxz_t': Wxz_t,
-                    'Wxz_full_x': Wxz_full_x, 'Wxz_full_z': Wxz_full_z,
-                    'Wyz_X': Wyz_chunkX , 'Wyz_Z': Wyz_chunkZ, 'Wyz_t': Wyz_t,
-                    'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
-                    'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
-                    'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
-                    'Wyy_X': Wyy_chunkX , 'Wyy_Z': Wyy_chunkZ, 'Wyy_t': Wyy_t,
-                    'Wyy_full_x': Wyy_full_x, 'Wyy_full_z': Wyy_full_z,
-                    'Wzz_X': Wzz_chunkX , 'Wzz_Z': Wzz_chunkZ, 'Wzz_t': Wzz_t,
-                    'Wzz_full_x': Wzz_full_x,'Wzz_full_z': Wzz_full_z,
-                    'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
-                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
-                    'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
-        except NameError:
-            return {'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
-                    'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
-                    'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
 
 
     def sigwall(self):
@@ -879,8 +892,11 @@ class derive_data:
 
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
         virxx, viryy, virzz = dd.virial()['Wxx_t'], dd.virial()['Wyy_t'], dd.virial()['Wzz_t']
+        print(np.mean(virxx), np.mean(viryy), np.mean(virzz))
+        # print(self.avg_gap_height)
 
-        gamma = 0.5 * self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
+        if self.avg_gap_height !=0:
+            gamma = self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
 
         return gamma
 
