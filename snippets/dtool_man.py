@@ -57,6 +57,7 @@ if __name__ == "__main__":
     for dataset, derived in itertools.zip_longest(datasets, deriveds, fillvalue=datasets[0]):
         ds = man_ds.manipulate_ds(dataset)
         if args.action=='create_ds': ds.create_dataset(**dict(variables))
+        if args.action=='tag_ds': ds.put_tag(**dict(variables))
         if args.action=='create_post' and args.freeze and not args.copy: ds.create_post(freeze='y', **dict(variables))
         if args.action=='create_post' and args.copy and not args.freeze: ds.create_post(copy='y', **dict(variables))
         if args.action=='create_post' and args.freeze and args.copy: ds.create_post(freeze='y',copy='y', **dict(variables))
