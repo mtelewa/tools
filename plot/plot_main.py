@@ -32,7 +32,7 @@ from scipy import stats
 from scipy.stats import norm
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
-from get_variables_220204 import derive_data as dd
+from get_variables import derive_data as dd
 
 import yaml
 
