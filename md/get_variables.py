@@ -217,17 +217,16 @@ class derive_data:
         jx_t *= (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
 
         # Measure the mass flow rate whole domain
-        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-        velocity = np.mean(dd.velocity()['vx_full_x'], axis=(0,2))
-        mflowrate_chunkX = (self.mf/sci.N_A) * velocity / (self.Lx*1e-9/self.Nx)
-        print(mflowrate_chunkX)
-        mflowrate_t = (self.mf/sci.N_A) * np.sum(dd.velocity()['vx_full_x'], axis=(1,2)) / self.Lx
+        mflowrate_full_x = np.array(self.data_x.variables["mdot"])[self.skip:]
+        mflowrate_chunkX = (self.mf/sci.N_A) * np.mean(mflowrate_full_x, axis=(0,2)) / (self.Lx*1e-9/self.Nx)
+        # Time-averaged mass flow rate in the whole domain
+        mflowrate_t = (self.mf/sci.N_A) * np.sum(mflowrate_full_x, axis=(1,2)) / (self.Lx*1e-9)
 
         return {'jx_X': jx_chunkX, 'jx_Z': jx_chunkZ, 'jx_t': jx_t,
                 'jx_full_x': jx_full_x, 'jx_full_z': jx_full_z,
                 'jx_stable': jx_stable, 'mflowrate_stable':mflowrate_stable,
                 'jx_pump': jx_pump, 'mflowrate_pump':mflowrate_pump, 'mflowrate_X':mflowrate_chunkX,
-                'mflowrate_t':mflowrate_t}
+                'mflowrate_t':mflowrate_t, 'mflowrate_full_x': mflowrate_full_x}
 
     def density(self):
         """
