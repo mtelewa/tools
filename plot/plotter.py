@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     # Read the yaml file if given
     if args.config:
-        import plot_main_220204 as pm
+        import plot_main as pm
         with open(args.config, 'r') as f:
             file = yaml.safe_load(f)
     else:
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     for k in txtfiles:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith('log.lammps'): #or i.startswith('press-profile-'):
+                if i.endswith('log.lammps') or i.startswith('press-profile-'): # Fix this
                     txts.append(os.path.join(root, i))
 
     datasets_x, datasets_z = [], []
@@ -148,6 +148,10 @@ if __name__ == "__main__":
         if 'transverse' in args.qtty: plot.transverse()
         if 'sk' in args.qtty: plot.struc_factor()
         if 'isf' in args.qtty: plot.isf()
+        if 'coexist' in args.qtty: plot.coexistence_curve()
+        if 'rc_gamma' in args.qtty: plot.rc_gamma()
+        if 'temp_gamma' in args.qtty: plot.temp_gamma()
+
 
         # Quantity profiles with the 1018 module
         if '_length' in args.qtty[0]: plot.qtty_len(args.qtty, draw_vlines='y', legend='y',opacity=0.8)

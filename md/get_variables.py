@@ -213,21 +213,29 @@ class derive_data:
         jx_full_z = np.array(self.data_z.variables["Jx"])[self.skip:]
         jx_chunkX = np.mean(jx_full_x, axis=(0,2)) * (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
         jx_chunkZ = np.mean(jx_full_z, axis=(0,1)) * (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
-        jx_t = (np.mean(jx_full_x, axis=(1,2)) + np.mean(jx_full_z, axis=(1,2))) / 2.
+        jx_t = np.sum(jx_full_x, axis=(1,2)) #) + np.mean(jx_full_z, axis=(1,2))) / 2.
         jx_t *= (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
+
+        # Measure the mass flow rate whole domain
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+        velocity = np.mean(dd.velocity()['vx_full_x'], axis=(0,2))
+        mflowrate_chunkX = (self.mf/sci.N_A) * velocity / (self.Lx*1e-9/self.Nx)
+        print(mflowrate_chunkX)
+        mflowrate_t = (self.mf/sci.N_A) * np.sum(dd.velocity()['vx_full_x'], axis=(1,2)) / self.Lx
 
         return {'jx_X': jx_chunkX, 'jx_Z': jx_chunkZ, 'jx_t': jx_t,
                 'jx_full_x': jx_full_x, 'jx_full_z': jx_full_z,
                 'jx_stable': jx_stable, 'mflowrate_stable':mflowrate_stable,
-                'jx_pump': jx_pump, 'mflowrate_pump':mflowrate_pump}
+                'jx_pump': jx_pump, 'mflowrate_pump':mflowrate_pump, 'mflowrate_X':mflowrate_chunkX,
+                'mflowrate_t':mflowrate_t}
 
     def density(self):
         """
         Returns
         -------
-        den_X : Avg. bulk density along the length
-        den_t : Avg. bulk density with time.
-        den_Z : Avg. fluid density along the height
+        den_t : Time averaged bulk density, array of shape: (time,)
+        den_X : Time averaged bulk density along the length, array of shape: (time,Nx)
+        den_Z : Time averaged fluid density along the height, array of shape: (time,Nz)
         """
         # Bulk Density ---------------------
         density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:] * (self.mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
@@ -291,14 +299,15 @@ class derive_data:
 
         # Diagonal components (separately)
         try:
-            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:,] * sci.atm * pa_to_Mpa # Units: MPa if walls and MPa.A3 if bulk
+            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:,] * sci.atm * pa_to_Mpa
+            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:,] * sci.atm * pa_to_Mpa
 
             Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
             Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
             Wzz_full_z = np.array(self.data_z.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
 
+            # Only for systems with walls
             Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
             Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
             Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
@@ -307,11 +316,11 @@ class derive_data:
             Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
             Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
 
-            Wxx_t = np.mean(Wxx_full_x, axis=(1,2))
-            Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
-            Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
-
             if np.mean(self.h) != 0:
+
+                Wxx_t = np.mean(Wxx_full_x, axis=(1,2))
+                Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
+                Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
                 # Diagonal components
                 # If in LAMMPS we switched off the flow direction to compute the virial
                 # and used only the y-direction (perp. to flow perp. to loading), then
@@ -319,48 +328,45 @@ class derive_data:
                 if isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rel_tol=0.2, abs_tol=0.0):
                     vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
                     vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-                    vir_t = np.mean(vir_full_x, axis=(1,2))
                 else:
                     vir_full_x = -Wyy_full_x
                     vir_full_z = -Wyy_full_z
-                    vir_t = np.mean(vir_full_x, axis=(1,2))
-            else: # Bulk simulation
-                vir_full_x = -(Wxx_full_x[:, 10:-10, :] + Wyy_full_x[:, 10:-10, :] + Wzz_full_x[:, 10:-10, :]) / 3.
-                vir_full_z = -(Wxx_full_z[:, :, 10:-10] + Wyy_full_z[:, :, 10:-10] + Wzz_full_z[:, :, 10:-10]) / 3.
-                vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
+
+                vir_t = np.mean(vir_full_x, axis=(1,2))
+
+                vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+                vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+                vir_fluctuations = sq.get_err(vir_full_x)['var']
+
+                # pressure gradient ---------------------------------------
+                pd_length = self.Lx - self.pumpsize*self.Lx      # nm
+                # Virial pressure at the inlet and the outlet of the pump
+                out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
+                # timeseries of the output and input chunks
+                vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
+                # Pressure Difference  between inlet and outlet
+                pDiff = vir_out - vir_in
+                p_ratio = vir_out / vir_in
+                # Pressure gradient in the simulation domain
+                pGrad = - pDiff / pd_length       # MPa/nm
+
+            else: # Bulk simulation (Overall pressure)
+                Wxx_t = np.sum(Wxx_full_x, axis=(1)) / (self.vol*1e3)
+                Wyy_t = np.sum(Wyy_full_x, axis=(1)) / (self.vol*1e3)
+                Wzz_t = np.sum(Wzz_full_x, axis=(1)) / (self.vol*1e3)
+
+                # TODO: Correct these by diving by volume of the slab in each time step (in post-processing script)
+                vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x)
+                vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z)
+                vir_chunkX, vir_chunkZ  = np.mean(vir_full_x, axis=(0,2)), np.mean(vir_full_z, axis=(0,1))
+
+                vir_t = -(Wxx_t + Wyy_t + Wzz_t) / 3.
+                pGrad, pDiff, p_ratio = 0,0,0
 
         except KeyError:
             Wxx_full_x, Wyy_full_x, Wzz_full_x, Wxx_full_z, Wyy_full_z, Wzz_full_z, Wxx_chunkX, Wyy_chunkX, Wzz_chunkX, \
             Wxx_chunkZ, Wyy_chunkZ, Wzz_chunkZ, Wxx_t, Wyy_t, Wzz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
-        try:
-            if np.mean(self.h) != 0:
-                vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-                vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-                vir_t = np.mean(vir_full_x, axis=(1,2))
-            else: # Bulk simulation
-                vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:, 10:-10, :] * sci.atm * pa_to_Mpa
-                vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:, :, 10:-10] * sci.atm * pa_to_Mpa
-                vir_t = np.mean(vir_full_x, axis=(1,2))
-
-        except KeyError:
-            pass
-
-        vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-        vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-        vir_fluctuations = sq.get_err(vir_full_x)['var']
-
-        # pressure gradient ---------------------------------------
-        pd_length = self.Lx - self.pumpsize*self.Lx      # nm
-        # Virial pressure at the inlet and the outlet of the pump
-        out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
-        # timeseries of the output and input chunks
-        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
-        # Pressure Difference  between inlet and outlet
-        pDiff = vir_out - vir_in
-        p_ratio = vir_out / vir_in
-        # Pressure gradient in the simulation domain
-        pGrad = - pDiff / pd_length       # MPa/nm
 
         return {'Wxy_X': Wxy_chunkX , 'Wxy_Z': Wxy_chunkZ, 'Wxy_t': Wxy_t,
                 'Wxy_full_x': Wxy_full_x, 'Wxy_full_z': Wxy_full_z,
@@ -377,11 +383,6 @@ class derive_data:
                 'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
                 'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
                 'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
-
-        # except NameError:
-        #     return {'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
-        #             'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
-        #             'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
 
 
     def sigwall(self):
@@ -553,22 +554,6 @@ class derive_data:
         #             'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z, 'temp_grad':temp_grad}
 
 
-    def heat_flux(self):
-        """
-        Calculate the heat flux according to Irving-Kirkwood expression
-        """
-
-        # From post-processing we get kcal/mol * A/fs ---> J * m/s
-        conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
-
-        # Heat flux vector
-        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
-        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
-        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
-
-        return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
-
-
     def vel_distrib(self):
         """
         Returns
@@ -601,8 +586,49 @@ class derive_data:
                 'vy_values_lte': values_y_lte, 'vy_prob_lte': probabilities_y_lte,
                 'vz_values_lte': values_z_lte, 'vz_prob_lte': probabilities_z_lte}
 
-    # Derived Quantities ----------------------------------------------------
+    # Static and Dynamic properties------------------------------------------
     # -----------------------------------------------------------------------
+
+    def heat_flux(self):
+        """
+        Calculate the heat flux according to Irving-Kirkwood expression
+        """
+
+        # From post-processing we get kcal/mol * A/fs ---> J * m/s
+        conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
+
+        # Heat flux vector
+        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+
+        return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
+
+
+    def viscosity_gk(self):
+        """
+        Calculate dynamic viscosity from equilibrium MD
+        (based on ACF of the shear stress - Green-Kubo relation)
+        """
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+
+        # TODO: Replace with fluid stress tensor
+        sigxy_t = dd.sigwall()['sigxy_t'] * 1e9  # mPa
+        sigxz_t = dd.sigwall()['sigxz_t'] * 1e9
+        sigyz_t = dd.sigwall()['sigyz_t'] * 1e9
+
+        temp = np.mean(dd.temp()['temp_t'])         # K
+
+        prefac = self.vol* 1e-27 / (sci.k * temp )
+
+        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm']) * 1e-15  # mPa.s
+        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm']) * 1e-15  # mPa.s
+        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm']) * 1e-15  # mPa.s
+
+        viscosity = (v_xz+v_yz+v_xy)/3.
+
+        return viscosity
+
 
     def transport(self):
         """
@@ -727,33 +753,6 @@ class derive_data:
         return {'lambda_z':lambda_z, 'lambda_continuum':lambda_continuum, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
-
-    def viscosity_gk(self):
-        """
-        Calculate dynamic viscosity from equilibrium MD
-        (based on ACF of the shear stress - Green-Kubo relation)
-        """
-        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-
-        # TODO: Replace with fluid stress tensor
-        sigxy_t = dd.sigwall()['sigxy_t'] * 1e9  # mPa
-        sigxz_t = dd.sigwall()['sigxz_t'] * 1e9
-        sigyz_t = dd.sigwall()['sigyz_t'] * 1e9
-
-        temp = np.mean(dd.temp()['temp_t'])         # K
-
-        prefac = self.vol* 1e-27 / (sci.k * temp )
-
-        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm']) * 1e-15  # mPa.s
-        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm']) * 1e-15  # mPa.s
-        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm']) * 1e-15  # mPa.s
-
-        viscosity = (v_xz+v_yz+v_xy)/3.
-
-        return viscosity
-
-
-
     def slip_length(self):
         """
         Returns
@@ -864,7 +863,6 @@ class derive_data:
         # var = np.var(rho_k, axis=0)
 
         ISF = sq.acf_conjugate(rho_k)['norm']
-        print(ISF.shape)
 
         # ISF = np.zeros([len(self.time),len(kx)])
         # for i in range(len(kx)):
@@ -887,18 +885,55 @@ class derive_data:
         return {'ISF':ISF}
 
 
+    def coexistence_densities(self):
+        """
+        Compute the Liquid and vapor densities densities in equilibrium Liquid/Vapor interface simulations
+        Returns:
+        rho_l and rho_v: Liquid and vapor densities averaged over time, floats
+        """
+        dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
+
+        density = dd.density()['den_Z']
+
+        # max_idx = np.argmax(density)
+        # min_idx = np.argmin(density)
+        # rho_liquid = density[max_idx-6:max_idx+6]
+        #
+        # if min_idx==0:
+        #     rho_vapour = density[:min_idx+12]
+        # else:
+        #     rho_vapour = density[min_idx-6:min_idx+6]
+        #
+        # print(density)
+        # print(rho_vapour)
+
+        avg_rho_liquid = np.max(density)
+        avg_rho_vapour = np.min(density)
+
+        return {'rho_l':avg_rho_liquid, 'rho_v':avg_rho_vapour}
+
 
     def surface_tension(self):
+        """
+        Compute the surface tension (gamma in N/m) from an equilibrium Liquid/Vapor interface
+        The pressure tensor is computed from the "virial" method using IK expression
 
+        Returns
+        -------
+        gamma: array of shape (time,)
+        """
         dd = derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-        virxx, viryy, virzz = dd.virial()['Wxx_t'], dd.virial()['Wyy_t'], dd.virial()['Wzz_t']
-        print(np.mean(virxx), np.mean(viryy), np.mean(virzz))
-        # print(self.avg_gap_height)
 
-        if self.avg_gap_height !=0:
+        virxx, viryy, virzz = -dd.virial()['Wxx_t'], -dd.virial()['Wyy_t'], -dd.virial()['Wzz_t']   # MPa
+        if self.avg_gap_height !=0: # Walls
             gamma = self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
+        else:
+            if self.mf==39.948: # Argon box forms 2 interfaces
+                gamma = 0.5 * self.Lz * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
+            else: # Pentane box forms only 1 interface
+                gamma = self.Lz * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
 
-        return gamma
+        return {'gamma':gamma}
 
 
     def reynolds_num(self):
@@ -976,67 +1011,3 @@ class derive_data:
         acf = sq.acf(jx_tq)['norm']
 
         return {'a':acf[:, 0, 0].real}
-
-
-
-
-    # def uncertainty(self, qtty):
-    #
-    #     # Block sampling and calculating the uncertainty
-    #     n = 100 # samples/block
-    #
-    #     dd= derive_data(self.skip, self.infile_x, self.infile_z, self.mf, self.pumpsize)
-    #
-    #     # if qtty == 'vir_X': blocks = sq.block_ND(len(self.time[self.skip:]), dd.virial()['vir_X'], self.Nx, n)
-    #     # if qtty == 'den_X': blocks = sq.block_ND(len(self.time[self.skip:]), dd.density()['density_Bulk'], self.Nx, n)
-    #     # if qtty == 'vx_Z':
-    #     #     arr = np.array(self.data_z.variables["Vx"])[self.skip:] * A_per_fs_to_m_per_s  # m/s
-    #     #     blocks = sq.block_ND(len(self.time[self.skip:]), arr, self.Nz, n)
-    #
-    #     # Blocks shape is (time/n, Nchunks)
-    #     err =  sq.get_err(blocks)['uncertainty']
-    #     lo, hi = sq.get_err(blocks)['Lo'], sq.get_err(blocks)['Hi']
-    #
-    #     # Discard chunks with zero time average
-    #     # Get the time average in each chunk
-    #     # blocks_mean = np.mean(blocks, axis=0)
-    #     # blocks = np.transpose(blocks)
-    #     # blocks = blocks[blocks_mean !=0]
-    #     # blocks = np.transpose(blocks)
-    #
-    #     return {'err':err, 'lo':lo, 'hi':hi}
-
-
-    # def prop_uncertainty(self, qtty):
-    #
-    #     n = 100 # samples/block
-    #
-    #     if qtty=='sigzz_X':
-    #         qtty1 = np.array(self.data_x.variables["Fz_Upper"])[self.skip:] * kcalpermolA_to_N * pa_to_Mpa / self.chunk_A
-    #         qtty2 = np.array(self.data_x.variables["Fz_Lower"])[self.skip:] * kcalpermolA_to_N * pa_to_Mpa / self.chunk_A
-    #
-    #     if qtty=='sigxz_X':
-    #         qtty1 = np.array(self.data_x.variables["Fx_Upper"])[self.skip:] * kcalpermolA_to_N * pa_to_Mpa / self.chunk_A
-    #         qtty2 = np.array(self.data_x.variables["Fx_Lower"])[self.skip:] * kcalpermolA_to_N * pa_to_Mpa / self.chunk_A
-    #
-    #     # Blocks with dimension (time, chunk)
-    #     qtty1_blocks = sq.block_ND(len(self.time[self.skip:]), qtty1, self.Nx, n)
-    #     qtty2_blocks = sq.block_ND(len(self.time[self.skip:]), qtty2, self.Nx, n)
-    #
-    #     # Get the error in each chunk
-    #     qtty1_err = sq.get_err(qtty1_blocks)['uncertainty']
-    #     qtty2_err = sq.get_err(qtty2_blocks)['uncertainty']
-    #
-    #     # The uncertainty in each chunk is the Propagation of uncertainty of L and U surfaces
-    #     # Get the covariance in the chunk
-    #     cov_in_chunk = np.zeros(self.Nx)
-    #     for i in range(self.Nx):
-    #         cov_in_chunk[i] = np.cov(qtty1_blocks[:,i], qtty2_blocks[:,i])[0,1]
-    #
-    #     # Needs to be corrected with a positive sign of the variance for sigxz in PD
-    #     err = np.sqrt(0.5**2*qtty1_err**2 + 0.5**2*qtty2_err**2 - 2*0.5*0.5*cov_in_chunk)
-    #     avg = 0.5 * (np.mean(qtty1, axis=0) - np.mean(qtty2, axis=0))
-    #     lo = avg - err
-    #     hi = avg + err
-    #
-    #     return {'err':err, 'lo':lo, 'hi':hi}

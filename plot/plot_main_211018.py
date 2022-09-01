@@ -276,7 +276,7 @@ class plot_from_ds:
 
             if 'jx_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[4])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['jx_X'][1:-1]
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).mflux()['jx_X'][1:-1]
 
             if 'temp_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[6])
@@ -284,7 +284,7 @@ class plot_from_ds:
 
             if 'self.mflowrate_length' in arr_to_plot[0]:
                 self.ax.set_ylabel(labels[10])
-                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).self.mflux()['self.mflowrate_stable'][1:-1]
+                arrays[0, i, :] = dd(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize).mflux()['self.mflowrate_stable'][1:-1]
 
             for j in range(len(arr_to_plot[0])):
                 pds.plot_settings()

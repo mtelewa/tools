@@ -82,7 +82,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
         vx_ch, vx_R1, vx_R2, vx_R3, vx_R4, vx_R5, \
         uCOMx, den_ch, sf, sf_solid, rho_k, sf_x, sf_x_solid, sf_y, sf_y_solid, \
-        jx_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
+        jx_ch, massflowrate_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
@@ -118,6 +118,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'sf_y',
                                   'sf_y_solid',
                                   'jx_ch',
+                                  'massflowrate_ch',
                                   'je_x',
                                   'je_y',
                                   'je_z',
@@ -225,6 +226,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # rho_ky_ch_global = np.zeros_like(rho_kx_ch_global)
             # Mass flux
             jx_ch_global = np.zeros_like(vx_ch_global)
+            massflowrate_ch_global = np.zeros_like(vx_ch_global)
             # Virial
             vir_ch_global = np.zeros_like(vx_ch_global)
             Wxx_ch_global = np.zeros_like(vx_ch_global)
@@ -286,6 +288,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             # sf_ch_y_global = None
             # rho_ky_ch_global = None
             jx_ch_global = None
+            massflowrate_ch_global = None
             je_x_global = None
             je_y_global = None
             je_z_global = None
@@ -367,6 +370,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         comm.Gatherv(sendbuf=uCOMx, recvbuf=(uCOMx_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=jx_ch, recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=massflowrate_ch, recvbuf=(massflowrate_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=temp_ch, recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=tempx_ch, recvbuf=(tempx_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=tempy_ch, recvbuf=(tempy_global, sendcounts_chunk_fluid), root=0)
@@ -448,6 +452,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             sf_y_solid_var = out.createVariable('sf_y_solid', 'f4', ('time', 'ny'))
 
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
+            massflowrate_var = out.createVariable('mdot', 'f4', ('time', 'x', 'z'))
             je_x_var =  out.createVariable('JeX', 'f4', ('time'))
             je_y_var =  out.createVariable('JeY', 'f4', ('time'))
             je_z_var =  out.createVariable('JeZ', 'f4', ('time'))
@@ -520,6 +525,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
             sf_im[:] = sf_global.imag
 
             jx_var[:] = jx_ch_global
+            massflowrate_var[:] = massflowrate_ch_global
             je_x_var[:] = je_x_global
             je_y_var[:] = je_y_global
             je_z_var[:] = je_z_global
