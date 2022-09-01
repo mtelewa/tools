@@ -82,6 +82,8 @@ class manipulate_ds:
                 if 'x' in i:
                     dds.put_item(os.path.join(self.sim_out_uri,i), i)
                     os.remove(os.path.join(self.sim_out_uri,i))
+                if 'log.lammps' in i:
+                    dds.put_item(os.path.join(self.sim_out_uri,i), i)
 
         # write the readme of the post-proc dataset
         with open(post_template, "w") as f:
@@ -119,6 +121,11 @@ class manipulate_ds:
         with open(derived_template, "w") as f:
             self.yaml.dump(metadata, f)
 
+    def put_tag(self, tag, **kwargs):
+        """
+        Adds a tag to the dataset
+        """
+        dtoolcore.DataSet.from_uri(self.dataset_name).put_tag(tag)
 
     def update_readme(self, write=None, **kwargs):
 
