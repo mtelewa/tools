@@ -40,7 +40,7 @@ def power(x,a,b,c):
     return a*np.power(x,b) + c
 
 def power_new(x,a,b,c):
-    return a*np.power((1-x)/b,c)
+    return a*np.power(1-(x/b),c)
 
 def quadratic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
 
