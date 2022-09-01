@@ -4,9 +4,7 @@
 import sys, os
 import argparse
 import numpy as np
-# import get_variables_210921 as gv
-import get_variables_211018 as gv
-
+import get_variables as gv
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -80,7 +78,13 @@ if __name__ == "__main__":
                     datasets_z.append(os.path.join(root, i))
 
     for i in range(len(datasets)):
-        get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
+
+        try:
+            get = gv.derive_data(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
+        except IndexError:
+            print(f'Dataset is not processed or trajectory does not exist! \n\
+            Run post-processing in the <dataset>/out directory and ensure that the trajectory is there.')
+            exit()
 
         if 'mflowrate' in args.qtty:
             params = get.mflux()
@@ -94,6 +98,9 @@ if __name__ == "__main__":
         if 'temp' in args.qtty:
             temp = np.mean(get.temp()['temp_t'])
             print(f'Average temperature = {temp:.2f} K')
+        if 'press' in args.qtty:
+            pressure = np.mean(get.virial()['vir_t'])
+            print(f'Average pressure = {pressure:.2f} MPa')
         if 'gk_viscosity' in args.qtty:
             mu = get.viscosity_gk()
             print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
@@ -130,8 +137,8 @@ if __name__ == "__main__":
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
         if 'stension' in args.qtty:
-            gamma = np.mean(get.surface_tension())
-            print(f'Surface tension (gamma) = {gamma} N/m')
+            gamma = np.mean(get.surface_tension()['gamma'])
+            print(f'Surface tension (gamma) = {gamma*1e3:.4f} mN/m')
         if 'Re' in args.qtty:
             Reynolds = get.reynolds_num()
             print(f'Reynolds number: {Reynolds}')
