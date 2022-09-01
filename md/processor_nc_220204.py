@@ -178,7 +178,6 @@ class traj_to_grid:
         try:
             virial_data = self.data.variables["f_Wi_avg"]
             virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
-            # if rank == 0: print(virial[124])
         except KeyError:
             if rank == 0:
                 print('Virial was not computed during LAMMPS Run!')
@@ -398,15 +397,15 @@ class traj_to_grid:
             # For box volume that changes with time (i.e. NPT ensemble)
             fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
                          utils.extrema(fluid_ycoords)['global_min'],
-                         utils.extrema(fluid_ycoords)['global_min']]
+                         utils.extrema(fluid_zcoords)['global_min']]
 
             fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
                          utils.extrema(fluid_ycoords)['global_max'],
-                         utils.extrema(fluid_ycoords)['global_max']]
+                         utils.extrema(fluid_zcoords)['global_max']]
 
             fluid_lengths = [utils.extrema(fluid_xcoords)['global_max'] - utils.extrema(fluid_xcoords)['global_min'],
                              utils.extrema(fluid_ycoords)['global_max'] - utils.extrema(fluid_ycoords)['global_min'],
-                             utils.extrema(fluid_ycoords)['global_max'] - utils.extrema(fluid_ycoords)['global_min']]
+                             utils.extrema(fluid_zcoords)['global_max'] - utils.extrema(fluid_zcoords)['global_min']]
 
             cell_lengths = self.data.variables["cell_lengths"]
             # print(np.array(cell_lengths[self.start:self.end, 0]).astype(np.float32))
@@ -645,13 +644,13 @@ class traj_to_grid:
         else:
             # bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i]
             #                 for i in range(3)]
-            # xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
-
+            # xx, yy, zz, vol_fluid = utils.bounds(bounds[0], bounds[1], bounds[2])
 
             # Bounds should change for example in NPT simulations
             # (NEEDED when the Box volume changes e.g. NPT)------------------------------------------------
             bounds = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_min[i]
                             for i in range(3)]
+
             xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
 
         # -------------------------------------------------------
@@ -932,8 +931,8 @@ class traj_to_grid:
                     # Mass flux (whole fluid) ----------------------------
                     jx_ch[:, i, k] = vx_ch[:, i, k] * den_ch[:, i, k]
 
-                    # # TODO: compute mflowrate in the chunks
-                    # mflowrate_ch[:, i, k] = vx_ch[:, i, k] *
+                    # Mass flow rate (whole fluid) -----------------------
+                    mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch[:, i, k]
 
                     # Temperature ----------------------------
                     # COM velocity in the bin
@@ -1050,6 +1049,9 @@ class traj_to_grid:
                     # Mass flux (whole fluid) ----------------------------
                     jx_ch[:, i, k] = vx_ch[:, i, k] * den_ch[:, i, k]
 
+                    # Mass flow rate (whole fluid)
+                    mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch[:, i, k]
+
                     # Temperature ----------------------------
                     # COM velocity in the bin
                     # uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
@@ -1071,18 +1073,18 @@ class traj_to_grid:
 
                     # Virial pressure--------------------------------------
                     try:
-                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
-                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
-                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
                         vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
                     except UnboundLocalError:
                         pass
 
                     # Simulations with virial off-diagonal components calculation
                     try:
-                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
-                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
-                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) #/ vol_fluid[i,0,k]
+                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
 
                     except (IndexError, UnboundLocalError) as e:
                         pass
@@ -1123,6 +1125,7 @@ class traj_to_grid:
                 'sf_y': sf_y,
                 'sf_y_solid': sf_y_solid,
                 'jx_ch' : jx_ch,
+                'mflowrate_ch': mflowrate_ch,
                 'je_x': je_x,
                 'je_y': je_y,
                 'je_z': je_z,
