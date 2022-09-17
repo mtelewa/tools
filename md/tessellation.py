@@ -38,14 +38,12 @@ def voronoi_volumes(points):
     return {'vor':vor, 'vol':vol}
 
 
-
 def tetrahedron_volume(a, b, c, d):
     """
     Calculates the volume of a tetrahedron, given vertices a,b,c and d (triplets)
     """
     return np.abs(np.einsum('ij,ij->i', a-d, np.cross(b-d, c-d))) / 6
     #Specifies the subscripts for summation as comma separated list of subscript labels
-
 
 
 def delaunay_volumes(points):
@@ -75,7 +73,9 @@ def delaunay_volumes(points):
 
 
 def tetravol(a,b,c,d):
-    '''Calculates the volume of a tetrahedron, given vertices a,b,c and d (triplets)'''
+    """
+    Calculates the volume of a tetrahedron, given vertices a,b,c and d (triplets)
+    """
     tetravol=abs(np.dot((a-d),np.cross((b-d),(c-d))))/6
     return tetravol
 
@@ -112,21 +112,3 @@ def vor_to_del(vor,p):
          vol+=tetravol(np.array(dpoints[simplex[0]]),np.array(dpoints[simplex[1]]),
                        np.array(dpoints[simplex[2]]),np.array(dpoints[simplex[3]]))
      return vol
-
-
-
-# Example in post-proc script
-    # # Delaunay volumes
-    # bulk_xcoords = fluid_coords[:,:,0]*bulk_region
-    # bulk_ycoords = fluid_coords[:,:,1]*bulk_region
-    # bulk_zcoords = fluid_coords[:,:,2]*bulk_region
-    #
-    # bulk_coords = np.zeros((tSample,Nf,3))
-    # bulk_coords[:,:,0],bulk_coords[:,:,1],bulk_coords[:,:,2]= \
-    #         bulk_xcoords,bulk_ycoords,bulk_zcoords
-    #
-    # totVi = []
-    # for i in range(tSample):
-    #     totVi.append(tes.delaunay_volumes(bulk_coords[i]))        # A3
-    #
-    # totVi=np.asarray(totVi)

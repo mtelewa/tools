@@ -7,4 +7,4 @@
 rm log.* *.e* *.o*
 rm args.txt
 rm out/*
-rm blocks/*data*
+#rm blocks/*data*

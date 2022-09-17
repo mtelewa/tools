@@ -1,9 +1,6 @@
 # Byte-compiled / optimized / DLL files
 *__pycache__*
 
-# Old scripts
-old_versions
-
-# Other scripts
+# Scripts from others
+from
 matscipy
-testing

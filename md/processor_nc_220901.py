@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys, logging, warnings
+import sys, logging
 import numpy as np
 import scipy.constants as sci
 import time as timer
-from mpi4py import MPI
 import netCDF4
-import utils
+from mpi4py import MPI
 from operator import itemgetter
+import utils
 import tessellation
-from scipy.spatial import Voronoi
-
-np.set_printoptions(threshold=sys.maxsize)
 
 # Warnings Settings
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +33,7 @@ mCH2, mCH3, mCH_avg = 12, 13, 12.5
 
 t0 = timer.time()
 
-class traj_to_grid:
+class TrajtoGrid:
 
     def __init__(self, data, start, end, Nx, Nz, mf, A_per_molecule, Ny=1, tessellate=0, TW_interface=1):
 
@@ -111,7 +108,7 @@ class traj_to_grid:
 
 
         if rank == 0:
-            print('A box with {} fluid atoms ({} molecules) and {} solid atoms'.format(Nf,int(Nm),Ns))
+            logger.info('A box with {} fluid atoms ({} molecules) and {} solid atoms'.format(Nf,int(Nm),Ns))
 
         return fluid_idx, solid_start, Nf, Nm
 
@@ -172,7 +169,7 @@ class traj_to_grid:
             voronoi_vol = np.array(voronoi_vol_data[self.start:self.end]).astype(np.float32)
         except KeyError:
             if rank == 0:
-                print('Voronoi volume was not computed during LAMMPS Run!')
+                logger.info('Voronoi volume was not computed during LAMMPS Run!')
             pass
 
         try:
@@ -180,13 +177,9 @@ class traj_to_grid:
             virial = np.array(virial_data[self.start:self.end]).astype(np.float32)
         except KeyError:
             if rank == 0:
-                print('Virial was not computed during LAMMPS Run!')
+                logger.info('Virial was not computed during LAMMPS Run!')
             pass
 
-        # try:
-        #
-        # except UnboundLocalError:
-        #     pass
 
         # In some trajectories, total energy is computed
         try:

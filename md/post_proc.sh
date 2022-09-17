@@ -64,8 +64,8 @@ echo "Flags: ${args[@]}" > flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
-mpirun -np 8 proc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
-mpirun -np 8 proc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun -np 8 proc_nc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun -np 8 proc_nc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
 
 if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
   mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc

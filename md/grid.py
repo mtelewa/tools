@@ -72,7 +72,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
         chunksize = end - start
 
         # Postproc class construct
-        init = pnc.traj_to_grid(data, start, end, Nx, Nz, mf, A_per_molecule)
+        init = pnc.TrajtoGrid(data, start, end, Nx, Nz, mf, A_per_molecule)
 
         # Get the data
         cell_lengths, kx, ky, kz, \

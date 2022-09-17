@@ -4,16 +4,20 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
+
 def quadratic(x,a,b,c):
     return a*x**2+b*x+c
 
-# Define parabola derivative
+
+# Parabola derivative
 def quad_slope(x,a,b):
     return np.abs(2*a*x+b)
+
 
 def linear(x,a,b):
     x = np.array(x)
     return a*x+b
+
 
 def step(x):
     y = []
@@ -23,6 +27,7 @@ def step(x):
         else:
             y.append(0)
     return y
+
 
 def quartic(x):
     y = []
@@ -42,6 +47,16 @@ def power(x,a,b,c):
 def power_new(x,a,b,c):
     return a*np.power(1-(x/b),c)
 
+def density_scaling(x,a,c):
+    # 3.125 is 1/beta where beta is the critical exponent (Martin and Siepmann J. Phys. Chem. B, Vol. 102, No. 14, 1998)
+    return a*np.power(x,3.125) + c
+
+def rectilinear_diameters(x,a,b):
+    # 147.2 is the critical temperature of argon from my simulations
+    # 465.857 is the critical temperature of n-pentane from my simulations
+    return a*x-b+147.2
+
+
 def quadratic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
 
     height=x[-1]+x[0]
@@ -55,6 +70,7 @@ def quadratic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
 
     return y
 
+
 def quartic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m,y,z):
 
     height=x[-1]+x[0]
@@ -67,6 +83,35 @@ def quartic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m,y,z):
           (l *np.cos(18*np.pi*x/height)) + (m *np.cos(20*np.pi*x/height))
 
     return y
+
+
+def fit(x,y,order):
+    """
+    Returns
+    -------
+    xdata : arr
+        x-axis range for the fitting parabola
+    polynom(xdata): floats
+        Fitting parameters for the velocity profile
+    """
+    # Fitting coefficients
+    coeffs_fit = np.polyfit(x, y, order)     #returns the polynomial coefficients
+    # construct the polynomial
+    polynom = np.poly1d(coeffs_fit)
+
+    return {'fit_data': polynom(x), 'coeffs':coeffs_fit}
+
+
+def fit_with_cos(x,y,order):
+
+    if order == 2:
+        coeffs,_ = curve_fit(quadratic_cosine_series, x, y)
+        fitted = funcs.quadratic_cosine_series(x,*coeffs)
+    if order == 4:
+        coeffs,_ = curve_fit(quartic_cosine_series, x, y)
+        fitted = funcs.quartic_cosine_series(x,*coeffs)
+
+    return {'fit_data': fitted, 'coeffs':coeffs}
 
 
 def fourier_series_coeff(f, T, N, return_complex=False):
@@ -131,43 +176,13 @@ def fourierSeries(coeffs,x,n):
     for i in range(1,n+1):
         value = value + coeffs[1][i-1]*np.cos(i*np.pi*x/l) #+  coeffs[2][i-1]*np.sin(i*np.pi*x/l)
 
-    print(len(value))
     return value
-
-
-def fit(x,y,order):
-    """
-    Returns
-    -------
-    xdata : arr
-        x-axis range for the fitting parabola
-    polynom(xdata): floats
-        Fitting parameters for the velocity profile
-    """
-    # Fitting coefficients
-    coeffs_fit = np.polyfit(x, y, order)     #returns the polynomial coefficients
-    # construct the polynomial
-    polynom = np.poly1d(coeffs_fit)
-
-    return {'fit_data': polynom(x), 'coeffs':coeffs_fit}
-
-
-def fit_with_cos(x,y,order):
-
-    if order == 2:
-        coeffs,_ = curve_fit(quadratic_cosine_series, x, y)
-        fitted = funcs.quadratic_cosine_series(x,*coeffs)
-    if order == 4:
-        coeffs,_ = curve_fit(quartic_cosine_series, x, y)
-        fitted = funcs.quartic_cosine_series(x,*coeffs)
-
-    return {'fit_data': fitted, 'coeffs':coeffs}
 
 
 def fit_with_fourier(x,y,order):
     T = 1
     n_coeffs = len(xdata)
-    coeffs = fourier_series_coeff(np.cos,T,n_coeffs)[0]
+    coeffs = fourier_series_coeff(np.cos, T, n_coeffs)[0]
     for i in range(1,n+1):
         fit_data.append(dd.fit(x,y,order)['fit_data'] + coeffs[1][i-1]*np.cos(i*np.pi*x/l))
 

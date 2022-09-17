@@ -1,0 +1,65 @@
+# Plot global settings
+dim: 'h'
+nrows: 1
+ncols: 1
+legend_elements: 'h'
+legend_on_ax: 0
+legend_loc:
+label_subplot: 
+err_caps:
+err_fill:
+plot_inset:
+extrapolate:
+vertical_line_pos_1: 
+vertical_line_pos_2: 
+fit: 
+broken_axis:
+extrapolate:
+3d:
+set_ax_height:
+log:
+
+xlo_0:
+xhi_0: 
+ylo_0:
+yhi_0:
+
+xlo_1:
+xhi_1: 
+ylo_1:
+yhi_1:
+
+lstyle_0: '-' 
+mstyle_0:  
+color_0: tab:blue
+label_0: 
+alpha_0: 0.8
+
+lstyle_1: '-'
+mstyle_1: 
+color_1: tab:orange
+label_1: 
+alpha_1: 0.8
+
+lstyle_2: '-'
+mstyle_2:
+color_2: tab:green
+label_2: 
+alpha_2: 0.8
+
+lstyle_3: '-'
+mstyle_3:
+color_3: tab:gray
+label_3:
+alpha_3: 0.8
+
+Label_x-pos:
+Rotation_of_label_0:
+Y-offset_for_label_0: 
+Rotation_of_label_1:
+Y-offset_for_label_1: 
+Rotation_of_label_2: -80
+Y-offset_for_label_2: 5
+Rotation_of_label_3: -80
+Y-offset_for_label_3: -5
+
