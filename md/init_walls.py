@@ -262,6 +262,9 @@ def init_lammps(nUnitsX, nUnitsY, nUnitsZ, h, density, mFluid):
         # For the converging-diverging channel (to empty a region in the middle - the gap height)
         line = re.sub(r'variable        surfU_div_begin equal.+',
                       r'variable        surfU_div_begin equal %.2f' %surfUStartZ, line)
+        line = re.sub(r'variable        th equal.+',
+                      r'variable        th equal %.2f' %(unitlengthZ*nUnitsZ), line)
+
 
         fout = open("init2.LAMMPS", "a")
         fout.write(line)
