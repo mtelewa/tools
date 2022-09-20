@@ -140,10 +140,8 @@ class TrajtoGrid:
             time series of the chunks along the x and the z-directions.
         """
 
-        d = traj_to_grid(self.data, self.start, self.end, self.Nx, self.Nz, self.mf, self.A_per_molecule)
-
-        fluid_idx, solid_start, Nf, Nm = d.get_indices()
-        Lx, Ly, Lz = d.get_dimensions()
+        fluid_idx, solid_start, Nf, Nm = self.get_indices()
+        Lx, Ly, Lz = self.get_dimensions()
 
         # Discrete Wavevectors
         nx = np.linspace(1, nx, nx, endpoint=True)
