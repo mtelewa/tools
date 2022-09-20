@@ -192,23 +192,17 @@ class PlotGeneral:
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
 
             # Continuum prediction (Hagen Poiseuille)
-            if 'ff' in val:
-                avg_gap_height = np.mean(data.h)*1e-9
-                pGrad.append(np.absolute(data.virial()['pGrad']))
-                shear_rate.append(data.transport()['shear_rate'])
-                mu = data.transport()['mu']            # mPa.s
-                slip_vel = np.mean(data.slip_length()['Vs'])
-                bulk_den_avg = np.mean(data.density()['den_t'])
-
-                flowrate_cont = (bulk_den_avg*1e3 * self.Ly*1e-9 * 1e-9 * 1e3 * pGrad[i]*1e6*1e9 * avg_gap_height**3)  / \
-                            (12 * mu*1e-3)
-
-                mflowrate_hp.append(flowrate_cont)
-                mflowrate_hp_slip.append(flowrate_cont + (bulk_den_avg*1e6 *  \
-                                    self.Ly*1e-9 * slip_vel * avg_gap_height*1e-9) )
+            if 'cont' in val:
+                mflowrate_hp.append(data.mflowrate_hp()['mflowrate_cont'])
+                mflowrate_hp_slip.append(data.mflowrate_hp()['mflowrate_hp_slip'])
+                # avg_gap_height = np.mean(data.h)*1e-9
+                # bulk_den_avg = np.mean(data.density()['den_t'])
+                # mu = data.transport()['mu']            # mPa.s
 
             # From FF simulation
             if 'ff' in val:
+                pGrad.append(np.absolute(data.virial()['pGrad']))
+                shear_rate.append(data.transport()['shear_rate'])
                 mflowrate_ff_avg.append(np.mean(data.mflux()['mflowrate_stable']))
                 mflowrate_ff_err.append(sq.get_err(data.mflux()['mflowrate_stable'])['uncertainty'])
             # From FC simulation
