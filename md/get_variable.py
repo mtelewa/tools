@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     for i in range(len(datasets)):
         try:
-            get = ct.derive_data(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
+            get = ct.ExtractFromTraj(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
         except IndexError:
             print(f'Dataset is not processed or trajectory does not exist! \n\
             Run post-processing in the <dataset>/out directory and ensure that the trajectory is there.')
@@ -85,7 +85,11 @@ if __name__ == "__main__":
 
         if 'mflowrate' in args.qtty:
             params = get.mflux()
-            print(f"mdot stable = {np.mean(params['mflowrate_stable']):e} g/ns")
+            print(f"ṁ  stable = {np.mean(params['mflowrate_stable']):e} g/ns")
+        if 'mflowrate_hp' in args.qtty:
+            params = get.mflowrate_hp()
+            print(f"ṁ  without slip = {np.mean(params['mflowrate_hp']):e} g/ns")
+            print(f"ṁ  with slip = {np.mean(params['mflowrate_hp_slip']):e} g/ns")
         if 'density' in args.qtty:
             rho = np.mean(get.density()['den_X'])
             print(f'Bulk density (rho) = {rho:.5f} g/cm3')
