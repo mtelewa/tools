@@ -213,6 +213,35 @@ class ExtractFromTraj:
                 'jx_pump': jx_pump, 'mflowrate_pump':mflowrate_pump, 'mflowrate_X':mflowrate_chunkX,
                 'mflowrate_t':mflowrate_t, 'mflowrate_full_x': mflowrate_full_x}
 
+
+    def mflowrate_hp(self):
+        """
+        Computes the continuum prediction (Hagen Poiseuille) for mass flow rate
+        Can be used to initialize FC simulations without running FF simulations apriori
+
+        Units: g/(m^2.ns)
+        """
+
+        avg_gap_height = self.avg_gap_height * 1e-9      # m
+        bulk_den_avg = np.mean(self.density()['den_t']) * 1e3     # kg/m3
+        pGrad = np.absolute(self.virial()['pGrad']) * 1e6 * 1e9  # Pa/m
+        mu = self.transport()['mu'] * 1e-3            # Pa.s
+        Ly = self.Ly * 1e-9
+        kgpers_to_gperns =  1e-9 * 1e3
+
+        # Without slip
+        mflowrate_hp = (bulk_den_avg * Ly * pGrad * avg_gap_height**3 * kgpers_to_gperns) / (12 * mu)
+
+        # With slip
+        mflowrate_hp_slip = mflowrate_hp + (bulk_den_avg * Ly * kgpers_to_gperns * \
+                            np.mean(self.slip_length()['Vs']) * avg_gap_height)
+
+        if self.pumpsize == 0:
+            mflowrate_hp = (bulk_den_avg * Ly * np.float(input('pGrad:')) * avg_gap_height**3 * kgpers_to_gperns) / (12 * mu)
+
+        return {'mflowrate_hp':mflowrate_hp, 'mflowrate_hp_slip':mflowrate_hp_slip}
+
+
     def density(self):
         """
         Computes the mass density of the fluid
@@ -331,18 +360,6 @@ class ExtractFromTraj:
                 vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
                 vir_fluctuations = sq.get_err(vir_full_x)['var']
 
-                # pressure gradient ---------------------------------------
-                pd_length = self.Lx - self.pumpsize*self.Lx      # nm
-                # Virial pressure at the inlet and the outlet of the pump
-                out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
-                # timeseries of the output and input chunks
-                vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
-                # Pressure Difference  between inlet and outlet
-                pDiff = vir_out - vir_in
-                p_ratio = vir_out / vir_in
-                # Pressure gradient in the simulation domain
-                pGrad = - pDiff / pd_length       # MPa/nm
-
             else: # Bulk simulation (Overall pressure)
                 Wxx_t = np.sum(Wxx_full_x, axis=(1)) / (self.vol*1e3)
                 Wyy_t = np.sum(Wyy_full_x, axis=(1)) / (self.vol*1e3)
@@ -354,11 +371,31 @@ class ExtractFromTraj:
                 vir_chunkX, vir_chunkZ  = np.mean(vir_full_x, axis=(0,2)), np.mean(vir_full_z, axis=(0,1))
 
                 vir_t = -(Wxx_t + Wyy_t + Wzz_t) / 3.
-                pGrad, pDiff, p_ratio = 0,0,0
+                # pGrad, pDiff, p_ratio = 0,0,0
 
+        # The virial pressure (scalar) was computed in the post-processing script
         except KeyError:
+            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+            vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+            vir_t = np.mean(vir_full_x, axis=(1,2))
+
             Wxx_full_x, Wyy_full_x, Wzz_full_x, Wxx_full_z, Wyy_full_z, Wzz_full_z, Wxx_chunkX, Wyy_chunkX, Wzz_chunkX, \
             Wxx_chunkZ, Wyy_chunkZ, Wzz_chunkZ, Wxx_t, Wyy_t, Wzz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+
+        # pressure gradient ---------------------------------------
+        pd_length = self.Lx - self.pumpsize*self.Lx      # nm
+        # Virial pressure at the inlet and the outlet of the pump
+        out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
+        # timeseries of the output and input chunks
+        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
+        # Pressure Difference  between inlet and outlet
+        pDiff = vir_out - vir_in
+        p_ratio = vir_out / vir_in
+        # Pressure gradient in the simulation domain
+        pGrad = - pDiff / pd_length       # MPa/nm
 
 
         return {'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
