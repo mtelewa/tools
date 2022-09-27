@@ -77,15 +77,15 @@ if __name__ == "__main__":
 
     datasets = []
     for key, value in vars(args).items():
-        if key.startswith('ds') and value!='all':
+        if key.startswith('ds') and value!='allds':
             datasets.append(os.path.abspath(value))
         # plot all datasets in a certain directory
-        if key.startswith('ds') and value=='all':
+        if key.startswith('ds') and value=='allds':
             for i in os.listdir(os.getcwd()):
                 if os.path.isdir(i):
                     datasets.append(f"{os.path.abspath(os.getcwd())+ '/' + i}")
         # plot all datasets in multiple directories
-        if key.startswith('all'):
+        if key.startswith('allds'):
             for i in os.listdir(value):
                 a = os.path.abspath(f"{value+ '/' +i}")
                 if os.path.isdir(a):
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     # Order as indexed on the FileSystem. Sorting is needed if all datasets are
     # points on the same curve e.g. EOS
-    if 'all' in vars(args).values() or [i.startswith('all') for i in vars(args).keys()]:
+    if 'allds' in vars(args).values() or 'allds' in vars(args).keys():
         datasets.sort()
 
     datasets_x, datasets_z = [], []
