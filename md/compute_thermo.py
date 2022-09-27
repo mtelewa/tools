@@ -202,10 +202,13 @@ class ExtractFromTraj:
         jx_t *= (sci.angstrom/fs_to_ns) * (self.mf/sci.N_A) / (sci.angstrom**3)
 
         # Measure the mass flow rate whole domain
-        mflowrate_full_x = np.array(self.data_x.variables["mdot"])[self.skip:] * Angstromperfs_to_mpers
-        mflowrate_chunkX = (self.mf/sci.N_A) * np.mean(mflowrate_full_x, axis=(0,2)) * 1e-9 / (self.Lx*1e-9/self.Nx)
-        # Time-averaged mass flow rate in the whole domain
-        mflowrate_t = (self.mf/sci.N_A) * np.sum(mflowrate_full_x, axis=(1,2)) / (self.Lx*1e-9)
+        try:
+            mflowrate_full_x = np.array(self.data_x.variables["mdot"])[self.skip:] * Angstromperfs_to_mpers
+            mflowrate_chunkX = (self.mf/sci.N_A) * np.mean(mflowrate_full_x, axis=(0,2)) * 1e-9 / (self.Lx*1e-9/self.Nx)
+            # Time-averaged mass flow rate in the whole domain
+            mflowrate_t = (self.mf/sci.N_A) * np.sum(mflowrate_full_x, axis=(1,2)) / (self.Lx*1e-9)
+        except KeyError:
+            mflowrate_full_x, mflowrate_chunkX, mflowrate_t = 0 ,0 ,0
 
         return {'jx_X': jx_chunkX, 'jx_Z': jx_chunkZ, 'jx_t': jx_t,
                 'jx_full_x': jx_full_x, 'jx_full_z': jx_full_z,
@@ -322,9 +325,9 @@ class ExtractFromTraj:
 
         # Diagonal components (separately)
         try:
-            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:,] * sci.atm * pa_to_Mpa # Units: MPa if walls and MPa.A3 if bulk
-            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:,] * sci.atm * pa_to_Mpa
-            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:,] * sci.atm * pa_to_Mpa
+            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa # Units: MPa if walls and MPa.A3 if bulk
+            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
 
             Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
             Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
