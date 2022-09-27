@@ -3,6 +3,7 @@
 
 import argparse
 import sys, os
+import numpy as np
 from cavitation_size import CavitySize
 import progressbar
 
@@ -52,13 +53,14 @@ if __name__ == "__main__":
         for i in dataset.frames_to_process:
             # progressbar(i,len(dataset.frames_to_process))
             data = dataset.pipeline.compute(i)
-            r = dataset.void_surface_area(i,data)['radius']
+            r = dataset.void_surface_area(i, data)['radius']
             # area = void_surface_area(i,data)['area']
             time_list.append(i*dataset.lammps_dump_every)
             if r.size==0:
                 radius_list.append(0)
             else:
                 radius_list.append(np.max(r))
+
 
         # TODO: Get the simulation nucleation rate
         # J_sim = tau*vol
