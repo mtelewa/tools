@@ -18,6 +18,8 @@ extrapolate:
 3d:
 set_ax_height:
 log:
+xlabel:
+ylabel:
 
 xlo_0:
 xhi_0: 
