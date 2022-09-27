@@ -54,6 +54,8 @@ class PlotFromTxt:
             for idx, val in enumerate(self.txts):
                 data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
                 xdata = data[:,x_col] * x_pre
+                if data[:,x_col][0]>10: #TODO : make md file start from zero
+                    xdata = (data[:,x_col] - data[:,x_col][0]) * x_pre
                 ydata = data[:,y_col] * y_pre
                 self.ax.plot(xdata, ydata)
 
@@ -76,11 +78,13 @@ class PlotFromTxt:
         if 'fp' in variables:
             xdata = self.extract_plot(1e-6, 1e9, 0, 15) # ns, nN
         if 'fpump' in variables:
-            xdata = self.extract_plot(1e-6, 1e12, 0, 16) #ns, pN
+            xdata = self.extract_plot(1e-6, kcalpermolA_to_N*1e12, 0, 16) #ns, pN
         if 'fin' in variables:
-            xdata = self.extract_plot(1e-6, kcalpermolA_to_N, 0, 17) #ns, pN
+            xdata = self.extract_plot(1e-6, kcalpermolA_to_N*1e12, 0, 17) #ns, pN
         if 'fout' in variables:
-            xdata = self.extract_plot(1e-6, kcalpermolA_to_N, 0, 18) #ns, pN
+            xdata = self.extract_plot(1e-6, kcalpermolA_to_N*1e12, 0, 18) #ns, pN
+        if 'fmomnet' in variables:
+            xdata = self.extract_plot(1e-6, kcalpermolA_to_N*1e12, 0, 19) #ns, pN
         if 'press_md-cont' in variables:
             xdata = self.extract_plot(1, 1, 0, 1)            #nm, MPa
         if 'radius' in variables:
