@@ -46,7 +46,7 @@ class manipulate_ds:
         """
 
         ds = dtoolcore.DataSetCreator(self.dataset_name, str(self.base_uri), creator_username='mtelewa')
-        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
+        metadata = self.update_readme(**kwargs)
         template = os.path.join(self.sim_uri, 'README.yml')
 
         # write the readme of the dataset
@@ -66,7 +66,7 @@ class manipulate_ds:
         # Post-proc dataset readme template
         post_template = os.path.join(post_uri, 'README.yml')
 
-        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
+        metadata = self.update_readme(**kwargs)
         metadata['derived_from'][0]['uuid'] = self.sim_dataset.uuid
 
         # Create the derived dataset if not already existing
@@ -113,7 +113,7 @@ class manipulate_ds:
         derived_template = os.path.join(derived_uri, 'README.yml')
         template = os.path.join(self.sim_uri, 'README.yml')
 
-        metadata = manipulate_ds(self.dataset_name).update_readme(**kwargs)
+        metadata = self.update_readme(**kwargs)
         if '-post' not in self.dataset_name:    # Take the UUID of the dataset itself not the post-processed one
             metadata['derived_from'][0]['uuid'] = self.sim_dataset.uuid
 
