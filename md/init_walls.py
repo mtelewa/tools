@@ -206,7 +206,7 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     }}"
 
     in_f=open('geometry.lt','w')
-    if input('solid_initialized:')=='y':
+    if os.path.exists('gold_all.lt'):   # The walls were already created with LAMMPS
         in_f.write(in_script_liquid_only)
     else:
         in_f.write(in_script)
