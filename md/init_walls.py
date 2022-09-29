@@ -102,7 +102,7 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
         while add_molecules < diff:
             add_molecules+=1
         logger.warning(f" ===> Add {add_molecules} Molecules to reach the required density\
-        A deviation of {100-(Nfluid_created*100/Nfluid):.3f}% from the desired value"")
+        A deviation of {100-(Nfluid_created*100/Nfluid):.3f}% from the desired value")
 
     elif diff < 0:
         while remove_molecules < abs(diff):
@@ -179,7 +179,6 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     {(Boffset*-1)}  {zlength}   zlo zhi \n\
     }}\n"
 
-    # elif 'fluid_only' in sys.argv:
 
     in_script_liquid_only= f" # System moltemplate file\n\
     #------------------------\n\
