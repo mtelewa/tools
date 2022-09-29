@@ -53,6 +53,7 @@ if __name__ == '__main__':
         tolX, tolY, tolZ = 10 , 4 , 3
     elif args.name == 'lj':
         mFluid = 39.948
+        tolX, tolY, tolZ = 5 , 5 , 5
 
     if args.code == 'moltemp':
         init_bulk.init_moltemp(args.density, args.Np, args.name, mFluid,

@@ -58,24 +58,24 @@ if __name__ == "__main__":
         mFluid = 100.21
         tolX, tolY, tolZ = 10 , 4 , 3
     elif args.name == 'lj':
-        tolX, tolY, tolZ = 5 , 5 , 5
         mFluid = 39.948
+        tolX, tolY, tolZ = 5 , 5 , 5
 
     # Initialize either by modifying the LAMMPS init file or running moltemplate
     if args.code == 'moltemp':
         init_walls.init_moltemp(args.nUnitsX, args.nUnitsY, args.nUnitsZ,
                                      args.h, args.density, args.name,
                                      mFluid, tolX, tolY, tolZ)
-        q = input('run moltemp: ')
-        if q == 'y':
-            subprocess.call(['./setup.sh'], shell=True)
+        # q = input('run moltemp: ')
+        # if q == 'y':
+        subprocess.call(['./setup.sh'], shell=True)
 
     elif args.code == 'lammps':
         init_walls.init_lammps(args.nUnitsX, args.nUnitsY, args.nUnitsZ,
                                      args.h, args.density, mFluid)
-        q = input('run lammps: ')
-        if q == 'y':
-            subprocess.call(['mpirun -np 8 lmp_mpi -in $(pwd)/init.LAMMPS'], shell=True)
+        # q = input('run lammps: ')
+        # if q == 'y':
+        subprocess.call(['mpirun -np 8 lmp_mpi -in $(pwd)/init.LAMMPS'], shell=True)
 
     else:
         raise NameError('Provide the code')
