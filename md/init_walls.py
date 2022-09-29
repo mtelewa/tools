@@ -44,7 +44,7 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     zlength = h + 2*offset + Boffset + 2*nUnitsZ*unitlengthZ 	# Block height (starts from -Boffset)
     totalboxHeight = zlength + Boffset
 
-    print(f'lx={xlength},ly={ylength},lz={totalboxHeight}')
+    print(f'lx={xlength:.2f},ly={ylength:.2f},lz={totalboxHeight:.2f}')
 
     gapHeight = h + 2*offset
     Nfluid= round(sci.N_A * density * xlength * ylength * gapHeight * 1.e-24 / mFluid)  # No. of fluid atoms
@@ -90,8 +90,8 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
         Nz = Nz-3
         Nfluid = Nx * Ny * Nz
         density = Nfluid / (sci.N_A * xlength * ylength * gapHeight * 1.e-24 / mFluid)
-        warnings.warn("For the chosen density, atoms will be outside the box otherwise there will be overlap. \n\
-               Density was reduced to %.2f" %density)
+        warnings.warn(f"For the chosen density, atoms will be outside the box otherwise there will be overlap. \n\
+               Density was reduced to {density:.2f}")
 
     Nfluid_created = Nx * Ny * Nz
     print('Created %g molecules by moltemplate' %Nfluid_created)
@@ -101,38 +101,40 @@ def init_moltemp(nUnitsX, nUnitsY, nUnitsZ, h, density, name, mFluid, tolX, tolY
     if diff > 0:
         while add_molecules < diff:
             add_molecules+=1
-        logger.warning(f" ===> Add {add_molecules} Molecules to reach the required density")
+        logger.warning(f" ===> Add {add_molecules} Molecules to reach the required density\
+        A deviation of {100-(Nfluid_created*100/Nfluid):.3f}% from the desired value"")
 
     elif diff < 0:
         while remove_molecules < abs(diff):
             remove_molecules+=1
-        logger.warning(f" ===> Remove {remove_molecules} Molecules to reach the required density")
+        logger.warning(f" ===> Remove {remove_molecules} Molecules to reach the required density\
+        A deviation of {100-(Nfluid_created*100/Nfluid):.3f}% from the desired value")
 
     else:
         print(f'Created {Nfluid_created} molecules corresponds to bulk density of {density} g/cm^3 successfully!')
 
-    ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
-    if Nfluid_created / Nfluid <= 0.98:   # If the error in the number of desired atoms deviates from the actual created by 2%
-        print(f'Current Nx is {Nx} and Nz is {Nz}')
-        Nx = Nx + np.int(input('add/subtract to/from Nx:'))
-        Nz = Nz + np.int(input('add/subtract to/from Nz:'))
-
-    Nfluid_mod = Nx * Ny * Nz
-    diff2 = Nfluid - Nfluid_mod
-    add_molecules_mod, remove_molecules_mod = 0,0
-
-    if diff2 > 0:
-        while add_molecules_mod < diff2:
-            add_molecules_mod+=1
-        logger.warning(f" ===> Added {Nfluid_mod-Nfluid_created} molecules. Still need to add {add_molecules_mod} molecules after modification")
-
-    elif diff < 0:
-        while remove_molecules < abs(diff2):
-            remove_molecules+=1
-        logger.warning(f" ===> Remove {remove_molecules_mod} Molecules to reach the required density")
-
-    print(f'Created {Nfluid_mod:g} molecules after modification with a deviation\
-    of {100-(Nfluid_mod*100/Nfluid):.3f}% from the desired value')
+    # ## TODO: Modify Nx Ny Nz automatically based on re-evaluation of the total no.
+    # if Nfluid_created / Nfluid <= 0.98:   # If the error in the number of desired atoms deviates from the actual created by 2%
+    #     print(f'Current Nx is {Nx} and Nz is {Nz}')
+    #     Nx = Nx + np.int(input('add/subtract to/from Nx:'))
+    #     Nz = Nz + np.int(input('add/subtract to/from Nz:'))
+    #
+    # Nfluid_mod = Nx * Ny * Nz
+    # diff2 = Nfluid - Nfluid_mod
+    # add_molecules_mod, remove_molecules_mod = 0,0
+    #
+    # if diff2 > 0:
+    #     while add_molecules_mod < diff2:
+    #         add_molecules_mod+=1
+    #     logger.warning(f" ===> Added {Nfluid_mod-Nfluid_created} molecules. Still need to add {add_molecules_mod} molecules after modification")
+    #
+    # elif diff < 0:
+    #     while remove_molecules < abs(diff2):
+    #         remove_molecules+=1
+    #     logger.warning(f" ===> Remove {remove_molecules_mod} Molecules to reach the required density")
+    #
+    # print(f'Created {Nfluid_mod:g} molecules after modification with a deviation\
+    # of {100-(Nfluid_mod*100/Nfluid):.3f}% from the desired value')
 
 
     # if 'fluid_walls' in sys.argv:
