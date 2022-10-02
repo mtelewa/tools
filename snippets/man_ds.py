@@ -38,7 +38,7 @@ class manipulate_ds:
             pass
         except TypeError:  # For frozen datasets
             self.sim_dataset = dtoolcore.DataSet.from_uri(self.dataset_name)
-            print(self.sim_dataset)
+            # print(self.sim_dataset)
 
     def create_dataset(self, **kwargs):
         """
@@ -111,7 +111,7 @@ class manipulate_ds:
 
         # # derived dataset readme template
         derived_template = os.path.join(derived_uri, 'README.yml')
-        template = os.path.join(self.sim_uri, 'README.yml')
+        # template = os.path.join(self.sim_uri, 'README.yml')
 
         metadata = self.update_readme(**kwargs)
         if '-post' not in self.dataset_name:    # Take the UUID of the dataset itself not the post-processed one
