@@ -238,10 +238,10 @@ class PlotFromGrid:
                     ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
                     # Include the part before the pump
                     xval = x[ymax:] - x[ymax]
-                    np.savetxt('press-profile-MD.txt', np.c_[xval, y[ymax:]],  delimiter=' ',\
-                                                    header='Length (nm)              Pressure (MPa)')
-                    # np.savetxt('press-profile-MD-full.txt', np.c_[x, y[1:-1]],  delimiter=' ',\
-                    #                 header='Length (nm)              Pressure (MPa)')
+                    # np.savetxt('press-profile-MD.txt', np.c_[xval, y[ymax:]],  delimiter=' ',\
+                    #                                 header='Length (nm)              Pressure (MPa)')
+                    np.savetxt('press-profile-MD-full.txt', np.c_[x, y],  delimiter=' ',\
+                                    header='Length (nm)              Pressure (MPa)')
                 if self.dimension=='H':
                     try:
                         x = data.bulk_height_array  # simulation with walls
