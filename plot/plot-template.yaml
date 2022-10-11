@@ -9,6 +9,7 @@ label_subplot:
 err_caps:
 err_fill:
 plot_inset:
+plot_on_all:
 extrapolate:
 vertical_line_pos_1: 
 vertical_line_pos_2: 
@@ -18,8 +19,9 @@ extrapolate:
 3d:
 set_ax_height:
 log:
-xlabel:
-ylabel:
+
+xlabel_0:
+ylabel_0:
 
 xlo_0:
 xhi_0: 
