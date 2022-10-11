@@ -40,7 +40,7 @@ class Initialize:
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,8))
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,7)) #7,8
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -103,9 +103,9 @@ class Modify:
         # ------------------------------------------
         # Set the axes limits
         for i, ax in enumerate(axes_array):
-            if self.config['xlabel'] != None and self.config['ylabel'] != None:
-                ax.set_xlabel(self.config['xlabel'])
-                ax.set_ylabel(self.config['ylabel'])
+            if self.config['xlabel_0'] != None or self.config['ylabel_0'] != None:
+                axes_array[i].set_xlabel(self.config[f'xlabel_{i}'])
+                axes_array[i].set_ylabel(self.config[f'ylabel_{i}'])
             if self.config[f'xlo_{i}'] is not None: ax.set_xlim(left=self.config[f'xlo_{i}'])
             if self.config[f'xhi_{i}'] is not None: ax.set_xlim(right=self.config[f'xhi_{i}']*np.max(self.xdata))
             if self.config[f'ylo_{i}'] is not None: ax.set_ylim(bottom=self.config[f'ylo_{i}'])
