@@ -18,10 +18,10 @@ def get_parser():
     #--------------------
     parser.add_argument('skip', metavar='skip', action='store', type=int,
                     help='timesteps to skip')
+    parser.add_argument('filename', metavar='filename', action='store', type=str,
+                    help='first few characters of the filename')
     parser.add_argument('variables', metavar='variables', nargs='+', action='store', type=str,
                     help='the variable(s) to plot')
-    parser.add_argument('filename', metavar='filename', nargs='+', action='store', type=str,
-                    help='first few characters of the filename')
     parser.add_argument('--format', metavar='format', action='store', type=str,
                     help='format of the saved figure. Default: PNG')
     parser.add_argument('--config', metavar='config', action='store', type=str,
@@ -56,15 +56,15 @@ if __name__ == "__main__":
     for k in datasets:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.startswith(args.filename[0]):
+                if i.startswith(args.filename):
                     txts.append(os.path.join(root, i))
 
     if not txts:
         logging.error("No Files Found! Make sure the Filename is correct")
         quit()
 
-    ptxt = plot_from_txt.PlotFromTxt(args.skip, args.filename[0], txts, args.config)
-    fig = ptxt.modify_plot(args.variables)
+    ptxt = plot_from_txt.PlotFromTxt(args.skip, args.filename, txts, args.config)
+    fig = ptxt.extract_plot(args.variables)
 
     if args.format is not None:
         if args.format == 'eps':
