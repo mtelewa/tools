@@ -14,10 +14,11 @@ class CavitySize:
 
     Parameters:
     traj: str, NetCDF trajectory file
+    start, cut: Start from frame <start> and discard after frame <cut>
     every_nth: int, ovito will process every nth frame
     rprobe: int, radius of the probe sphere for the alpha-shape method (in Angstrom)
     """
-    def __init__(self, traj, every_nth, rprobe):
+    def __init__(self, traj, start, cut, every_nth, rprobe):
 
         self.pipeline = import_file(traj, multiple_frames = True)
 
@@ -38,15 +39,16 @@ class CavitySize:
         print(f'LAMMPS dumped every: {self.lammps_dump_every} steps.')
 
         # Process every nth frams
-        self.frames_to_process = np.arange(0, nframes, every_nth)
-        print(f'Ovito will process the trajectory every: {every_nth}th frame, a total of {np.int64(nframes/every_nth)} frames')
+        self.frames_to_process = np.arange(start, nframes-cut, every_nth)
+        print(f'Ovito will process the trajectory every: {every_nth}th frame, a total of {np.int64((nframes-cut)/every_nth)} frames')
 
         # Construct Surface mesh Modifier: Use the alpha method to create the triangulated surface mesh
         self.pipeline.modifiers.append(ConstructSurfaceModifier(
             method = ConstructSurfaceModifier.Method.AlphaShape,
             radius = rprobe,
             smoothing_level=30,
-            identify_regions = True))
+            identify_regions = True,
+            map_particles_to_regions = True))
             #only_selected = True)
 
     ####################################################################
@@ -134,8 +136,13 @@ class CavitySize:
         # Regions are part of the surface mesh object
         regions = data.surfaces['surface'].regions
 
+        # particle_regions = data.particles['Region']
+        # n = np.count_nonzero(regions['Filled'][particle_regions])
+
         dict = {'regions':np.array(regions['Filled']), 'Areas':np.array(regions['Surface Area']),
                  'Volumes':np.array(regions['Volume'])}
+
+        # print(dict['regions'])
 
         indeces_to_remove = []
 
@@ -162,6 +169,7 @@ class CavitySize:
         V=np.delete(dict['Volumes'], indeces_to_remove)
 
         dict = {'regions':R, 'Areas':A, 'Volumes':V}
+        # print(f"Areas: {dict['Areas']}")
 
         # Total surface area
         area = dict['Areas']
