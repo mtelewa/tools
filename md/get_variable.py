@@ -99,7 +99,7 @@ if __name__ == "__main__":
         if 'press' in args.qtty:
             pressure = np.mean(get.virial()['vir_t'])
             print(f'Average pressure = {pressure:.2f} MPa')
-        if 'gk_viscosity' in args.qtty:
+        if 'viscosity_gk' in args.qtty:
             mu = get.viscosity_gk()
             print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
         if 'slip_length' in args.qtty:
@@ -120,14 +120,14 @@ if __name__ == "__main__":
             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty:
             get.struc_factor()
-        if 'gk_lambda' in args.qtty:
+        if 'lambda_gk' in args.qtty:
             lambda_tot = get.lambda_gk()['lambda_tot']
             print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
         if 'lambda_ecouple' in args.qtty:
-            thermo_out = datasets[i]+'/data/thermo.out'
-            print(f"Thermal Conductivity = {get.lambda_ecouple(thermo_out)['lambda_x']} W/mK")
+            log_file = datasets[i]+'/data/log.lammps'
+            print(f"Thermal Conductivity = {get.lambda_ecouple(log_file)['lambda_z']} W/mK")
         if 'lambda_IK' in args.qtty:
-            print(f"Thermal Conductivity = {np.mean(get.lambda_IK()['lambda_x'])} W/mK")
+            print(f"Thermal Conductivity = {np.mean(get.lambda_IK()['lambda_z'])} W/mK")
         if 'transport' in args.qtty:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
