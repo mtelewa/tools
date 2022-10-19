@@ -57,13 +57,13 @@ color_3: tab:gray
 label_3:
 alpha_3: 0.8
 
-Label_x-pos:
-Rotation_of_label_0:
+label_x-pos:
+rotation_of_label_0:
 Y-offset_for_label_0: 
-Rotation_of_label_1:
+rotation_of_label_1:
 Y-offset_for_label_1: 
-Rotation_of_label_2: -80
+rotation_of_label_2: -80
 Y-offset_for_label_2: 5
-Rotation_of_label_3: -80
+rotation_of_label_3: -80
 Y-offset_for_label_3: -5
 
