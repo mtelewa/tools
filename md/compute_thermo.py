@@ -158,6 +158,7 @@ class ExtractFromTraj:
             vx_R3 = np.mean(vx_R3_z, axis=(0,1))
             vx_R4 = np.mean(vx_R4_z, axis=(0,1))
             vx_R5 = np.mean(vx_R5_z, axis=(0,1))
+            print(vx_R5)
 
         except KeyError:
             vx_R1, vx_R2, vx_R3, vx_R4, vx_R5 = 0, 0, 0, 0, 0
@@ -396,7 +397,6 @@ class ExtractFromTraj:
         vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
         # Pressure Difference  between inlet and outlet
         pDiff = vir_out - vir_in
-        p_ratio = vir_out / vir_in
         # Pressure gradient in the simulation domain
         pGrad = - pDiff / pd_length       # MPa/nm
 
@@ -415,7 +415,7 @@ class ExtractFromTraj:
                 'Wyz_full_x': Wyz_full_x,'Wyz_full_z': Wyz_full_z,
                 'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
                 'vir_t': vir_t, 'pGrad': pGrad, 'pDiff':pDiff,
-                'p_ratio':p_ratio, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
+                'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
 
 
     def sigwall(self):
@@ -539,7 +539,7 @@ class ExtractFromTraj:
         # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
         # pump_length = self.pumpsize * self.Lx      # nm
 
-        temp_grad = (temp_walls - temp_bulk) * 1e9 / 1     # K/m        Here: assumed that the bulk temp is 1 nm away from the walls.
+        temp_grad = (temp_walls - temp_bulk) / (0.5 * self.avg_gap_height * 1e-9)    # K/m
 
         try:
             temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
@@ -649,11 +649,11 @@ class ExtractFromTraj:
 
         temp = np.mean(self.temp()['temp_t'])         # K
 
-        prefac = self.vol* 1e-27 / (sci.k * temp )
+        prefac = self.vol* 1e-27 / (sci.k * temp)
 
-        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm']) * 1e-15  # mPa.s
-        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm']) * 1e-15  # mPa.s
-        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm']) * 1e-15  # mPa.s
+        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
+        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
+        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
 
         viscosity = (v_xz+v_yz+v_xy)/3.
 
@@ -738,15 +738,15 @@ class ExtractFromTraj:
         prefac =  np.mean(self.vol*1e-27)/(sci.k*T**2)        # m3/(J*K)
 
         # GK relation to get lambda from Equilibrium
-        lambda_x = prefac * np.sum(sq.acf(self.heat_flux()['je_x'])['non-norm']* 1e-15)      # J/mKs
-        lambda_y = prefac * np.sum(sq.acf(self.heat_flux()['je_y'])['non-norm']* 1e-15)      # J/mKs
-        lambda_z = prefac * np.sum(sq.acf(self.heat_flux()['je_z'])['non-norm']* 1e-15)      # J/mKs
+        lambda_x = prefac * np.sum(sq.acf(self.heat_flux()['je_x'])['non-norm'][:self.skip])* 1e-15      # J/mKs
+        lambda_y = prefac * np.sum(sq.acf(self.heat_flux()['je_y'])['non-norm'][:self.skip])* 1e-15      # J/mKs
+        lambda_z = prefac * np.sum(sq.acf(self.heat_flux()['je_z'])['non-norm'][:self.skip])* 1e-15      # J/mKs
         lambda_tot = (lambda_x+lambda_y+lambda_z)/3.
 
         return {'lambda_tot':lambda_tot}
 
 
-    def lambda_ecouple(self, thermo_out):
+    def lambda_ecouple(self, logfile):
         """
         Computes the heat flow rate from the slope of the energy removed by the thermostat with time in NEMD
         LAMMPS keyword is Ecouple.
@@ -755,14 +755,24 @@ class ExtractFromTraj:
         Units: J/mKs and J/s for the thermal conductivty and heat flow rate, respectively
         """
 
+        os.system(f"cat {os.path.dirname(logfile)}/log.lammps | sed -n '/Step/,/Loop time/p' \
+        | head -n-1 > {os.path.dirname(logfile)}/thermo.out")
+        with open(f'{os.path.dirname(logfile)}/thermo.out', 'r') as f:
+            for line in f:
+                if line.split()[0]!='Step' and line.split()[0]!='Loop':
+                    with open(f"{os.path.dirname(logfile) + '/thermo2.out'}", "a") as o:
+                        o.write(line)
+        data = np.loadtxt(f"{os.path.dirname(logfile) + '/thermo2.out'}", skiprows=self.skip, dtype=float)
+        os.system(f"rm {os.path.dirname(logfile)+'/thermo2.out'}")
+
         # Ecouple from the thermostat:
-        delta_energy = np.loadtxt(thermo_out, skiprows=1, dtype=float)[:,2] # kcal/mol
+        delta_energy = data[:,2] # kcal/mol
         cut = self.skip + 10000 # Consider the energy slope in a window of 10 ns
 
         # Heat flow rate: slope of the energy with time
         qdot, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
         qdot *= 4184 / (sci.N_A * 1e-15)     # J/s
-        qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * 2 * self.wall_A * 1e-18 * self.avg_gap_height * 1e-9
+        # qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
 
         # Heat flux
         j =  qdot / (2 * self.wall_A) # J/(m2.s)
@@ -771,7 +781,7 @@ class ExtractFromTraj:
         print(f'Tgrad = {temp_grad:e} K/m')
         lambda_z = -j / temp_grad
 
-        return {'lambda_z':lambda_z, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
+        return {'lambda_z':lambda_z, 'qdot':qdot}#, 'qdot_continuum':qdot_continuum}
 
 
     def lambda_IK(self):
@@ -785,10 +795,10 @@ class ExtractFromTraj:
         je_z = -self.heat_flux()['je_z']   # J/m2.s
         temp_grad = self.temp()['temp_grad']   # K/m
 
-        qdot = np.mean(je_z) * self.wall_A * 1e-18  # W
-        qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * self.wall_A * 1e-18 * self.avg_gap_height * 1e-9 / 2.
-
+        qdot = np.mean(je_z) * self.wall_A  # W
         lambda_z = -je_z / temp_grad
+
+        qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * self.wall_A * self.avg_gap_height * 1e-9 / 2.
         lambda_continuum = - self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * self.avg_gap_height * 1e-9 / (2 * temp_grad)   # W/(m.K)
 
         return {'lambda_z':lambda_z, 'lambda_continuum':lambda_continuum, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
