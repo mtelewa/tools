@@ -13,6 +13,10 @@ def get_parser():
 
     #Positional arguments
     #--------------------
+    parser.add_argument('start', metavar='start', action='store', type=int,
+                    help='Start from this frame')
+    parser.add_argument('cut', metavar='cut', action='store', type=int,
+                    help='Discard after this frame')
     parser.add_argument('nevery', metavar='nevery', action='store', type=int,
                     help='Ovito will process every nth frame')
     parser.add_argument('rprobe', metavar='rprobe', action='store', type=float,
@@ -46,12 +50,11 @@ if __name__ == "__main__":
                     trajactories.append(os.path.join(root, i))
 
     for i in range(len(trajactories)):
-        dataset = CavitySize(trajactories[0], args.nevery, args.rprobe)
+        dataset = CavitySize(trajactories[0], args.start, args.cut, args.nevery, args.rprobe)
 
         time_list, radius_list = [], []
         # # Run the data pipleine
         for i in dataset.frames_to_process:
-            # progressbar(i,len(dataset.frames_to_process))
             data = dataset.pipeline.compute(i)
             r = dataset.void_surface_area(i, data)['radius']
             # area = void_surface_area(i,data)['area']
@@ -59,8 +62,16 @@ if __name__ == "__main__":
             if r.size==0:
                 radius_list.append(0)
             else:
-                radius_list.append(np.max(r))
-
+                # if i*dataset.lammps_dump_every<5.1e5: # Time where first bubble size schrinks
+                if len(r)>1:
+                    radius_list.append(np.max(r))
+                else:
+                    radius_list.append(r)
+                # else:
+                #     if len(r)>1:
+                #         radius_list.append(np.min(r))
+                #     else:
+                #         radius_list.append(0)
 
         # TODO: Get the simulation nucleation rate
         # J_sim = tau*vol
