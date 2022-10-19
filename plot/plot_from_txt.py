@@ -71,6 +71,12 @@ class PlotFromTxt:
                 if 'npump' in variables:
                     x_pre, y_pre, x_col, y_col = 1e-6, 1, 0, 13 # ns, count
                     if nrows>1: n+=1
+                if 'fpump' in variables:
+                    # self.axes_array[0].set_xlabel('Time (ns)')
+                    # self.axes_array[0].set_ylabel('Force (pN)')
+                    xdata, ydata = data[:,0]*1e-6, data[:,16]*kcalpermolA_to_N*1e12 # ns, pN
+                    self.plot_data(self.axes_array[n], xdata, ydata)
+                    if nrows>1: n+=1
                 if 'fw' in variables:
                     # self.axes_array[0].set_xlabel('Time (ns)')
                     # self.axes_array[0].set_ylabel('Force (nN)')
@@ -81,12 +87,6 @@ class PlotFromTxt:
                     # self.axes_array[0].set_xlabel('Time (ns)')
                     # self.axes_array[0].set_ylabel('$f_{pump}$ (pN)')
                     xdata, ydata = data[:,0]*1e-6, data[:,15]*1e9 # ns, nN
-                    self.plot_data(self.axes_array[n], xdata, ydata)
-                    if nrows>1: n+=1
-                if 'fpump' in variables:
-                    # self.axes_array[0].set_xlabel('Time (ns)')
-                    # self.axes_array[0].set_ylabel('Force (pN)')
-                    xdata, ydata = data[:,0]*1e-6, data[:,16]*kcalpermolA_to_N*1e12 # ns, pN
                     self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'fin' in variables:
@@ -106,20 +106,21 @@ class PlotFromTxt:
                 os.system(f"rm {os.path.dirname(i)+'/thermo2.out'}")
 
         else: # Plot from text files
+
             for idx, val in enumerate(self.txts):
+                n=0    # subplot
                 data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
 
                 if 'press_md-cont' in variables:
-                    xdata = self.extract_plot(1, 1, 0, 1)            #nm, MPa
+                    x_pre, y_pre, x_col, y_col = 1, 1, 0, 1            #nm, MPa
                 if 'radius' in variables:
-                    xdata = self.extract_plot(1e-6, 1, 0, 1)['xdata']            #nm, MPa
-
+                    x_pre, y_pre, x_col, y_col = 1e-6, 1, 0, 1      #ns, Angstrom
 
                 xdata = data[:,x_col] * x_pre
                 if data[:,x_col][0]>10: #TODO : make md file start from zero
                     xdata = (data[:,x_col] - data[:,x_col][0]) * x_pre
                 ydata = data[:,y_col] * y_pre
-                self.axes_array[n].plot(xdata, ydata)
+                self.plot_data(self.axes_array[n], xdata, ydata)
 
 
         try:
