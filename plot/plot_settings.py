@@ -3,8 +3,11 @@
 
 import numpy as np
 import yaml
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.gridspec import GridSpec
+import label_lines
 
 class Initialize:
     """
@@ -40,7 +43,7 @@ class Initialize:
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,7)) #7,8
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,8)) #7,8
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -49,11 +52,11 @@ class Initialize:
 
             if self.config['broken_axis'] is not None:
                 # Hide the bottom spines and ticks of all the axes except the last (bottom) one
-                for ax in axes_array[:-1]:
+                for ax in axes_array[:-2]: # [:-1] # TODO:
                     ax.spines.bottom.set_visible(False)
                     ax.tick_params(labeltop=False, bottom=False)  # don't put tick labels at the bottom
                 # Hide the top spines and ticks of all the axes except the first (top) one
-                for ax in axes_array[1:]:
+                for ax in axes_array[1:-1]: #[1:]
                     ax.spines.top.set_visible(False)
                     ax.tick_params(labeltop=False, top=False)  # don't put tick labels at the top
 
@@ -94,7 +97,8 @@ class Modify:
             else:
                 line.set_linestyle(self.config[f'lstyle_{i}'])
                 line.set_marker(self.config[f'mstyle_{i}'])
-                line.set_color(self.config[f'color_{i}'])
+                if self.config[f'color_{i}']: # If color is pre-defined
+                    line.set_color(self.config[f'color_{i}'])
                 line.set_label(self.config[f'label_{i}'])
                 line.set_alpha(self.config[f'alpha_{i}'])
             print(f'Line {i} label: {line.get_label()}')
@@ -111,26 +115,25 @@ class Modify:
             if self.config[f'ylo_{i}'] is not None: ax.set_ylim(bottom=self.config[f'ylo_{i}'])
             if self.config[f'yhi_{i}'] is not None: ax.set_ylim(top=self.config[f'yhi_{i}'])
         if self.config['legend_elements'] is not None: self.add_legend(axes_array[self.config['legend_on_ax']])
-        if self.config['Label_x-pos'] is not None: self.label_inline(lines)
+        if self.config['label_x-pos'] is not None: self.label_inline(lines)
         if self.config['label_subplot'] is not None: self.label_subplot(axes_array)
         if self.config['vertical_line_pos_1'] is not None: self.plot_vlines(axes_array)
-        if self.config['plot_inset'] is not None: self.plot_inset(axes_array)
         if self.config['broken_axis'] is not None: self.plot_broken(axes_array)
-        if self.config['set_ax_height'] is not None: self.set_ax_height(pt)
+        if self.config['set_ax_height'] is not None: self.set_ax_height(axes_array)
+        # if self.config['plot_inset'] is not None: self.plot_inset(axes_array)
 
 
     def add_legend(self, axis):
         """
         Modifies the legend by adding user-specified elements
         """
-
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
         legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
                            Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
+                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
+                           # Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
 
@@ -162,8 +165,8 @@ class Modify:
             if line.get_linestyle() == 'pop' or line.get_label() == ' ' or line.get_label() is None: #.startswith('_'):
                 pass
             else:
-                xpos = self.config[f'Label_x-pos_{i}']
-                rot = self.config[f'Rotation_of_label_{i}']
+                xpos = self.config[f'label_x-pos_{i}']
+                rot = self.config[f'rotation_of_label_{i}']
                 y_offset = self.config[f'Y-offset_for_label_{i}']
                 label_lines.label_line(line, xpos, yoffset= y_offset, \
                          label=line.get_label(), fontsize= 14, rotation= rot)
@@ -195,23 +198,9 @@ class Modify:
         pos1 = self.config['vertical_line_pos_1']
         pos2 = self.config['vertical_line_pos_2']
 
-        for ax in range(len(pt.axes_array)):
+        for ax in range(len(axes)):
             axes[ax].axvline(x= pos1*self.xdata, color='k', marker=' ', linestyle='dotted', lw=1.5)
             axes[ax].axvline(x= pos2*self.xdata, color='k', marker=' ', linestyle='dotted', lw=1.5)
-
-
-    def plot_inset(self, xpos=0.64, ypos=0.28, w=0.23, h=0.17):
-        """
-        Adds an inset figure
-        """
-        inset_ax = self.fig.add_axes([xpos, ypos, w, h]) # X, Y, width, height
-        # Inset x-axis limit
-        inset_ax.set_xlim(right=0.2*np.max(self.xdata))
-        # Inset axes labels
-        inset_ax.set_xlabel(self.config['inset_xlabel'])
-        inset_ax.set_ylabel(self.config['inset_ylabel'])
-
-        return inset_ax
 
 
     def plot_broken(self, axes, shared_label=None):
@@ -223,8 +212,8 @@ class Modify:
                       linestyle="none", color='k', mec='k', mew=1, clip_on=False)
 
         # Draw the dashes
-        axes[0].plot([0, 1], [0, 0], transform=pt.axes_array[0].transAxes, **kwargs)
-        axes[1].plot([0, 1], [1, 1], transform=pt.axes_array[1].transAxes, **kwargs)
+        axes[0].plot([0, 1], [0, 0], transform=axes[0].transAxes, **kwargs)
+        axes[1].plot([0, 1], [1, 1], transform=axes[1].transAxes, **kwargs)
 
         # Remove all axes label
         for ax in axes:
