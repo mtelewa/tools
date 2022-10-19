@@ -26,7 +26,7 @@ labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
-        r'${\mathrm{\dot{m}}} \times 10^{-18}}$ (g/ns)', r'${\mathrm{\dot{\gamma}} (s^{-1})}$',
+        r'${\mathrm{\dot{m}}} \times 10^{-20}}$ (g/ns)', r'${\mathrm{\dot{\gamma}} (s^{-1})}$',
 #           12
         r'${\mathrm{\eta}}$ (mPa.s)', r'$N_{\mathrm{\pump}}$', r'Energy (Kcal/mol)', '$R(t)$ (${\AA}$)')
 
@@ -74,29 +74,44 @@ class PlotFromGrid:
         """
         if self.dimension=='L':
             fit_data = funcs.fit(x[1:-1] ,y[1:-1], self.config[f'fit'])['fit_data']
-            ax.plot(x[1:-1], fit_data, 'k-',  lw=1.5)
+            ax.plot(x[1:-1], fit_data, lw=1.5)
         if self.dimension=='H':
             fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
-            ax.plot(x[y!=0][2:-2], fit_data, 'k-',  lw=1.5)
+            ax.plot(x[y!=0][2:-2], fit_data, lw=1.5)
 
 
-    def plot_uncertainty(self, ax, x, y, arr):
+    def plot_inset(self, xdata, xpos=0.64, ypos=0.28, w=0.23, h=0.17):
+        """
+        Adds an inset figure
+        """
+        inset_ax = self.fig.add_axes([xpos, ypos, w, h]) # X, Y, width, height
+
+        # Inset x-axis limit
+        inset_ax.set_xlim(right=0.2*np.max(xdata))
+        # Inset axes labels
+        inset_ax.set_xlabel(self.config['inset_xlabel'])
+        inset_ax.set_ylabel(self.config['inset_ylabel'])
+
+        return inset_ax
+
+
+    def plot_uncertainty(self, ax, x, y, arr, color):
         """
         Plots the uncertainty of the data
         """
-        if self.config['err_caps'] is not None:
+        if self.config['err_caps']:
             if self.dimension=='L':
                 err = sq.get_err(arr)['uncertainty'][1:-1]
                 markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err,
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             if self.dimension=='H':
                 err = sq.get_err(arr)['uncertainty'][y!=0][2:-2]
                 markers, caps, bars= ax.errorbar(x[y!=0][2:-2], y[y!=0][2:-2], xerr=None, yerr=err,
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
-        if self.config['err_fill'] is not None:
+        if self.config['err_fill']:
             if self.dimension=='L':
                 lo, hi = sq.get_err(arr)['lo'][1:-1], sq.get_err(arr)['hi'][1:-1]
                 ax.fill_between(x[1:-1], lo, hi, color=color, alpha=0.4)
@@ -135,6 +150,34 @@ class PlotFromGrid:
             if self.dimension=='H': x = data.height_array      # nm
             if self.dimension=='T': x = self.time[self.skip:] * 1e-6      # ns
 
+            # Velocity - x component
+            if any('vx' in var for var in variables):
+                self.axes_array[n].set_ylabel(labels[5])
+                if self.dimension=='L': arr, y = data.velocity()['vx_full_x'], data.velocity()['vx_X']
+                if self.dimension=='H': arr, y = data.velocity()['vx_full_z'], data.velocity()['vx_Z']
+                if self.dimension=='T': arr, y = None, data.velocity()['vx_t']
+                self.plot_data(self.axes_array[n], x, y)
+                # Fitting the data
+                if self.config[f'fit']:
+                    self.plot_fit(self.axes_array[n], x, y)
+                if self.config['extrapolate']:
+                    x_extrapolate = data.slip_length()['xdata_left']
+                    y_extrapolate = data.slip_length()['extrapolate_left']
+                    self.axes_array[n].plot(x_extrapolate, y_extrapolate, marker=' ', ls='--', color='k')
+                    # ax.set_xlim([data.slip_length()['root_left'], 0.5*np.max(x)])
+                    # ax.set_ylim([0, 1.1*np.max(y)])
+                if self.nrows>1: n+=1
+                if self.config['broken_axis'] and self.config['plot_on_all']:
+                    for n in range(self.nrows): # plot the same data on all the axes
+                        self.plot_data(self.axes_array[n], x, y)
+                        if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y) #self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
+                        n+=1
+                if self.config['broken_axis'] and not self.config['plot_on_all']:
+                    while n<self.nrows-1: # plot the same data on all the axes except the last one
+                        self.plot_data(self.axes_array[n], x, y)
+                        if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y) #self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
+                        n+=1
+
             # Gap height
             if any('gapheight' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[0])
@@ -161,8 +204,8 @@ class PlotFromGrid:
             # Mass flowrate - x component
             if any('mflowrate' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[10])
-                if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']#*1e20
-                if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']#*1e18
+                if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']*1e20
+                if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']*1e20
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
@@ -262,13 +305,13 @@ class PlotFromGrid:
                 if self.dimension=='T':
                     arr, y = None, data.sigwall()['sigzz_t']
                     self.plot_data(self.axes_array[n], x, y)
-                if self.config['err_caps'] is not None:
+                if self.config['err_caps']:
                     err =  data.sigwall()['sigzz_err'][1:-1]
-                    Modify.plot_err_caps(self.axes_array[n], x, y, None, err)
-                if self.config['err_fill'] is not None:
+                    self.plot_uncertainty(self.axes_array[n], x, y, err)
+                if self.config['err_fill']:
                     lo =  data.sigwall()['sigzz_lo'][1:-1]
                     hi =  data.sigwall()['sigzz_hi'][1:-1]
-                    self.plot_err_fill(self.axes_array[n], x, lo, hi)
+                    self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.nrows>1: n+=1
 
             if any('sigxz' in var for var in variables):
@@ -279,20 +322,20 @@ class PlotFromGrid:
                 if self.dimension=='T':
                     arr, y = None, data.sigwall()['sigxz_t']
                     self.plot_data(self.axes_array[n], x, y)
-                if self.config['err_caps'] is not None:
+                if self.config['err_caps']:
                     if self.dimension=='L': # Error in eachchunk
                         err =  data.sigwall()['sigxz_err'][1:-1]
                     else:
                         err =  data.sigwall()['sigxz_err_t'][1:-1]
-                    self.plot_err_caps(self.axes_array[n], x, y, None, err)
-                if self.config['err_fill'] is not None:
+                    self.plot_uncertainty(self.axes_array[n], x, y, err)
+                if self.config['err_fill']:
                     if self.dimension=='L': # Error in eachchunk
                         lo =  data.sigwall()['sigxz_lo'][1:-1]
                         hi =  data.sigwall()['sigxz_hi'][1:-1]
                     else:   # Error in timeseries
                         lo =  data.sigwall()['sigxz_lo_t']
                         hi =  data.sigwall()['sigxz_hi_t']
-                    self.plot_err_fill(self.axes_array[n], x, lo, hi)
+                    self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.nrows>1: n+=1
 
             # Fluid temperature - x component
@@ -327,9 +370,9 @@ class PlotFromGrid:
                 if self.dimension=='T': arr, y = None, data.temp()['temp_t']
                 if self.config['broken_axis'] is None: self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
-                if self.config['broken_axis'] is not None:
+                if self.config['broken_axis']:
                     try:
-                        if self.config['plot_on_all'] is not None:
+                        if self.config['plot_on_all']:
                             for n in range(self.nrows): # plot the same data on all the axes except the last one
                                 self.axes_array[n].plot(x, y[1:-1])
                                 n+=1
@@ -351,36 +394,22 @@ class PlotFromGrid:
                     self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
-            # Velocity - x component
-            if any('vx' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[5])
-                if self.dimension=='L': arr, y = data.velocity()['vx_full_x'], data.velocity()['vx_X']
-                if self.dimension=='H': arr, y = data.velocity()['vx_full_z'], data.velocity()['vx_Z']
-                if self.dimension=='T': arr, y = None, data.velocity()['vx_t']
-                self.plot_data(self.axes_array[n], x, y)
-                # Fitting the data
-                if self.config[f'fit'] is not None and self.dimension=='H':
-                    self.plot_fit(self.axes_array[n], x, y, arr)
-                if self.config['extrapolate'] is not None:
-                    x_extrapolate = data.slip_length()['xdata_left']
-                    y_extrapolate = data.slip_length()['extrapolate_left']
-                    self.axes_array[n].plot(x_extrapolate, y_extrapolate, marker=' ', ls='--', color='k')
-                    # ax.set_xlim([data.slip_length()['root_left'], 0.5*np.max(x)])
-                    # ax.set_ylim([0, 1.1*np.max(y)])
-                if self.nrows>1: n+=1
+        if self.config['plot_inset']:
 
-                if self.config['broken_axis'] is not None:
-                    try:
-                        if self.config['plot_on_all'] is not None:
-                            for n in len(self.nrows): # plot the same data on all the axes except the last one
-                                self.axes_array[n].plot(x[y!=0], y[y!=0])
-                                if self.config[f'fit'] is not None: self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
-                                n+=1
-                    except KeyError:
-                        while n<self.nrows-1: # plot the same data on all the axes except the last one
-                            self.axes_array[n].plot(x[y!=0], y[y!=0])
-                            if self.config[f'fit'] is not None: self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
-                            n+=1
+            # TODO : Generalize, data0 is wetting and data4 is non-wetting
+            data0 = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
+            data4 = dataset(self.skip, self.datasets_x[4], self.datasets_z[4], self.mf, self.pumpsize)
+
+            inset_ax = self.plot_inset(data0.length_array[1:-1])
+            inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1], color='tab:blue')
+            inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1], color='tab:orange')
+            inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
+
+            self.plot_uncertainty(inset_ax, data0.length_array, data0.virial()['vir_X'],
+                                            data0.virial()['vir_full_x'], color='tab:blue')
+            self.plot_uncertainty(inset_ax, data4.length_array, data4.virial()['vir_X'],
+                                            data4.virial()['vir_full_x'], color='tab:orange')
+
 
         try:
             Modify(x, self.fig, self.axes_array, self.configfile)
@@ -388,23 +417,3 @@ class PlotFromGrid:
             logging.error('No data on the x-axis, check the quanity to plot!')
 
         return self.fig
-
-
-
-
-        # if self.config['plot_inset'] is not None:
-        #     inset_ax = Modify.plot_inset()
-        #     # TODO : Generalize, data0 is wetting and data4 is non-wetting
-        #     data0 = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
-        #     data4 = dataset(self.skip, self.datasets_x[4], self.datasets_z[4], self.mf, self.pumpsize)
-        #
-        #     inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1], color='tab:blue')
-        #     inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1], color='tab:green')
-        #     inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
-        #
-        #     lo0, hi0 = sq.get_err(data0.virial()['vir_full_x'])['lo'][1:-1], sq.get_err(data0.virial()['vir_full_x'])['hi'][1:-1]
-        #     lo4, hi4 = sq.get_err(data4.virial()['vir_full_x'])['lo'][1:-1], sq.get_err(data4.virial()['vir_full_x'])['hi'][1:-1]
-        #
-        #     # self = plot_from_ds(self.skip, self.datasets_x, self.datasets_z, self.mf, self.configfile, self.pumpsize)
-        #     self.plot_err_fill(inset_ax, data0.length_array[1:-1], lo0, hi0, color='tab:blue')
-        #     self.plot_err_fill(inset_ax, data4.length_array[1:-1], lo5, hi5, color='tab:green')
