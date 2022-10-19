@@ -14,7 +14,6 @@ import sample_quality as sq
 from compute_thermo import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
 
-
 # Uncomment to change Matplotlib backend
 # mpl.use('TkAgg')
 
@@ -117,6 +116,11 @@ class PlotGeneral:
         Modify(vx_values, self.fig, self.axes_array, self.configfile)
 
 
+    def colorFader(self, c1, c2, mix=0): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
+        c1 = np.array(mpl.colors.to_rgb(c1))
+        c2 = np.array(mpl.colors.to_rgb(c2))
+        return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
+
     def v_evolution(self):
         """
         Plots the streaming velocity profile in 5 regions along the flow direction
@@ -126,20 +130,28 @@ class PlotGeneral:
         ax.set_xlabel('Height (nm)')
         ax.set_ylabel('$V_{x}$ (m/s)')
 
+        # Color gradient
+        c1 = 'tab:blue' #blue
+        c2 = 'tab:red' #red
+        n = 4
+        colors = []
+        for x in range(n+1):
+            colors.append(self.colorFader(c1,c2,x/n))
+
         for i in range(len(self.datasets_x)):
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
             h = data.height_array
-            vx_R1 =  data.velocity()['vx_R1']
+            # vx_R1 =  data.velocity()['vx_R1']
             vx_R2 =  data.velocity()['vx_R2']
             vx_R3 =  data.velocity()['vx_R3']
             vx_R4 =  data.velocity()['vx_R4']
             vx_R5 =  data.velocity()['vx_R5']
 
-            ax.plot(h[vx_R1!=0][1:-1], vx_R1[vx_R1!=0][1:-1])
-            ax.plot(h[vx_R2!=0][1:-1], vx_R2[vx_R2!=0][1:-1])
-            ax.plot(h[vx_R3!=0][1:-1], vx_R3[vx_R3!=0][1:-1])
-            ax.plot(h[vx_R4!=0][1:-1], vx_R4[vx_R4!=0][1:-1])
-            ax.plot(h[vx_R5!=0][1:-1], vx_R5[vx_R5!=0][1:-1])
+            # ax.plot(h[vx_R1!=0][1:-1], vx_R1[vx_R1!=0][1:-1])
+            ax.plot(h[vx_R2!=0][1:-1], vx_R2[vx_R2!=0][1:-1], color=colors[0])
+            ax.plot(h[vx_R3!=0][1:-1], vx_R3[vx_R3!=0][1:-1], color=colors[1])
+            ax.plot(h[vx_R4!=0][1:-1], vx_R4[vx_R4!=0][1:-1], color=colors[2])
+            ax.plot(h[vx_R5!=0][1:-1], vx_R5[vx_R5!=0][1:-1], color=colors[3])
 
         Modify(h, self.fig, self.axes_array, self.configfile)
 
@@ -794,21 +806,37 @@ class PlotGeneral:
         ax.set_ylabel('$\gamma$ (mN/m)')
 
         temp, gamma = [], []
-        for i in range(len(self.datasets_x)):
-            ds = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-            temp.append(np.mean(ds.temp()['temp_t']))
-            gamma.append(np.mean(ds.surface_tension()['gamma'])*1e3)
+        temp_gautschi, gamma_gautschi = [], []
+        temp_gautschi_5, gamma_gautschi_5 = [], []
 
         if self.mf == 39.948: gamma_exp = [11.871,10.661,9.7482,8.3243,7.2016,6.1129,5.0617,4.0527,3.0919,2.2879]
         if self.mf == 72.15: gamma_exp = [32.5,29.562,26.2638,23.736,20.864,18.032,15.250,12.534,9.9014,7.379,5.0029]#,2.8318,0.98]
 
-        popt, pcov = curve_fit(funcs.power_new, temp/np.max(temp), gamma, maxfev=8000)
+        for idx, val in enumerate(self.datasets_x):
+            if 'gautschi' not in val:
+                ds = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
+                temp.append(np.mean(ds.temp()['temp_t']))
+                gamma.append(np.mean(ds.surface_tension()['gamma'])*1e3)
+            if 'gautschi-1fs' in val:
+                ds = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
+                temp_gautschi.append(np.mean(ds.temp()['temp_t']))
+                gamma_gautschi.append(np.mean(ds.surface_tension()['gamma'])*1e3)
+            if 'gautschi-5fs' in val:
+                ds = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
+                temp_gautschi_5.append(np.mean(ds.temp()['temp_t']))
+                gamma_gautschi_5.append(np.mean(ds.surface_tension()['gamma'])*1e3)
 
-        print(f'Critical temperature: Tc = {popt[1]*np.max(temp):.2f}')
+        if temp:
+            ax.plot(temp, gamma)
+            popt, pcov = curve_fit(funcs.power_new, temp/np.max(temp), gamma, maxfev=8000)
+            print(f'Critical temperature: Tc = {popt[1]*np.max(temp):.2f}')
+            ax.plot(temp,funcs.power_new(temp/np.max(temp), *popt))
+        if temp_gautschi:
+            ax.plot(temp_gautschi, gamma_gautschi)
+        if temp_gautschi_5:
+            ax.plot(temp_gautschi_5, gamma_gautschi_5)
 
-        ax.plot(temp,gamma)
         ax.plot(temp,gamma_exp)
-        ax.plot(temp,funcs.power_new(temp/np.max(temp), *popt))
 
         Modify(temp, self.fig, self.axes_array, self.configfile)
 
