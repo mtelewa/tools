@@ -255,11 +255,11 @@ class TrajtoGrid:
             fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
                                      utils.extrema(fluid_zcoords)['local_max']
 
-            fluid_zcoords_conv = utils.region(fluid_zcoords, fluid_xcoords, 0.49*Lx, 0.5*Lx)['data']
+            fluid_zcoords_conv = utils.region(fluid_zcoords, fluid_xcoords, 0.1*Lx, 0.2*Lx)['data']
             fluid_begin_conv = utils.cnonzero_min(fluid_zcoords_conv)['local_min']
             fluid_end_conv = utils.extrema(fluid_zcoords_conv)['local_max']
 
-            fluid_zcoords_div = utils.region(fluid_zcoords, fluid_xcoords, 0, 0.2*Lx)['data']
+            fluid_zcoords_div = utils.region(fluid_zcoords, fluid_xcoords, 0.7*Lx, 0.8*Lx)['data']
             fluid_begin_div = utils.cnonzero_min(fluid_zcoords_div)['local_min']
             fluid_end_div = utils.extrema(fluid_zcoords_div)['local_max']
 
@@ -316,9 +316,15 @@ class TrajtoGrid:
             avg_surfU_end, avg_surfL_begin = np.mean(comm.allgather(np.mean(surfU_end))), \
                                              np.mean(comm.allgather(np.mean(surfL_begin)))
 
+            # Narrow range because of outliers in the fluid coordinates
+            surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, 0.1*Lx, 0.2*Lx)['data']
+            surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, 0.1*Lx, 0.2*Lx)['data']
+            surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
+            surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
+
             # The converged and diverged regions fluid, surfU and surfL coordinates
-            surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, 0, 0.2*Lx)['data']
-            surfL_zcoords_div = utils.region(surfL_zcoords, surfL_xcoords, 0, 0.2*Lx)['data']
+            surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, 0.7*Lx, 0.8*Lx)['data']
+            surfL_zcoords_div = utils.region(surfL_zcoords, surfL_xcoords, 0.7*Lx, 0.8*Lx)['data']
             surfU_begin_div = utils.cnonzero_min(surfU_zcoords_div)['local_min']
             surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
 
@@ -341,12 +347,6 @@ class TrajtoGrid:
             surfU_vx_t, surfU_vy_t, surfU_vz_t = vels_t[:, solid_start:, 0][:,surfU_vib_indices], \
                                                  vels_t[:, solid_start:, 1][:,surfU_vib_indices], \
                                                  vels_t[:, solid_start:, 2][:,surfU_vib_indices]
-
-            # Narrow range because of outliers in the fluid coordinates
-            surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, 0.4*Lx, 0.5*Lx)['data']
-            surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, 0.4*Lx, 0.5*Lx)['data']
-            surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
-            surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
 
             # Gap heights and COM (in Z-direction) at each timestep
             gap_height = (fluid_end - fluid_begin + surfU_begin - surfL_end) / 2.
@@ -586,8 +586,9 @@ class TrajtoGrid:
 
             # Measure the velocity profile evolution along the stream -----------------------
             # Bounds R1
-            R1Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * dim[0]
+            R1Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx
             bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
+            print(bounds_R1)
 
             xx_R1, yy_R1, zz_R1 = np.meshgrid(bounds_R1[0], bounds_R1[1], bounds_R1[2])
             xx_R1 = np.transpose(xx_R1, (1, 0, 2))
@@ -595,7 +596,7 @@ class TrajtoGrid:
             zz_R1 = np.transpose(zz_R1, (1, 0, 2))
 
             # Bounds R2
-            R2Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * dim[0] + bounds_R1[0][-1]
+            R2Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx + bounds_R1[0][-1]
             bounds_R2 = [R2Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R2, yy_R2, zz_R2 = np.meshgrid(bounds_R2[0], bounds_R2[1], bounds_R2[2])
@@ -604,7 +605,7 @@ class TrajtoGrid:
             zz_R2 = np.transpose(zz_R2, (1, 0, 2))
 
             # Bounds R3
-            R3Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * dim[0] + bounds_R2[0][-1]
+            R3Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx + bounds_R2[0][-1]
             bounds_R3 = [R3Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R3, yy_R3, zz_R3 = np.meshgrid(bounds_R3[0], bounds_R3[1], bounds_R3[2])
@@ -613,7 +614,7 @@ class TrajtoGrid:
             zz_R3 = np.transpose(zz_R3, (1, 0, 2))
 
             # Bounds R4
-            R4Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * dim[0] + bounds_R3[0][-1]
+            R4Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx + bounds_R3[0][-1]
             bounds_R4 = [R4Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R4, yy_R4, zz_R4 = np.meshgrid(bounds_R4[0], bounds_R4[1], bounds_R4[2])
@@ -622,7 +623,7 @@ class TrajtoGrid:
             zz_R4 = np.transpose(zz_R4, (1, 0, 2))
 
             # Bounds R5
-            R5Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * dim[0] + bounds_R4[0][-1]
+            R5Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx + bounds_R4[0][-1]
             bounds_R5 = [R5Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
 
             xx_R5, yy_R5, zz_R5 = np.meshgrid(bounds_R5[0], bounds_R5[1], bounds_R5[2])
