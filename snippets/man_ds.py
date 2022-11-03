@@ -82,8 +82,11 @@ class manipulate_ds:
                 if 'x' in i:
                     dds.put_item(os.path.join(self.sim_out_uri,i), i)
                     os.remove(os.path.join(self.sim_out_uri,i))
+
+        for root, dirs, files in os.walk(self.sim_uri):
+            for i in files:
                 if 'log.lammps' in i:
-                    dds.put_item(os.path.join(self.sim_out_uri,i), i)
+                    dds.put_item(os.path.join(self.sim_uri,'data',i), i)
 
         # write the readme of the post-proc dataset
         with open(post_template, "w") as f:
