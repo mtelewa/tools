@@ -3,7 +3,6 @@
 
 import sys, os
 import numpy as np
-import pandas as pd
 from ovito.data import DataTable
 from ovito.io import import_file, export_file
 from ovito.modifiers import ConstructSurfaceModifier, TimeSeriesModifier
