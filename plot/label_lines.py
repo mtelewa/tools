@@ -8,7 +8,7 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
     if (x < xdata[0]) or (x > xdata[-1]):
         print('x label location is outside data range!')
         return
-    #Find corresponding y co-ordinate and angle of the
+    #Find corresponding y coordinate and angle of the
     ip = 1
     for i in range(len(xdata)):
         if x < xdata[i]:
@@ -28,7 +28,7 @@ def label_line(line,x,yoffset=None,label=None,rotation=None,**kwargs):
         dy = ydata[ip+10] - ydata[ip-10]
         ang = np.degrees(atan2(dy,dx))
         print(ang)
-        #Transform to screen co-ordinates
+        #Transform to screen coordinates
         pt = np.array([x,y]).reshape((1,2))
         trans_angle = ax.transData.transform_angles(np.array((ang,)),pt)[0]
         # print(trans_angle)
