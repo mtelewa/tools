@@ -22,7 +22,7 @@ plt.style.use('imtek')
 #           0             1                   2                    3
 labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$)',
 #           4                                           5             6                    7
-        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Vx (m/s)', 'Temperature (K)', 'Pressure (MPa)',
+        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', '$u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
@@ -65,8 +65,8 @@ class PlotFromGrid:
         if self.dimension=='H': ax.plot(x[y!=0][2:-2], y[y!=0][2:-2])
         if self.dimension=='T':
             ax.plot(x, y)
-            ax.axhline(y=np.mean(y))
-
+            if input('Plot time-average?') == 'y':
+                ax.axhline(y=np.mean(y))
 
     def plot_fit(self, ax, x, y):
         """
