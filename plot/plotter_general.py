@@ -92,8 +92,11 @@ if __name__ == "__main__":
 
     # Order as indexed on the FileSystem. Sorting is needed if all datasets are
     # points on the same curve e.g. EOS
-    if 'all' in vars(args).values() or [i.startswith('all') for i in vars(args).keys()]:
+    if 'all' in vars(args).values():
         datasets.sort()
+    for i in vars(args).keys():
+        if i.startswith('all'):
+            datasets.sort()
 
     datasets_x, datasets_z = [], []
     for k in datasets:
@@ -111,7 +114,7 @@ if __name__ == "__main__":
     if args.config == None:
         logging.error('Insert Config file!')
         quit()
-        
+
     pg = plot_general.PlotGeneral(args.skip, datasets_x, datasets_z, mf, args.config, pumpsize)
 
     # Velocity Distibution
