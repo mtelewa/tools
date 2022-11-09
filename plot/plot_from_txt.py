@@ -40,8 +40,9 @@ class PlotFromTxt:
         """
 
         ax.plot(x, y)
-        # ax.axhline(y=np.mean(y))
-        # print(np.mean(y))
+        if input('Plot time-average?') == 'y':
+            ax.axhline(y=np.mean(y))
+            print(np.mean(y))
 
 
     def extract_plot(self, *arr_to_plot):
@@ -63,30 +64,36 @@ class PlotFromTxt:
                         if line.split()[0]!='Step' and line.split()[0]!='Loop':
                             with open(f"{os.path.dirname(i) + '/thermo2.out'}", "a") as o:
                                 o.write(line)
+                        if line.split()[0]=='Step':
+                            thermo_variables = line.split()
                 data = np.loadtxt(f"{os.path.dirname(i) + '/thermo2.out'}", skiprows=self.skip, dtype=float)
 
                 if 'energy' in variables:
-                    x_pre, y_pre, x_col, y_col = 1e-6, 1, 0, 9 # ns, Kcal/mol
+                    xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('TotEng')] # ns, Kcal/mol
+                    self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'npump' in variables:
-                    x_pre, y_pre, x_col, y_col = 1e-6, 1, 0, 13 # ns, count
+                    self.axes_array[0].set_xlabel('Time (ns)')
+                    self.axes_array[0].set_ylabel('No. of Atoms')
+                    xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_nAtomsPump')] # ns, count
+                    self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'fpump' in variables:
-                    # self.axes_array[0].set_xlabel('Time (ns)')
-                    # self.axes_array[0].set_ylabel('Force (pN)')
-                    xdata, ydata = data[:,0]*1e-6, data[:,16]*kcalpermolA_to_N*1e12 # ns, pN
+                    self.axes_array[0].set_xlabel('Time (ns)')
+                    self.axes_array[0].set_ylabel('Force (pN)')
+                    xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fpump')]*kcalpermolA_to_N*1e12 # ns, pN
                     self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'fw' in variables:
-                    # self.axes_array[0].set_xlabel('Time (ns)')
-                    # self.axes_array[0].set_ylabel('Force (nN)')
-                    xdata, ydata = data[:,0]*1e-6, data[:,14]*1e9 # ns, nN
+                    self.axes_array[0].set_xlabel('Time (ns)')
+                    self.axes_array[0].set_ylabel('Force (nN)')
+                    xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fw')]*1e9 # ns, nN
                     self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'fp' in variables:
-                    # self.axes_array[0].set_xlabel('Time (ns)')
-                    # self.axes_array[0].set_ylabel('$f_{pump}$ (pN)')
-                    xdata, ydata = data[:,0]*1e-6, data[:,15]*1e9 # ns, nN
+                    self.axes_array[0].set_xlabel('Time (ns)')
+                    self.axes_array[0].set_ylabel('Force (nN)')
+                    xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fp')]*1e9 # ns, nN
                     self.plot_data(self.axes_array[n], xdata, ydata)
                     if nrows>1: n+=1
                 if 'fin' in variables:
