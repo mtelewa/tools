@@ -588,7 +588,6 @@ class TrajtoGrid:
             # Bounds R1
             R1Range = np.arange(dim[0] + 1) / dim[0] * 0.2 * Lx
             bounds_R1 = [R1Range, np.array([bounds[1]]), np.array([bounds_fluid[2]])]
-            print(bounds_R1)
 
             xx_R1, yy_R1, zz_R1 = np.meshgrid(bounds_R1[0], bounds_R1[1], bounds_R1[2])
             xx_R1 = np.transpose(xx_R1, (1, 0, 2))
