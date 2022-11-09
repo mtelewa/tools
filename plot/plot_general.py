@@ -128,7 +128,7 @@ class PlotGeneral:
         """
         ax = self.axes_array[0]
         ax.set_xlabel('Height (nm)')
-        ax.set_ylabel('$V_{x}$ (m/s)')
+        ax.set_ylabel('$u$ (m/s)')
 
         # Color gradient
         c1 = 'tab:blue' #blue
@@ -147,11 +147,21 @@ class PlotGeneral:
             vx_R4 =  data.velocity()['vx_R4']
             vx_R5 =  data.velocity()['vx_R5']
 
-            # ax.plot(h[vx_R1!=0][1:-1], vx_R1[vx_R1!=0][1:-1])
-            ax.plot(h[vx_R2!=0][1:-1], vx_R2[vx_R2!=0][1:-1], color=colors[0])
-            ax.plot(h[vx_R3!=0][1:-1], vx_R3[vx_R3!=0][1:-1], color=colors[1])
-            ax.plot(h[vx_R4!=0][1:-1], vx_R4[vx_R4!=0][1:-1], color=colors[2])
-            ax.plot(h[vx_R5!=0][1:-1], vx_R5[vx_R5!=0][1:-1], color=colors[3])
+            # ax.plot(h[vx_R1!=0][1:-1], vx_R1[vx_R1!=0][1:-1], color=colors[0])
+            ax.plot(h[vx_R2!=0][1:-1], vx_R2[vx_R2!=0][1:-1], color=colors[1])
+            ax.plot(h[vx_R3!=0][1:-1], vx_R3[vx_R3!=0][1:-1], color=colors[2])
+            ax.plot(h[vx_R4!=0][1:-1], vx_R4[vx_R4!=0][1:-1], color=colors[3])
+            ax.plot(h[vx_R5!=0][1:-1], vx_R5[vx_R5!=0][1:-1], color=colors[4])
+            # fit_R1 = funcs.fit(h[vx_R1!=0][1:-1], vx_R1[vx_R1!=0][1:-1], 2)
+            # ax.plot(h[vx_R1!=0][1:-1], fit_R1['fit_data'], color=colors[0])
+            # fit_R2 = funcs.fit(h[vx_R2!=0][1:-1], vx_R2[vx_R2!=0][1:-1], 2)
+            # ax.plot(h[vx_R2!=0][1:-1], fit_R2['fit_data'], color=colors[1])
+            # fit_R3 = funcs.fit(h[vx_R3!=0][1:-1], vx_R3[vx_R3!=0][1:-1], 2)
+            # ax.plot(h[vx_R3!=0][1:-1], fit_R3['fit_data'], color=colors[2])
+            # fit_R4 = funcs.fit(h[vx_R4!=0][1:-1], vx_R4[vx_R4!=0][1:-1], 2)
+            # ax.plot(h[vx_R4!=0][1:-1], fit_R4['fit_data'], color=colors[3])
+            # fit_R5 = funcs.fit(h[vx_R5!=0][1:-1], vx_R5[vx_R5!=0][1:-1], 2)
+            # ax.plot(h[vx_R5!=0][1:-1], fit_R5['fit_data'], color=colors[4])
 
         Modify(h, self.fig, self.axes_array, self.configfile)
 
