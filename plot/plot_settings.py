@@ -130,10 +130,8 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
-                           Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
-                           # Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
+                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
 
@@ -199,8 +197,8 @@ class Modify:
         pos2 = self.config['vertical_line_pos_2']
 
         for ax in range(len(axes)):
-            axes[ax].axvline(x= pos1*self.xdata, color='k', marker=' ', linestyle='dotted', lw=1.5)
-            axes[ax].axvline(x= pos2*self.xdata, color='k', marker=' ', linestyle='dotted', lw=1.5)
+            axes[ax].axvline(x= pos1*np.max(self.xdata), color='k', marker=' ', linestyle='dotted', lw=1.5)
+            axes[ax].axvline(x= pos2*np.max(self.xdata), color='k', marker=' ', linestyle='dotted', lw=1.5)
 
 
     def plot_broken(self, axes, shared_label=None):
