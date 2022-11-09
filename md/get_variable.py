@@ -63,8 +63,11 @@ if __name__ == "__main__":
 
     # Order as indexed on the FileSystem. Sorting is needed if all datasets are
     # points on the same curve e.g. EOS
-    if 'all' in vars(args).values() or [i.startswith('all') for i in vars(args).keys()]:
+    if 'all' in vars(args).values():
         datasets.sort()
+    for i in vars(args).keys():
+        if i.startswith('all'):
+            datasets.sort()
 
     datasets_x, datasets_z = [], []
     for k in datasets:
@@ -115,7 +118,7 @@ if __name__ == "__main__":
             print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
             print(f"Pressure difference is {vir['pDiff']} MPa")
         if 'sigxz' in args.qtty:
-            print(f"Avg. sigma_xz {np.mean(get.sigwall()['sigxz_t'])} MPa")
+            print(f"Avg. σ_xz {np.mean(get.sigwall()['sigxz_t']):.4f} MPa")
         if 'gaph' in args.qtty:
             print(f"Gap height {np.mean(get.h)} nm")
         if 'skx' in args.qtty:
@@ -131,7 +134,7 @@ if __name__ == "__main__":
         if 'transport' in args.qtty:
             params = get.transport()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
-            print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']}")
+            print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']:.2f} m/s")
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
         if 'stension' in args.qtty:
