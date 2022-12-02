@@ -55,7 +55,7 @@ if __name__ == "__main__":
     txts = []
     for k in datasets:
         for root, dirs, files in os.walk(k):
-            for i in files:
+            for i in sorted(files):
                 if i.startswith(args.filename):
                     txts.append(os.path.join(root, i))
 
