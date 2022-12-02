@@ -143,7 +143,6 @@ def acf_conjugate(f):
     """
     var = np.var(f)
     mean = np.mean(f)
-    print(mean.shape)
     C = np.correlate(f - mean, f - mean, mode="full")
     C = C[C.size // 2:]
     C /= len(C)
