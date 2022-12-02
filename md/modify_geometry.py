@@ -50,6 +50,11 @@ if __name__ == "__main__":
     # For iter-14
     # pipeline = modify_geometry(sys.argv[1], 0.186, -64, 0.6)
     # For iter-16
-    pipeline = modify_geometry(sys.argv[1], 0.884, -475, 0.9)
-
-    export_file(pipeline, "output.data", "lammps/data", atom_style="molecular")
+    #pipeline = modify_geometry(sys.argv[1], 0.884, -475, 0.9)
+    # For iter-16 LJ
+    pipeline = modify_geometry(sys.argv[1], 0.884, -448, 0.85)
+    
+    if input('atomic[1] or molecular[2]: ')==2:
+        export_file(pipeline, "output.data", "lammps/data", atom_style="molecular")
+    else:
+        export_file(pipeline, "output.data", "lammps/data", atom_style="atomic")
