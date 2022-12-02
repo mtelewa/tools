@@ -152,8 +152,14 @@ class TrajtoGrid:
         ky = 2. * np.pi * ny / Ly
 
         # Array dimensions: (time, idx, dimesnion)
-        coords_data = self.data.variables["f_position"]
-        vels_data = self.data.variables["f_velocity"]
+        try:
+            coords_data = self.data.variables["f_position"]
+        except KeyError:
+            coords_data = self.data.variables["coordinates"]
+        try:
+            vels_data = self.data.variables["f_velocity"]
+        except KeyError:
+            vels_data = self.data.variables["velocities"]
         # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
         # i.e. it is a snapshot of the system at this timestep.
         # As opposed to averaged quantities which are the average of a few previous timesteps
