@@ -38,7 +38,6 @@ class manipulate_ds:
             pass
         except TypeError:  # For frozen datasets
             self.sim_dataset = dtoolcore.DataSet.from_uri(self.dataset_name)
-            # print(self.sim_dataset)
 
     def create_dataset(self, **kwargs):
         """
