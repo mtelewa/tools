@@ -14,6 +14,7 @@ txt files with the averaged qtts in the chunks
 """
 import sys
 import argparse
+import numpy as np
 from processor_profile import profile
 
 def get_parser():
@@ -79,6 +80,17 @@ if __name__ == "__main__":
         length = profile('fzU.profile',args.skip,4).length
         sigzz = 0.5*(sigzz_lower-sigzz_upper)
         np.savetxt("sigzz.txt", np.c_[length,sigzz],delimiter="  ",header="Length(nm)       Sigmazz(MPa)")
+    if args.quantity=='acf':
+        time = profile('profile.gk.2d',args.skip,5).time
+        acf = profile('profile.gk.2d',args.skip,5).var
+        np.savetxt("acf.txt", np.c_[time,acf],delimiter="  ",header="time         acf")
+
+
+
+
+
+
+
         #os.system("plot_from_txt.py sigzz.txt 1 0 1 sigzz.png --xlabel 'Length $(nm)$' \
         #                --ylabel 'Pressure $(MPa)$' --label 'Wall $\sigma_{zz}$' ")
     # if 'sigzz-time' in sys.argv:
