@@ -56,6 +56,11 @@ def rectilinear_diameters(x,a,b):
     # 465.857 is the critical temperature of n-pentane from my simulations
     return a*x-b+147.2
 
+def solve_quadratic(a,b,c):
+    d = np.abs(b**2 - (4*a*c))
+    sol1 = (-b - np.sqrt(d)) / (2*a)
+    sol2 = (-b + np.sqrt(d)) / (2*a)
+    return sol1, sol2
 
 def quadratic_cosine_series(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
 
@@ -187,3 +192,19 @@ def fit_with_fourier(x,y,order):
         fit_data.append(dd.fit(x,y,order)['fit_data'] + coeffs[1][i-1]*np.cos(i*np.pi*x/l))
 
     return {'fit_data': fitted, 'coeffs':coeffs}
+
+
+def RP(y, t, rho, pv, pl):
+    """ Rayleigh-Plesset equation assuming viscosity = surface tension = 0
+    """
+    R, Rdot = y
+    dydt = [Rdot, -3/(2*R)*Rdot**2 + ((pv-pl)/(rho*R))]
+    return dydt
+
+
+def RP_full(y, t, rho, pv, pl, gamma, eta):
+    """ Rayleigh-Plesset equation with non-zero eta and gamma
+    """
+    R, Rdot = y
+    dydt = [Rdot, -3/(2*R)*Rdot**2 + ((pv-pl)/(rho*R)) - (2*gamma/R) - (4*eta*Rdot/R)]
+    return dydt
