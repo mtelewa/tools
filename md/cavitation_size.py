@@ -13,16 +13,19 @@ class CavitySize:
 
     Parameters:
     traj: str, NetCDF trajectory file
-    start, cut: Start from frame <start> and discard after frame <cut>
+    start, stop: Start from frame <start> and discard after frame <stop>
     every_nth: int, ovito will process every nth frame
     rprobe: int, radius of the probe sphere for the alpha-shape method (in Angstrom)
     """
-    def __init__(self, traj, start, cut, every_nth, rprobe):
+    def __init__(self, traj, start, stop, every_nth, rprobe, shape):
 
         self.pipeline = import_file(traj, multiple_frames = True)
 
         # Run the pipleine
         data = self.pipeline.compute()
+
+        # Shape of the void
+        self.shape = shape
 
         # Number of frames in the trajectory
         nframes = self.pipeline.source.num_frames
@@ -38,8 +41,9 @@ class CavitySize:
         print(f'LAMMPS dumped every: {self.lammps_dump_every} steps.')
 
         # Process every nth frams
-        self.frames_to_process = np.arange(start, nframes-cut, every_nth)
-        print(f'Ovito will process the trajectory every: {every_nth}th frame, a total of {np.int64((nframes-cut)/every_nth)} frames')
+        if stop==-1 or stop==None: stop=nframes
+        self.frames_to_process = np.arange(start, stop, every_nth)
+        print(f'Ovito will process the trajectory every: {every_nth}th frame, a total of {np.int64((stop-start)/every_nth)} frames')
 
         # Construct Surface mesh Modifier: Use the alpha method to create the triangulated surface mesh
         self.pipeline.modifiers.append(ConstructSurfaceModifier(
@@ -172,13 +176,24 @@ class CavitySize:
 
         # Total surface area
         area = dict['Areas']
-        # The void in thin span-wise-direction (y-direction) boxes is more like a cylinder.
+        # Total volume
+        volume = dict['Volumes']
+        # The void in thin span-wise-direction (y-direction) is a cylinder in thin boxes
+        # and a sphere in thick boxes
+
         # The Cylinder's height is the cell size in y-direction
         height = data.cell[:,1][1]
-        # From the area and height, we get the cavity radius
-        radius = (np.sqrt(height**2+(2*area/np.pi))-height)/2.
 
-        return {'area':area,'radius':radius}
+        # Get the cavity radius from the cylinder area if thin
+        if self.shape=='cylinder':
+            radius = (np.sqrt(height**2+(2*area/np.pi))-height)/2.
+        if self.shape=='sphere':   # from sphere volume if thick
+            radius = (3/4*(volume/np.pi))**(1/3)
+        else:
+            print('Void shape undefined!')
+            exit()
+
+        return {'area':area, 'volume':volume, 'radius':radius}
 
 
     # Insert user-defined modifier function into the data pipeline.
