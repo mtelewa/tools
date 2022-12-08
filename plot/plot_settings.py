@@ -130,9 +130,12 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
+        #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
+        #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current')]
+
         # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
 
         handles.extend(legend_elements)
