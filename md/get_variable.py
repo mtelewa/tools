@@ -78,6 +78,13 @@ if __name__ == "__main__":
                 if i.endswith(f'1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(root, i))
 
+    # start and stop: the time frame for averaging the Green-Kubo viscosity
+    # tcorr: correlation time for the evaluation of the acf and the Green-Kubo integral
+    start, stop, t_corr = 2000, 8000, 20000         # frames
+    out_freq = 5        # frames
+    mu_avg = []
+    mu = np.zeros([len(datasets), t_corr-1])
+
     for i in range(len(datasets)):
         try:
             get = ct.ExtractFromTraj(args.skip, datasets_x[i], datasets_z[i], mf, pumpsize)
@@ -102,9 +109,14 @@ if __name__ == "__main__":
         if 'press' in args.qtty:
             pressure = np.mean(get.virial()['vir_t'])
             print(f'Average pressure = {pressure:.2f} MPa')
+
         if 'viscosity_gk' in args.qtty:
-            mu = get.viscosity_gk()
-            print(f'Dynamic Viscosity (mu) = {mu} mPa.s')
+            # viscosity with correlation time plots for each replicate
+            mu[i, :] = get.viscosity_gk(t_corr)['mu']
+            time = np.arange(1, t_corr)
+            np.savetxt(f'gamma_{i:02d}.txt', np.c_[time*out_freq, mu[i]],  delimiter=' ',
+                            header='time   viscosity')
+
         if 'slip_length' in args.qtty:
             params = get.slip_length()
             print(f"Slip Length {params['Ls']} (nm) and velocity {params['Vs']} m/s")
@@ -115,24 +127,24 @@ if __name__ == "__main__":
             print(f"Temp gradient is {temp_grad*1e9:e} K/m")
         if 'pgrad' in args.qtty:
             vir = get.virial()
-            print(f"Pressure gradient is {vir['pGrad']} MPa/nm")
-            print(f"Pressure difference is {vir['pDiff']} MPa")
+            print(f"Pressure gradient is {vir['pGrad']:.2f} MPa/nm")
+            print(f"Pressure difference is {vir['pDiff']:.2f} MPa")
         if 'sigxz' in args.qtty:
             print(f"Avg. σ_xz {np.mean(get.sigwall()['sigxz_t']):.4f} MPa")
         if 'gaph' in args.qtty:
-            print(f"Gap height {np.mean(get.h)} nm")
+            print(f"Gap height {np.mean(get.h):.2f} nm")
         if 'skx' in args.qtty:
             get.struc_factor()
-        if 'lambda_gk' in args.qtty:
-            lambda_tot = get.lambda_gk()['lambda_tot']
-            print(f'Thermal conductivity (lambda) = {lambda_tot} W/mK')
-        if 'lambda_ecouple' in args.qtty:
+        if 'conductivity_gk' in args.qtty:
+            lambda_avg = get.conductivity_gk()['lambda_avg']
+            print(f'Thermal conductivity (λ) = {lambda_avg} W/mK')
+        if 'conductivity_ecouple' in args.qtty:
             log_file = datasets[i]+'/data/log.lammps'
-            print(f"Thermal Conductivity = {get.lambda_ecouple(log_file)['lambda_z']} W/mK")
-        if 'lambda_IK' in args.qtty:
-            print(f"Thermal Conductivity = {np.mean(get.lambda_IK()['lambda_z'])} W/mK")
-        if 'transport' in args.qtty:
-            params = get.transport()
+            print(f"Thermal Conductivity = {get.conductivity_ecouple(log_file)['conductivity_z']} W/mK")
+        if 'conductivity_IK' in args.qtty:
+            print(f"Thermal Conductivity = {np.mean(get.conductivity_IK()['conductivity_z'])} W/mK")
+        if 'viscosity_nemd' in args.qtty:
+            params = get.viscosity_nemd()
             print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']:.2f} m/s")
         if 'correlate' in args.qtty:
@@ -140,6 +152,27 @@ if __name__ == "__main__":
         if 'stension' in args.qtty:
             gamma = np.mean(get.surface_tension()['gamma'])
             print(f'Surface tension (gamma) = {gamma*1e3:.4f} mN/m')
+        if 'contact_angle' in args.qtty:
+            gamma_sv_gamma_ls = np.mean(get.surface_tension()['gamma'])*1e3
+            gamma_lv = 12.1320 # mN/m (At 300K for pentane)
+            contact_angle = np.degrees(np.arccos(-gamma_sv_gamma_ls/gamma_lv))
+            print(f'Wetting angle (θ) = {contact_angle:.4f} degrees')
         if 'Re' in args.qtty:
             Reynolds = get.reynolds_num()
             print(f'Reynolds number: {Reynolds}')
+
+
+    if 'viscosity_gk' in args.qtty:
+        # viscosity with correlation time plots for average of all replicates
+        mu_avg_time = np.mean(mu, axis=0)
+
+        np.savetxt(f'gamma_{len(datasets):02d}.txt', np.c_[time*out_freq, mu_avg_time],  delimiter=' ',
+                        header='time   viscosity')
+
+        # average viscosity
+        mu_avg = np.mean(mu_avg_time[start:stop])
+        print(f'Dynamic Viscosity (mu) = {mu_avg:.3f} mPa.s')
+
+
+
+#
