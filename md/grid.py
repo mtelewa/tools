@@ -15,6 +15,8 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+# np.seterr(all='raise')
+
 # Get the processor version
 for i in sys.modules.keys():
     if i.startswith('processor_nc'):
@@ -31,10 +33,12 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
     Time = data.variables["time"]
     time_arr=np.array(Time).astype(np.float32)
 
+    step_size = Time.scale_factor
     tSteps_tot = Time.shape[0]-1
-    out_frequency = np.int(time_arr[-1] - time_arr[-2])
+    out_frequency = np.int( (time_arr[-1] - time_arr[-2]) / step_size)
+    total_sim_time = tSteps_tot * out_frequency * step_size
 
-    # If the dataset is more than 1M tsteps, slice it to fit in memory
+    # If the dataset is more than 1000 tsteps, slice it to fit in memory
     if tSteps_tot <= 1000:
         Nslices = 1
     else:
@@ -44,7 +48,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
     slice1, slice2 = 1, slice_size+1
 
     if rank == 0:
-        print('Total simualtion time: {} {}'.format(np.int(tSteps_tot * out_frequency), Time.units))
+        print('Total simualtion time: {} {}'.format(np.int(total_sim_time), Time.units))
         print('======> The dataset will be sliced to %g slices!! <======' %Nslices)
 
     t0 = timer.time()
@@ -140,7 +144,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, stable_start, stab
                                   'Nf', 'Nm',
                                   'fluid_vol')(init.get_chunks(stable_start,
                                     stable_end, pump_start, pump_end, nx, ny, nz))
-
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
