@@ -8,7 +8,8 @@ import itertools
 
 def get_parser():
     parser = argparse.ArgumentParser(
-    description='Manipulate (Create/Write/Update) datasets.')
+    description='Manipulate datasets: Create parent (simulation), derived(simulation) or post-processing datasets \
+     / Update dataset README / Freeze and copy to S3 storage system.')
 
     #Positional arguments
     #--------------------
@@ -18,8 +19,8 @@ def get_parser():
                     help='Freeze the dataset')
     parser.add_argument('--copy', metavar='copy', action='store', type=str,
                     help='Copy the datset to the S3 system')
-    parser.add_argument('--write', metavar='write', action='store', type=str,
-                    help='Write the updated README')
+    # parser.add_argument('--write', metavar='write', action='store', type=str,
+    #                 help='Write the updated README')
 
     parsed, unknown = parser.parse_known_args()
     for arg in unknown:
@@ -63,8 +64,8 @@ if __name__ == "__main__":
         if args.action=='create_post' and args.freeze and args.copy: ds.create_post(freeze='y',copy='y', **dict(variables))
         if args.action=='create_post' and not args.freeze and not args.copy: ds.create_post(**dict(variables))
         if args.action=='create_derived': ds.create_derived(derived, **dict(variables))
-        if args.action=='update_readme' and not args.write: ds.update_readme(**dict(variables))
-        if args.action=='update_readme' and args.write: ds.update_readme(write='y', **dict(variables))
+        if args.action=='update_readme': ds.update_readme(**dict(variables))
+        # if args.action=='update_readme' and args.write: ds.update_readme(write='y', **dict(variables))
 
 
 #

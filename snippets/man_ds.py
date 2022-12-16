@@ -129,7 +129,7 @@ class manipulate_ds:
         """
         dtoolcore.DataSet.from_uri(self.dataset_name).put_tag(tag)
 
-    def update_readme(self, write=None, **kwargs):
+    def update_readme(self, **kwargs):
 
         # Check if readme of the dataset is empty
         ds_readme = _get_readme_template(os.path.join(self.sim_uri, 'README.yml'))
@@ -197,9 +197,9 @@ class manipulate_ds:
 
         # write the readme of the dataset
         write_to = os.path.join(self.sim_uri, 'README.yml')
-        if write:
-            with open(write_to, "w") as f:
-                self.yaml.dump(metadata, f)
+        # if write:
+        with open(write_to, "w") as f:
+            self.yaml.dump(metadata, f)
 
         return metadata
 #
