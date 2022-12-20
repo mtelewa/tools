@@ -78,12 +78,19 @@ if __name__ == "__main__":
                 if i.endswith(f'1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(root, i))
 
+    txts = []
+    for k in datasets:
+        for root, dirs, files in os.walk(k):
+            for i in sorted(files):
+                if i.startswith('log.lammps'):
+                    txts.append(os.path.join(root, i))
+
     # start and stop: the time frame for averaging the Green-Kubo viscosity
     # tcorr: correlation time for the evaluation of the acf and the Green-Kubo integral
     start, stop, t_corr = 2000, 8000, 20000         # frames
-    out_freq = 5        # frames
-    mu_avg = []
-    mu = np.zeros([len(datasets), t_corr-1])
+    eta_avg, lambda_avg = [], []
+    eta = np.zeros([len(datasets), t_corr-1])
+    lambda_time = np.zeros([len(datasets), t_corr-1])
 
     for i in range(len(datasets)):
         try:
@@ -112,10 +119,18 @@ if __name__ == "__main__":
 
         if 'viscosity_gk' in args.qtty:
             # viscosity with correlation time plots for each replicate
-            mu[i, :] = get.viscosity_gk(t_corr)['mu']
+            data = get.viscosity_gk_log(txts[i], t_corr)
+            eta[i, :] = data['eta']
             time = np.arange(1, t_corr)
-            np.savetxt(f'gamma_{i:02d}.txt', np.c_[time*out_freq, mu[i]],  delimiter=' ',
+            np.savetxt(f'eta_{i:02d}.txt', np.c_[time*data['thermo_out'], eta[i]],  delimiter=' ',
                             header='time   viscosity')
+
+        if 'conductivity_gk' in args.qtty:
+            data = get.conductivity_gk_log(txts[i], t_corr)
+            lambda_time[i, :] = data['lambda_time']
+            time = np.arange(1, t_corr)
+            np.savetxt(f'lambda_{i:02d}.txt', np.c_[time*data['thermo_out'], lambda_time[i]],  delimiter=' ',
+                            header='time   conductivity')
 
         if 'slip_length' in args.qtty:
             params = get.slip_length()
@@ -133,11 +148,13 @@ if __name__ == "__main__":
             print(f"Avg. σ_xz {np.mean(get.sigwall()['sigxz_t']):.4f} MPa")
         if 'gaph' in args.qtty:
             print(f"Gap height {np.mean(get.h):.2f} nm")
+        if 'gaph_conv' in args.qtty:
+            print(f"Gap height of converged region {np.mean(get.h_conv):.2f} nm")
+        if 'gaph_div' in args.qtty:
+            print(f"Gap height of diverged region {np.mean(get.h_div):.2f} nm")
         if 'skx' in args.qtty:
             get.struc_factor()
-        if 'conductivity_gk' in args.qtty:
-            lambda_avg = get.conductivity_gk()['lambda_avg']
-            print(f'Thermal conductivity (λ) = {lambda_avg} W/mK')
+
         if 'conductivity_ecouple' in args.qtty:
             log_file = datasets[i]+'/data/log.lammps'
             print(f"Thermal Conductivity = {get.conductivity_ecouple(log_file)['conductivity_z']} W/mK")
@@ -145,7 +162,7 @@ if __name__ == "__main__":
             print(f"Thermal Conductivity = {np.mean(get.conductivity_IK()['conductivity_z'])} W/mK")
         if 'viscosity_nemd' in args.qtty:
             params = get.viscosity_nemd()
-            print(f"Viscosity is {params['mu']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
+            print(f"Viscosity is {params['eta']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']:.2f} m/s")
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
@@ -164,15 +181,23 @@ if __name__ == "__main__":
 
     if 'viscosity_gk' in args.qtty:
         # viscosity with correlation time plots for average of all replicates
-        mu_avg_time = np.mean(mu, axis=0)
-
-        np.savetxt(f'gamma_{len(datasets):02d}.txt', np.c_[time*out_freq, mu_avg_time],  delimiter=' ',
+        eta_avg_time = np.mean(eta, axis=0)
+        # average of all replicates
+        np.savetxt(f'eta_{len(datasets):02d}.txt', np.c_[time*data['thermo_out'], eta_avg_time],  delimiter=' ',
                         header='time   viscosity')
-
         # average viscosity
-        mu_avg = np.mean(mu_avg_time[start:stop])
-        print(f'Dynamic Viscosity (mu) = {mu_avg:.3f} mPa.s')
+        eta_avg = np.mean(eta_avg_time[start:stop])
+        print(f'Dynamic Viscosity (η) = {eta_avg:.3f} mPa.s')
 
 
+    if 'conductivity_gk' in args.qtty:
+        # viscosity with correlation time plots for average of all replicates
+        lambda_avg_time = np.mean(lambda_time, axis=0)
+        # average of all replicates
+        np.savetxt(f'lambda_{len(datasets):02d}.txt', np.c_[time*data['thermo_out'], lambda_avg_time],  delimiter=' ',
+                        header='time   conductivity')
+        # average viscosity
+        lambda_avg = np.mean(lambda_avg_time[start:stop])
+        print(f'Thermal conductivity (λ) = {lambda_avg:.3f} W/mK')
 
 #
