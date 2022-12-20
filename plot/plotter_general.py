@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     datasets_x, datasets_z = [], []
     for k in datasets:
-        for root, dirs, files in os.walk(k):
+        for root, dirs, files in sorted(os.walk(k)):
             for i in files:
                 if i.endswith(f'{args.nChunks}x1.nc'):
                     datasets_x.append(os.path.join(root, i))
@@ -123,8 +123,8 @@ if __name__ == "__main__":
     if 'evolution' in args.variables: pg.v_evolution()
     # Transport Coefficients
     if 'pgrad_mflowrate' in args.variables: pg.pgrad_mflowrate()
-    if 'rate_stress' in args.variables: pg.rate_stress()
     if 'rate_viscosity' in args.variables: pg.rate_viscosity()
+    if 'rate_stress' in args.variables: pg.rate_stress()
     if 'rate_slip' in args.variables: pg.rate_slip()
     if 'rate_temp' in args.variables: pg.rate_temp()
     if 'rate_qdot' in args.variables: pg.rate_qdot()
@@ -137,6 +137,7 @@ if __name__ == "__main__":
     if 'transverse' in args.variables: pg.transverse()
     if 'sk' in args.variables: pg.struc_factor()
     if 'isf' in args.variables: pg.isf()
+    # Coexistence curves
     if 'coexist' in args.variables: pg.coexistence_curve()
     if 'rc_gamma' in args.variables: pg.rc_gamma()
     if 'temp_gamma' in args.variables: pg.temp_gamma()
