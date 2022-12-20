@@ -95,19 +95,22 @@ class PlotFromGrid:
         return inset_ax
 
 
-    def plot_uncertainty(self, ax, x, y, arr, color):
+    def plot_uncertainty(self, ax, x, y, arr, color='tab:blue'):
         """
         Plots the uncertainty of the data
         """
         if self.config['err_caps']:
             if self.dimension=='L':
-                err = sq.get_err(arr)['uncertainty'][1:-1]
-                markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err,
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
+                if len(arr.shape)>1:
+                    err = sq.get_err(arr)['uncertainty']
+                else:
+                    err = arr
+                markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err[1:-1],
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
             if self.dimension=='H':
                 err = sq.get_err(arr)['uncertainty'][y!=0][2:-2]
-                markers, caps, bars= ax.errorbar(x[y!=0][2:-2], y[y!=0][2:-2], xerr=None, yerr=err,
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
+                markers, caps, bars= ax.errorbar(x[y!=0][2:-2], y[y!=0][2:-2], xerr=None, yerr=err[y!=0][2:-2],
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
@@ -185,6 +188,20 @@ class PlotFromGrid:
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
+            # Gap height
+            if any('gapdiv' in var for var in variables):
+                self.axes_array[n].set_ylabel(labels[0])
+                if self.dimension=='T': arr, y = None, data.h_div
+                self.plot_data(self.axes_array[n], x, y)
+                if self.nrows>1: n+=1
+
+            # Gap height
+            if any('gapconv' in var for var in variables):
+                self.axes_array[n].set_ylabel(labels[0])
+                if self.dimension=='T': arr, y = None, data.h_conv
+                self.plot_data(self.axes_array[n], x, y)
+                if self.nrows>1: n+=1
+
             # Mass flux - x component
             if any('jx' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[4])
@@ -207,6 +224,39 @@ class PlotFromGrid:
                 if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']*1e20
                 if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']*1e20
                 self.plot_data(self.axes_array[n], x, y)
+                if self.nrows>1: n+=1
+
+            # Virial Pressure - Scalar
+            if any('virial' in var for var in variables):
+                self.axes_array[n].set_ylabel(labels[7])
+                if self.dimension=='L':
+                    arr, y = data.virial()['vir_full_x'], data.virial()['vir_X']
+                    # Save the pressure data to a txt file (to compare with the continuum)
+                    ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
+                    # Include the part before the pump
+                    xval = x[ymax:] - x[ymax]
+                    # np.savetxt('press-profile-MD.txt', np.c_[xval, y[ymax:]],  delimiter=' ',\
+                    #                                 header='Length (nm)              Pressure (MPa)')
+                    np.savetxt('press-profile-MD-full.txt', np.c_[x, y],  delimiter=' ',\
+                                    header='Length (nm)              Pressure (MPa)')
+                if self.dimension=='H':
+                    try:
+                        x = data.bulk_height_array  # simulation with walls
+                    except AttributeError:
+                        x = data.height_array       # bulk simulations
+                    arr, y = data.virial()['vir_full_z'], data.virial()['vir_Z']
+                if self.dimension=='T': arr, y = None, data.virial()['vir_t']
+
+                if self.config['err_fill']:
+                    self.plot_data(self.axes_array[n], x, y)
+                    self.plot_uncertainty(self.axes_array[n], x, y,
+                                                data.virial()['vir_full_x'], color='tab:blue')
+                if self.config['err_caps']:
+                    self.plot_uncertainty(self.axes_array[n], x, y,
+                                                data.virial()['vir_full_x'], color='tab:blue')
+                else:
+                    self.plot_data(self.axes_array[n], x, y)
+
                 if self.nrows>1: n+=1
 
             # Mass density
@@ -272,31 +322,6 @@ class PlotFromGrid:
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
-            # Virial Pressure - Scalar
-            if any('virial' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L':
-                    arr, y = data.virial()['vir_full_x'], data.virial()['vir_X']
-                    # Save the pressure data to a txt file (to compare with the continuum)
-                    ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
-                    # Include the part before the pump
-                    xval = x[ymax:] - x[ymax]
-                    # np.savetxt('press-profile-MD.txt', np.c_[xval, y[ymax:]],  delimiter=' ',\
-                    #                                 header='Length (nm)              Pressure (MPa)')
-                    np.savetxt('press-profile-MD-full.txt', np.c_[x, y],  delimiter=' ',\
-                                    header='Length (nm)              Pressure (MPa)')
-                if self.dimension=='H':
-                    try:
-                        x = data.bulk_height_array  # simulation with walls
-                    except AttributeError:
-                        x = data.height_array       # bulk simulations
-                    arr, y = data.virial()['vir_full_z'], data.virial()['vir_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['vir_t']
-                self.plot_data(self.axes_array[n], x, y)
-
-                if self.nrows>1: n+=1
-
-
             if any('sigzz' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[7])
                 if self.dimension=='L':
@@ -306,11 +331,13 @@ class PlotFromGrid:
                     arr, y = None, data.sigwall()['sigzz_t']
                     self.plot_data(self.axes_array[n], x, y)
                 if self.config['err_caps']:
-                    err =  data.sigwall()['sigzz_err'][1:-1]
+                    y = data.sigwall()['sigzz_X']
+                    err =  data.sigwall()['sigzz_err']
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.config['err_fill']:
                     lo =  data.sigwall()['sigzz_lo'][1:-1]
                     hi =  data.sigwall()['sigzz_hi'][1:-1]
+                    self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.nrows>1: n+=1
 
@@ -323,18 +350,20 @@ class PlotFromGrid:
                     arr, y = None, data.sigwall()['sigxz_t']
                     self.plot_data(self.axes_array[n], x, y)
                 if self.config['err_caps']:
-                    if self.dimension=='L': # Error in eachchunk
-                        err =  data.sigwall()['sigxz_err'][1:-1]
-                    else:
-                        err =  data.sigwall()['sigxz_err_t'][1:-1]
+                    # if self.dimension=='L': # Error in eachchunk
+                    y = data.sigwall()['sigxz_X']
+                    err =  data.sigwall()['sigxz_err']
+                    # else:
+                    #     err =  data.sigwall()['sigxz_err_t']
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.config['err_fill']:
-                    if self.dimension=='L': # Error in eachchunk
-                        lo =  data.sigwall()['sigxz_lo'][1:-1]
-                        hi =  data.sigwall()['sigxz_hi'][1:-1]
-                    else:   # Error in timeseries
-                        lo =  data.sigwall()['sigxz_lo_t']
-                        hi =  data.sigwall()['sigxz_hi_t']
+                    # if self.dimension=='L': # Error in eachchunk
+                    lo =  data.sigwall()['sigxz_lo'][1:-1]
+                    hi =  data.sigwall()['sigxz_hi'][1:-1]
+                    # else:   # Error in timeseries
+                    #     lo =  data.sigwall()['sigxz_lo_t']
+                    #     hi =  data.sigwall()['sigxz_hi_t']
+                    self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.nrows>1: n+=1
 
@@ -363,7 +392,7 @@ class PlotFromGrid:
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - Scalar
-            if any('tempF' in var for var in variables):
+            if any('temp' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[6])
                 if self.dimension=='L': arr, y = data.temp()['temp_full_x'], data.temp()['temp_X']
                 if self.dimension=='H': arr, y = data.temp()['temp_full_z'], data.temp()['temp_Z']
