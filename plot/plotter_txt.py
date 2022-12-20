@@ -4,6 +4,8 @@
 import os, logging
 import argparse
 import plot_from_txt
+import netCDF4
+import numpy as np
 
 # Logger Settings
 logging.basicConfig(level=logging.INFO)
@@ -64,16 +66,49 @@ if __name__ == "__main__":
         quit()
 
     ptxt = plot_from_txt.PlotFromTxt(args.skip, args.filename, txts, args.config)
-    fig = ptxt.extract_plot(args.variables)
+
+
+    datasets_x, datasets_z = [], []
+    for g in datasets:
+        for root, dirs, files in os.walk(g):
+            for i in files:
+                if i.endswith(f'144x1.nc'):
+                    datasets_x.append(os.path.join(root, i))
+                if i.endswith(f'1x144.nc'):
+                    datasets_z.append(os.path.join(root, i))
+
+    trajactories = []
+    for k in datasets:
+        for root, dirs, files in os.walk(k):
+            for i in files:
+                if i == 'flow.nc' or i == 'equilib.nc' or i == 'nvt.nc':
+                    trajactories.append(os.path.join(root, i))
+
+    if 'log' in args.filename: ptxt.extract_plot(args.variables)
+    if 'radius-one-cavity' in args.variables:
+        # thick ---> 33.6e-10, 100, 180, 'dynamic'    35e-10, 405, 455, 'dynamic'
+        # thin ---> 16e-10, 115, 138, 'dynamic'
+        # iter-16 ---> 20e-10, 115, 138, 'dynamic'
+        rmax, start, stop, method = 19.8e-10, 651, 702, 'dynamic'
+        if method == 'static':
+            data = netCDF4.Dataset(trajactories[0])
+            Time = data.variables["time"]
+            time_arr = np.array(Time).astype(np.float32)
+            # Time between output dumps
+            dt = np.int32(time_arr[-1] - time_arr[-2])
+        else:
+            dt = None
+
+        ptxt.radius(rmax, datasets_x, datasets_z, start, stop, dt, method)
 
     if args.format is not None:
         if args.format == 'eps':
-            fig.savefig(args.variables[0]+'.eps' , format='eps', transparent=True)
+            ptxt.fig.savefig(args.variables[0]+'.eps' , format='eps', transparent=True)
         if args.format == 'ps':
-            fig.savefig(args.variables[0]+'.ps' , format='ps')
+            ptxt.fig.savefig(args.variables[0]+'.ps' , format='ps')
         if args.format == 'svg':
-            fig.savefig(args.variables[0]+'.svg' , format='svg')
+            ptxt.fig.savefig(args.variables[0]+'.svg' , format='svg')
         if args.format == 'pdf':
-            fig.savefig(args.variables[0]+'.pdf' , format='pdf')
+            ptxt.fig.savefig(args.variables[0]+'.pdf' , format='pdf')
     else:
-        fig.savefig(args.variables[0]+'.png' , format='png')
+        ptxt.fig.savefig(args.variables[0]+'.png' , format='png')
