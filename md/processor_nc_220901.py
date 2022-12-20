@@ -25,11 +25,7 @@ size = comm.Get_size()
 # Conversions
 fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
-atmA3_to_kcal = 0.024*1e-27
-
-# Set the Mass and no. of atoms per molecule for each fluid
-mCH2, mCH3, mCH_avg = 12, 13, 12.5
-
+atmA3_to_kcal = 0.02388*1e-27
 
 t0 = timer.time()
 
@@ -185,23 +181,20 @@ class TrajtoGrid:
             pass
 
 
-        # In some trajectories, total energy is computed
+        # For heat flux computation (total energy * velocity) and (virial * velocity) were computed
         try:
-            tot_energy_data = self.data.variables["f_te"]
-            centroid_vir_data = self.data.variables["f_W"]
-            tot_energy = np.array(tot_energy_data[self.start:self.end]).astype(np.float32)
+            ev_data = self.data.variables["f_ev"]
+            centroid_vir_data = self.data.variables["f_sv"]
+            ev = np.array(ev_data[self.start:self.end]).astype(np.float32)
             centroid_vir = np.array(centroid_vir_data[self.start:self.end]).astype(np.float32)
 
-            fluid_energy_x, fluid_energy_y, fluid_energy_z = tot_energy[:, fluid_idx, 0], \
-                                                             tot_energy[:, fluid_idx, 1], \
-                                                             tot_energy[:, fluid_idx, 2]
+            fluid_evx, fluid_evy, fluid_evz = ev[:, fluid_idx, 0], \
+                                              ev[:, fluid_idx, 1], \
+                                              ev[:, fluid_idx, 2]
 
-            fluid_stress_xx, fluid_stress_yy, fluid_stress_zz, \
-            fluid_stress_xy, fluid_stress_xz, fluid_stress_yz, \
-            fluid_stress_yx, fluid_stress_zx, fluid_stress_zy \
-            = centroid_vir[:, fluid_idx, 0] , centroid_vir[:, fluid_idx, 1] , centroid_vir[:, fluid_idx, 2] , \
-              centroid_vir[:, fluid_idx, 3] , centroid_vir[:, fluid_idx, 4] , centroid_vir[:, fluid_idx, 5] , \
-              centroid_vir[:, fluid_idx, 6] , centroid_vir[:, fluid_idx, 7] , centroid_vir[:, fluid_idx, 8]
+            fluid_svx, fluid_svy, fluid_svz = centroid_vir[:, fluid_idx, 0] ,\
+                                              centroid_vir[:, fluid_idx, 1] ,\
+                                              centroid_vir[:, fluid_idx, 2]
 
         except KeyError:
             pass
@@ -240,9 +233,6 @@ class TrajtoGrid:
         fluid_vx_t, fluid_vy_t, fluid_vz_t = vels_t[:, fluid_idx, 0], \
                                              vels_t[:, fluid_idx, 1], \
                                              vels_t[:, fluid_idx, 2]
-
-        # fluid_v_t = np.sqrt(fluid_vx_t**2 + fluid_vy_t**2 + fluid_vz_t**2) / self.A_per_molecule
-
 
         # Wall Stresses -------------------------------------------------
         if solid_start != None:
@@ -485,26 +475,11 @@ class TrajtoGrid:
             # Heat flux --------------
 
             try:
-                je_x = np.sum( (fluid_energy_y * fluid_vz_t * stable_region) - \
-                       (fluid_energy_z * fluid_vy_t * stable_region) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_xx * fluid_vx_t * stable_region) - \
-                        (fluid_stress_xy * fluid_vy_t * stable_region) - \
-                        (fluid_stress_xz * fluid_vz_t * stable_region)), axis=1)
-
-                je_y = np.sum( (fluid_energy_z * fluid_vx_t * stable_region) - \
-                       (fluid_energy_x * fluid_vx_t * stable_region) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_yx * fluid_vx_t * stable_region) - \
-                        (fluid_stress_yy * fluid_vy_t * stable_region) - \
-                        (fluid_stress_yz * fluid_vz_t * stable_region)), axis=1)
-
-                je_z = np.sum( (fluid_energy_x * fluid_vy_t * stable_region) - \
-                       (fluid_energy_y * fluid_vx_t * stable_region) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_zx * fluid_vx_t * stable_region) - \
-                        (fluid_stress_zy * fluid_vy_t * stable_region) - \
-                        (fluid_stress_zz * fluid_vz_t * stable_region)), axis=1)
+                je_x = np.sum((fluid_evx*stable_region) + (sci.N_A*atmA3_to_kcal*fluid_svx*stable_region), axis=1)
+                je_y = np.sum((fluid_evy*stable_region) + (sci.N_A*atmA3_to_kcal*fluid_svy*stable_region), axis=1)
+                je_z = np.sum((fluid_evz*stable_region) + (sci.N_A*atmA3_to_kcal*fluid_svz*stable_region), axis=1)
             except UnboundLocalError:
                 je_x, je_y, je_z = None, None, None
-
 
         else:
             bulkStartZ_time = None
@@ -537,23 +512,9 @@ class TrajtoGrid:
 
             # Heat flux --------------
             try:
-                je_x = np.sum( (fluid_energy_y * fluid_vz_t) - \
-                       (fluid_energy_z * fluid_vy_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_xx * fluid_vx_t) - \
-                        (fluid_stress_xy * fluid_vy_t) - \
-                        (fluid_stress_xz * fluid_vz_t)), axis=1)
-
-                je_y = np.sum( (fluid_energy_z * fluid_vx_t) - \
-                       (fluid_energy_x * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_yx * fluid_vx_t) - \
-                        (fluid_stress_yy * fluid_vy_t) - \
-                        (fluid_stress_yz * fluid_vz_t)), axis=1)
-
-                je_z = np.sum( (fluid_energy_x * fluid_vy_t) - \
-                       (fluid_energy_y * fluid_vx_t) - sci.N_A*atmA3_to_kcal * \
-                       ((fluid_stress_zx * fluid_vx_t) - \
-                        (fluid_stress_zy * fluid_vy_t) - \
-                        (fluid_stress_zz * fluid_vz_t)), axis=1)
+                je_x = np.sum(fluid_evx + (sci.N_A*atmA3_to_kcal*fluid_svx), axis=1)
+                je_y = np.sum(fluid_evy + (sci.N_A*atmA3_to_kcal*fluid_svy), axis=1)
+                je_z = np.sum(fluid_evz + (sci.N_A*atmA3_to_kcal*fluid_svz), axis=1)
             except UnboundLocalError:
                 je_x, je_y, je_z = None, None, None
 
@@ -563,8 +524,7 @@ class TrajtoGrid:
         dim_reciproc = np.array([kx, ky, kz], dtype=object)
 
         # Whole cell --------------------------------------------
-        # The minimum position has to be added to have equal Number of solid
-        # atoms in each chunk
+        # The minimum position has to be added to have equal Number of solid atoms in each chunk
         if solid_start != None:
             bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i] + fluid_min[i]
                             for i in range(3)]
@@ -587,7 +547,6 @@ class TrajtoGrid:
             bounds_stable = [stableRangeX, bounds_fluid[1], bounds_fluid[2]]
             xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                                 bounds_stable[1], bounds_stable[2])
-
 
 
             # Measure the velocity profile evolution along the stream -----------------------
@@ -639,12 +598,8 @@ class TrajtoGrid:
             #---------------------------------------------------------------------
 
         else:
-            # bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i]
-            #                 for i in range(3)]
-            # xx, yy, zz, vol_fluid = utils.bounds(bounds[0], bounds[1], bounds[2])
-
             # Bounds should change for example in NPT simulations
-            # (NEEDED when the Box volume changes e.g. NPT)------------------------------------------------
+            # (NEEDED especially when the Box volume changes e.g. NPT)------------------------------------------------
             bounds = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_min[i]
                             for i in range(3)]
 
@@ -982,7 +937,7 @@ class TrajtoGrid:
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule)  # Kelvin
 
                     temp_ch_solid[:, i, k] = ((self.ms * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v_solid**2 , axis=1) * \
@@ -1000,7 +955,7 @@ class TrajtoGrid:
                     except UnboundLocalError:
                         pass
 
-                    # Simulations with virial off-diagonal components calculation
+                    # Simulations with virial off-diagonal components calculation (calculated in the whole fluid)
                     try:
                         Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) / vol_fluid[i,0,k]
                         Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) / vol_fluid[i,0,k]
@@ -1053,38 +1008,28 @@ class TrajtoGrid:
                     mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch[:, i, k]
 
                     # Temperature ----------------------------
-                    # COM velocity in the bin
-                    # uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    # uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    # uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
 
-                    # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
-                    # peculiar_vx = np.transpose(fluid_vx_t) #- uCOMx
-                    # peculiar_vy = np.transpose(fluid_vy_t) #- uCOMy
-                    # peculiar_vz = np.transpose(fluid_vz_t) #- uCOMz
-
-                    peculiar_v = np.sqrt(fluid_vx_t**2+fluid_vy_t**2+fluid_vz_t**2) * mask_fluid / self.A_per_molecule
-                    # peculiar_v = np.transpose(peculiar_v) * mask_fluid
+                    peculiar_v = np.sqrt(fluid_vx_t**2 + fluid_vy_t**2 + fluid_vz_t**2) * mask_fluid / self.A_per_molecule
 
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        ( 3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule )  # Kelvin
+                                        (3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule)  # Kelvin
 
                     # Virial pressure--------------------------------------
                     try:
-                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
-                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
-                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) / vol_cell[i,0,k]
                         vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
                     except UnboundLocalError:
                         pass
 
                     # Simulations with virial off-diagonal components calculation
                     try:
-                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
-                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
-                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) / vol_cell[i,0,k]
 
                     except (IndexError, UnboundLocalError) as e:
                         pass
