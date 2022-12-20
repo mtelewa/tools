@@ -9,7 +9,11 @@ import itertools
 def get_parser():
     parser = argparse.ArgumentParser(
     description='Manipulate datasets: Create parent (simulation), derived(simulation) or post-processing datasets \
-     / Update dataset README / Freeze and copy to S3 storage system.')
+     / Update dataset README / Freeze and copy to S3 storage system.\
+     Example:\
+     -------\
+     * To update the Temperature in the README of multiple datasets in a directory, use:\
+     dtool_man.py update_readme -ds all -var temperature:"300 K"')
 
     #Positional arguments
     #--------------------
