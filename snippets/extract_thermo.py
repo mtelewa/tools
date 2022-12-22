@@ -8,8 +8,9 @@ from os.path import exists
 def extract_data(logfile, skip):
     logfile_dir = os.path.dirname(logfile)
 
-    if exists(f"{logfile_dir}/thermo*.out"): os.system(f"rm {logfile_dir}/thermo*.out")
-    
+    if exists(f"{logfile_dir}/thermo.out"):
+        os.system(f"rm {logfile_dir}/thermo*.out")
+
     os.system(f"cat {logfile_dir}/log.lammps | sed -n '/Step/,/Loop time/p' \
     | head -n-1 > {logfile_dir}/thermo.out")
     with open(f'{logfile_dir}/thermo.out', 'r') as f:
