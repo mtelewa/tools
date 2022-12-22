@@ -85,11 +85,15 @@ if __name__ == "__main__":
                     trajactories.append(os.path.join(root, i))
 
     if 'log' in args.filename: ptxt.extract_plot(args.variables)
-    if 'radius-one-cavity' in args.variables:
-        # thick ---> 33.6e-10, 100, 180, 'dynamic'    35e-10, 405, 455, 'dynamic'
-        # thin ---> 16e-10, 115, 138, 'dynamic'
-        # iter-16 ---> 20e-10, 115, 138, 'dynamic'
-        rmax, start, stop, method = 19.8e-10, 651, 702, 'dynamic'
+    if 'press-profile' in args.filename: ptxt.press_md_cont(args.variables)
+    if 'radius' in args.variables:
+        # iter-12-thick:
+        # r0, v0, pl, start, stop, method = 33.6e-10, 0, -, 100, 180, 'dynamic'    35e-10, 405, 455, 'dynamic'
+        # iter-12-thin:
+        # r0, v0, pl, start, stop, method = 16e-10, 0, -, 115, 138, 'dynamic'
+        # iter-16:
+        # r0, v0, pl, start, stop, method = 19.8e-10, 0, 1.1e5, 651, 702, 'dynamic' # (collapse one cavity)
+        r0, v0, pl, start, stop, method = 0.1e-10, 5e3, 1.01e5, 0, 702, 'dynamic' #(nucleation and collapse one cavity)
         if method == 'static':
             data = netCDF4.Dataset(trajactories[0])
             Time = data.variables["time"]
@@ -99,7 +103,7 @@ if __name__ == "__main__":
         else:
             dt = None
 
-        ptxt.radius(rmax, datasets_x, datasets_z, start, stop, dt, method)
+        ptxt.radius(r0, v0, pl, datasets_x, datasets_z, start, stop, dt, method)
 
     if args.format is not None:
         if args.format == 'eps':
