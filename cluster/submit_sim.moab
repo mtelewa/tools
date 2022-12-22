@@ -2,11 +2,13 @@
 #MSUB -l nodes=5:ppn=20
 #MSUB -q  
 #MSUB -l walltime=4:00:00:00
-#MSUB -l mem=6000mb
+#MSUB -l pmem=6000mb
 #MSUB -v MPIRUN_OPTIONS="--bind-to core --map-by core -report-bindings"
 #MSUB -o 
 #MSUB -v EXECUTABLE=./lmp
 #MSUB -N vs30pbt
+#MSUB -m a
+#MSUB -M mohamed.hassan@kit.edu
 
 #export KMP_AFFINITY=compact,1,0
 

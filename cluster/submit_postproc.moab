@@ -7,6 +7,8 @@
 #MSUB -l pmem=6GB 
 #MSUB -v EXECUTABLE=./lmp
 #MSUB -N vs30pbt
+#MSUB -m a
+#MSUB -M mohamed.hassan@kit.edu
 
 #export KMP_AFFINITY=compact,1,0
 
