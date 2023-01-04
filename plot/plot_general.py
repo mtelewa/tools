@@ -64,19 +64,23 @@ class PlotGeneral:
         self.Ly = first_dataset.Ly
 
 
-    def plot_uncertainty(self, ax, x, y, arr):
+    def plot_uncertainty(self, ax, x, y, xerr, yerr):
         """
         Plots the uncertainty of the data
         """
         if self.config['err_caps'] is not None:
-            err = sq.get_err(arr)['uncertainty']
-            markers, caps, bars= ax.errorbar(x, y, xerr=None, yerr=err,
-                                        capsize=3.5, markersize=4, lw=2, alpha=0.8)
+            if len(np.asarray(yerr).shape)>1:   # calculate uncertainty array
+                yerr = sq.get_err(arr)['uncertainty']
+            else:   # uncertainty array is already given
+                xerr, yerr = xerr, yerr
+
+            markers, caps, bars= ax.errorbar(x, y, xerr=xerr, yerr=yerr,
+                                        capsize=3.5, markersize=8, lw=2, alpha=0.8)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
         if self.config['err_fill'] is not None:
-            lo, hi = sq.get_err(arr)['lo'], sq.get_err(arr)['hi']
+            lo, hi = sq.get_err(yerr)['lo'], sq.get_err(yerr)['hi']
             ax.fill_between(x, lo, hi, color=color, alpha=0.4)
 
 
@@ -120,6 +124,7 @@ class PlotGeneral:
         c1 = np.array(mpl.colors.to_rgb(c1))
         c2 = np.array(mpl.colors.to_rgb(c2))
         return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
+
 
     def v_evolution(self):
         """
@@ -201,7 +206,7 @@ class PlotGeneral:
         To compare with the Hagen-Poiseuille equation
         """
         ax = self.axes_array[0]
-        mpl.rcParams.update({'lines.markersize': 7})
+        mpl.rcParams.update({'lines.markersize': 10})
         ax.set_xlabel(labels[9])
         ax.set_ylabel(labels[10])
         ax.ticklabel_format(axis='y', style='sci', useOffset=False)
@@ -213,18 +218,12 @@ class PlotGeneral:
         for i, val in enumerate(self.datasets_x):
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
 
-            # Continuum prediction (Hagen Poiseuille)
-            if 'cont' in val:
-                mflowrate_hp.append(data.mflowrate_hp()['mflowrate_cont'])
-                mflowrate_hp_slip.append(data.mflowrate_hp()['mflowrate_hp_slip'])
-                # avg_gap_height = np.mean(data.h)*1e-9
-                # bulk_den_avg = np.mean(data.density()['den_t'])
-                # mu = data.transport()['mu']            # mPa.s
-
             # From FF simulation
             if 'ff' in val:
+                mflowrate_hp.append(data.mflowrate_hp()['mflowrate_hp'])
+                mflowrate_hp_slip.append(data.mflowrate_hp()['mflowrate_hp_slip'])
                 pGrad.append(np.absolute(data.virial()['pGrad']))
-                shear_rate.append(data.transport()['shear_rate'])
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
                 mflowrate_ff_avg.append(np.mean(data.mflux()['mflowrate_stable']))
                 mflowrate_ff_err.append(sq.get_err(data.mflux()['mflowrate_stable'])['uncertainty'])
             # From FC simulation
@@ -262,8 +261,8 @@ class PlotGeneral:
 
         ax.set_ylabel(labels[12])
         ax.set_xscale('log', nonpositive='clip')
-        mpl.rcParams.update({'lines.linewidth': 2})
-        mpl.rcParams.update({'lines.markersize': 8})
+        # mpl.rcParams.update({'lines.linewidth': 2})
+        # mpl.rcParams.update({'lines.markersize': 8})
 
         shear_rate, viscosity = [], []
         shear_rate_err, viscosity_err = [], []
@@ -277,36 +276,39 @@ class PlotGeneral:
 
         for idx, val in enumerate(self.datasets_x):
             if 'couette' in val:
+                print('Plotting Couette rate-viscosity data')
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate.append(data.transport()['shear_rate'])
-                viscosity.append(data.transport()['mu'])
-                shear_rate_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
-                viscosity_err.append(data.transport()['mu_hi'] - data.transport()['mu_lo'])
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
+                viscosity.append(data.viscosity_nemd()['mu'])
+                shear_rate_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
+                viscosity_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
 
             if 'ff' in val:
+                print('Plotting FF rate-viscosity data')
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-                shear_rate_ff.append(data.transport()['shear_rate'])
-                viscosity_ff.append(data.transport()['mu'])
-                shear_rate_ff_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
-                viscosity_ff_err.append(data.transport()['mu_hi'] - data.transport()['mu_lo'])
+                shear_rate_ff.append(data.viscosity_nemd()['shear_rate'])
+                viscosity_ff.append(data.viscosity_nemd()['mu'])
+                shear_rate_ff_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
+                viscosity_ff_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
 
             if 'fc' in val:
+                print('Plotting FC rate-viscosity data')
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-                shear_rate_fc.append(data.transport()['shear_rate'])
-                viscosity_fc.append(data.transport()['mu'])
-                shear_rate_fc_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
-                viscosity_fc_err.append(data.transport()['mu_hi'] - data.transport()['mu_lo'])
+                shear_rate_fc.append(data.viscosity_nemd()['shear_rate'])
+                viscosity_fc.append(data.viscosity_nemd()['mu'])
+                shear_rate_fc_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
+                viscosity_fc_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
 
             if 'vib' in val:
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-                shear_rate_vib.append(data.transport()['shear_rate'])
-                viscosity_vib.append(data.transport()['mu'])
+                shear_rate_vib.append(data.viscosity_nemd()['shear_rate'])
+                viscosity_vib.append(data.viscosity_nemd()['mu'])
 
             if 'rigid' in val:
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-                shear_rate_rigid.append(data.transport()['shear_rate'])
-                viscosity_rigid.append(data.transport()['mu'])
+                shear_rate_rigid.append(data.viscosity_nemd()['shear_rate'])
+                viscosity_rigid.append(data.viscosity_nemd()['mu'])
 
         # Plot raw data (with fit if specified)
         if not self.config['err_caps'] and not self.config['err_fill']:
@@ -319,15 +321,16 @@ class PlotGeneral:
             if viscosity_vib:
                 ax.plot(shear_rate_rigid, viscosity_rigid)
                 ax.plot(shear_rate_vib, viscosity_vib)
-            if self.config['fit']: #plot fit for Couette data
-                popt, pcov = curve_fit(funcs.power, shear_rate, viscosity, maxfev=8000)
-                ax.plot(shear_rate, funcs.power(shear_rate, *popt))
 
         # Plot data with error bars
         if self.config['err_caps'] or self.config['err_fill']:
             if viscosity: self.plot_uncertainty(ax, shear_rate, viscosity, shear_rate_err, viscosity_err)
             if viscosity_ff: self.plot_uncertainty(ax, shear_rate_ff, viscosity_ff, shear_rate_ff_err, viscosity_ff_err)
             if viscosity_fc: self.plot_uncertainty(ax, shear_rate_fc, viscosity_fc, shear_rate_fc_err, viscosity_fc_err)
+
+        if self.config['fit']: #plot fit for Couette data
+            popt, pcov = curve_fit(funcs.power, shear_rate, viscosity, maxfev=8000)
+            ax.plot(shear_rate, funcs.power(shear_rate, *popt))
 
         if viscosity:
             Modify(shear_rate, self.fig, self.axes_array, self.configfile)
@@ -362,64 +365,50 @@ class PlotGeneral:
 
         for idx, val in enumerate(self.datasets_x):
             if 'couette' in val:
+                print('Plotting Couette rate-stress data')
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate.append(data.transport()['shear_rate'])
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
                 stress.append(np.mean(data.sigwall()['sigxz_t']))
-                shear_rate_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
+                shear_rate_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
                 stress_err.append(data.sigwall()['sigxz_err_t'])
 
             if 'ff' in val:
+                print('Plotting FF rate-stress data')
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_ff.append(data.transport()['shear_rate'])
+                shear_rate_ff.append(data.viscosity_nemd()['shear_rate'])
                 stress_ff.append(np.mean(data.sigwall()['sigxz_t']))
-                shear_rate_ff_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
+                shear_rate_ff_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
                 stress_ff_err.append(data.sigwall()['sigxz_err_t'])
 
             if 'fc' in val:
+                print('Plotting FC rate-stress data')
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_fc.append(data.transport()['shear_rate'])
+                shear_rate_fc.append(data.viscosity_nemd()['shear_rate'])
                 stress_fc.append(np.mean(data.sigwall()['sigxz_t']))
-                shear_rate_fc_err.append(data.transport()['shear_rate_hi'] - data.transport()['shear_rate_lo'])
+                shear_rate_fc_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
                 stress_fc_err.append(data.sigwall()['sigxz_err_t'])
 
-        # Plot with error bars
-        if self.config['err_caps'] or self.config['err_fill']:
-            a,b,c = [],[],[]
-            if shear_rate:
-                for i in stress_err:
-                    a.append(np.mean(i))
-                pds.plot_err_caps(ax, shear_rate, stress, shear_rate_err, a)
-            if shear_rate_ff:
-                for j in stress_ff_err:
-                    b.append(np.mean(j))
-                pds.plot_err_caps(ax, shear_rate_ff, stress_ff, shear_rate_ff_err, b)
-            if shear_rate_fc:
-                for j in stress_fc_err:
-                    c.append(np.mean(j))
-                pds.plot_err_caps(ax, shear_rate_fc, stress_fc, shear_rate_fc_err, c)
+        if shear_rate:
+            ax.plot(shear_rate, stress)
+        if shear_rate_ff:
+            ax.plot(shear_rate_ff, stress_ff)
+        if shear_rate_fc:
+            ax.plot(shear_rate_fc, stress_fc)
 
-        # Plot raw data (with fit if specified)
-        if not self.config['err_caps']:
-            if shear_rate:
-                ax.plot(shear_rate, stress)
-            if shear_rate_ff:
-                ax.plot(shear_rate_ff, stress_ff)
-            if shear_rate_fc:
-                ax.plot(shear_rate_fc, stress_fc)
-            if self.config['fit']:
-                popt, pcov = curve_fit(funcs.power, shear_rate, stress)
-                ax.plot(shear_rate, funcs.power(shear_rate, *popt))
+        if self.config['fit']:
+            popt, pcov = curve_fit(funcs.power, shear_rate, stress, maxfev=8000)
+            ax.plot(shear_rate, funcs.power(shear_rate, *popt))
 
-        if len(self.axes_array)==1: # If it is the only plot
-            if shear_rate:
-                Modify(shear_rate, self.fig, self.axes_array, self.configfile)
-            elif shear_rate_ff:
-                Modify(shear_rate_ff, self.fig, self.axes_array, self.configfile)
-            elif shear_rate_fc:
-                Modify(shear_rate_fc, self.fig, self.axes_array, self.configfile)
+        # if len(self.axes_array)==1: # If it is the only plot
+        if shear_rate:
+            Modify(shear_rate, self.fig, self.axes_array, self.configfile)
+        elif shear_rate_ff:
+            Modify(shear_rate_ff, self.fig, self.axes_array, self.configfile)
+        elif shear_rate_fc:
+            Modify(shear_rate_fc, self.fig, self.axes_array, self.configfile)
 
     def rate_slip(self):
         """
@@ -430,7 +419,7 @@ class PlotGeneral:
         ax.set_xlabel(labels[11])
         ax.set_ylabel('Slip Length (nm)')
         ax.set_xscale('log', nonpositive='clip')
-        mpl.rcParams.update({'lines.markersize': 6})
+        mpl.rcParams.update({'lines.markersize': 8})
 
         shear_rate, slip = [], []
         shear_rate_pd, slip_pd = [], []
@@ -439,13 +428,13 @@ class PlotGeneral:
             if 'couette' in val:
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate.append(data.transport()['shear_rate'])
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
                 slip.append(data.slip_length()['Ls'])
 
             if 'ff' in val or 'fc' in val:
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_pd.append(data.transport()['shear_rate'])
+                shear_rate_pd.append(data.viscosity_nemd()['shear_rate'])
                 slip_pd.append(data.slip_length()['Ls'])
 
         if shear_rate: ax.plot(shear_rate, slip)
@@ -476,25 +465,25 @@ class PlotGeneral:
             if 'couette' in val:
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate.append(data.transport()['shear_rate'])
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
                 temp.append(np.mean(data.temp()['temp_t']))
 
             if 'ff' in val or 'fc' in val:
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_pd.append(data.transport()['shear_rate'])
+                shear_rate_pd.append(data.viscosity_nemd()['shear_rate'])
                 temp_pd.append(np.mean(data.temp()['temp_t']))
 
             if 'vibrating' in val:
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_vib.append(data.transport()['shear_rate'])
+                shear_rate_vib.append(data.viscosity_nemd()['shear_rate'])
                 temp_vib.append(np.mean(data.temp()['temp_t']))
 
             if 'rigid' in val:
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate_rigid.append(data.transport()['shear_rate'])
+                shear_rate_rigid.append(data.viscosity_nemd()['shear_rate'])
                 temp_rigid.append(np.mean(data.temp()['temp_t']))
 
         if shear_rate: ax.plot(shear_rate, temp)
@@ -525,9 +514,9 @@ class PlotGeneral:
         for idx, val in enumerate(self.datasets_x):
             pumpsize = self.pumpsize
             data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-            shear_rate.append(data.transport()['shear_rate'])
-            qdot.append(np.mean(data.lambda_IK()['qdot'])*1e24)
-            qdot_continuum.append(np.mean(data.lambda_IK()['qdot_continuum'])*1e24)
+            shear_rate.append(data.viscosity_nemd()['shear_rate'])
+            qdot.append(np.mean(data.conductivity_IK()['qdot'])*1e24)
+            qdot_continuum.append(np.mean(data.conductivity_IK()['qdot_continuum'])*1e24)
 
         ax.plot(shear_rate, qdot)
         ax.plot(shear_rate, qdot_continuum)
@@ -535,7 +524,7 @@ class PlotGeneral:
         Modify(shear_rate, self.fig, self.axes_array, self.configfile)
 
 
-    def rate_lambda(self):
+    def rate_conductivity(self):
         """
         Plots the shear rate on the x-axis and the thermal conductivity (λ) on the y-axis
         The continuum λ comes from Fourier's law of heat transfer
@@ -547,17 +536,17 @@ class PlotGeneral:
         ax.set_xscale('log', nonpositive='clip')
         mpl.rcParams.update({'lines.markersize': 6})
 
-        shear_rate, lambda_z, lambda_continuum = [], [], []
+        shear_rate, conductivity_z, conductivity_continuum = [], [], []
 
         for idx, val in enumerate(self.datasets_x):
             pumpsize = self.pumpsize
             data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-            shear_rate.append(data.transport()['shear_rate'])
-            lambda_z.append(np.mean(data.lambda_IK()['lambda_z']))
-            lambda_continuum.append(np.mean(data.lambda_IK()['lambda_continuum']))
+            shear_rate.append(data.viscosity_nemd()['shear_rate'])
+            conductivity_z.append(np.mean(data.conductivity_IK()['conductivity_z']))
+            conductivity_continuum.append(np.mean(data.conductivity_IK()['conductivity_continuum']))
 
-        ax.plot(shear_rate, lambda_z)
-        ax.plot(shear_rate, lambda_continuum)
+        ax.plot(shear_rate, conductivity_z)
+        ax.plot(shear_rate, conductivity_continuum)
 
         Modify(shear_rate, self.fig, self.axes_array, self.configfile)
 
@@ -571,16 +560,16 @@ class PlotGeneral:
         ax.set_ylabel('$\lambda$ (W/mK)')
 
         # Experimal results are from Wang et al. 2020 (At temp. 335 K)
-        exp_lambda = [0.1009,0.1046,0.1113,0.1170]
+        exp_conductivity = [0.1009,0.1046,0.1113,0.1170]
         exp_press = [5,10,20,30]
-        md_lambda, md_press = [], []
+        md_conductivity, md_press = [], []
 
         for idx, val in enumerate(self.datasets_x):
             data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-            md_lambda.append(np.mean(data.lambda_gk()['lambda_tot']))
+            md_conductivity.append(np.mean(data.conductivity_gk()['conductivity_tot']))
 
-        ax.plot(exp_press, md_lambda)
-        ax.plot(exp_press, exp_lambda)
+        ax.plot(exp_press, md_conductivity)
+        ax.plot(exp_press, exp_conductivity)
 
         Modify(exp_press, self.fig, self.axes_array, self.configfile)
 
@@ -851,6 +840,34 @@ class PlotGeneral:
         Modify(temp, self.fig, self.axes_array, self.configfile)
 
 
+    def acf(self):
+        """
+        Plots the auto correlation function
+        # TODO: Check that this works properly!
+        """
+        ax = self.axes_array[0]
+        ax.set_xlabel(labels[2])
+        ax.set_ylabel(r'${\mathrm{C_{AA}}}$')
+        mpl.rcParams.update({'lines.linewidth':'1'})
+
+        cutoff = 1000
+
+        for i in range(len(self.datasets_x)):
+            ds = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
+            acf_sigxz = sq.acf(ds.virial()['Wxz_t'])['norm']
+            acf_sigxz_numpy = sq.acf_conjugate(ds.virial()['Wxz_t'])['C']
+            ax.plot(self.time[:cutoff]*1e-6, acf_sigxz[:cutoff])
+            ax.plot(self.time[:cutoff]*1e-6, acf_sigxz_numpy[:cutoff])
+
+            # acf_flux = sq.acf(data.mflux()['jx_t'])['norm']
+            # ax.plot(self.time*1e-6, acf_flux[:10000])
+
+        ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
+
+        Modify(self.time[:cutoff]*1e-6, self.fig, self.axes_array, self.configfile)
+
+
+
     def struc_factor(self):
         """
         Plots the structure factor on the x-axis and the wave length (kx or ky) on the y-axis in 2D figure
@@ -929,25 +946,6 @@ class PlotGeneral:
         ax.plot(self.time[self.skip:], isf_lo)
         ax.plot(self.time[self.skip:], isf_hi)
         Modify(self.time[self.skip:], self.fig, self.axes_array, self.configfile)
-
-    def acf(self):
-        """
-        Plots the auto correlation function (till now: only the mass flux is implemented)
-        # TODO: Check that this works properly!
-        """
-        ax = self.axes_array[0]
-        ax.set_xlabel(labels[2])
-        ax.set_ylabel(r'${\mathrm C_{AA}}$')
-        mpl.rcParams.update({'lines.linewidth':'1'})
-
-        for i in range(len(self.datasets_x)):
-            data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-            acf_flux = sq.acf(data.mflux()['jx_t'])['norm']
-            ax.plot(self.time[:10000]*1e-6, acf_flux[:10000])
-
-        ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
-
-        Modify(self.time[:10000]*1e-6, self.fig, self.axes_array, self.configfile)
 
 
     def transverse_acf(self):
