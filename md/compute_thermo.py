@@ -20,7 +20,12 @@ import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.stats import pearsonr, spearmanr
 from scipy.optimize import curve_fit
+from scipy.integrate import simpson
 from math import isclose
+from operator import itemgetter
+import extract_thermo
+
+# np.seterr(all='raise')
 
 # Conversions
 ang_to_cm = 1e-8
@@ -51,8 +56,8 @@ class ExtractFromTraj:
         self.data_x = netCDF4.Dataset(self.infile_x)
         self.data_z = netCDF4.Dataset(self.infile_z)
         self.mf = mf
-        if self.mf == 72.15: self.A_per_molecule = 5.
-        if self.mf == 39.948 : self.A_per_molecule = 1.
+        if self.mf == 72.15: self.A_per_molecule = 5.   # Pentane
+        if self.mf == 39.948 : self.A_per_molecule = 1. # Lennard-Jones
         self.pumpsize = pumpsize
         self.Nf = len(self.data_x.dimensions["Nf"])     # No. of fluid atoms
 
@@ -72,20 +77,11 @@ class ExtractFromTraj:
         dim = self.data_x.__dict__
         self.Lx = dim["Lx"] / 10      # nm
         self.Ly = dim["Ly"] / 10      # nm
+        self.Lz = dim["Lz"] / 10      # nm
         # Old simulations have no Lz dimension (Only gap height)
-        try:
-            self.Lz = dim["Lz"] / 10      # nm
-        except KeyError:
-            pass
-
-        # Gap height (in each timestep)
-        self.h = np.array(self.data_x.variables["Height"])[self.skip:] / 10      # nm
-        if len(self.h)==0:
-            print('Reduce the number of skipped steps!')
-            exit()
-        self.avg_gap_height = np.mean(self.h)
-        # COM (in each timestep)
-        com = np.array(self.data_x.variables["COM"])[self.skip:] / 10      # nm
+        # try:
+        # except KeyError:
+        #     pass
 
         # Number of chunks
         self.Nx = self.data_x.dimensions['x'].size
@@ -97,26 +93,38 @@ class ExtractFromTraj:
         self.chunk_A = dx * self.Ly* 1e-18
         self.wall_A = self.Lx * self.Ly * 1e-18
 
+        # Gap height (in each timestep)
+        self.h = np.array(self.data_x.variables["Height"])[self.skip:] / 10      # nm
+        self.h_conv = np.array(self.data_x.variables["Height_conv"])[self.skip:] / 10
+        self.h_div = np.array(self.data_x.variables["Height_div"])[self.skip:] / 10
+
+        # if len(self.h)==0:
+        #     print('Reduce the number of skipped steps!')
+        #     exit()
+        if len(self.h)!=0:
+            self.avg_gap_height = np.mean(self.h)
+        else:
+            self.avg_gap_height = 0
+        # COM (in each timestep)
+        com = np.array(self.data_x.variables["COM"])[self.skip:] / 10      # nm
+
         # The length and height arrays for plotting
         self.length_array = np.arange(dx/2.0, self.Lx, dx)   #nm
 
-        if self.avg_gap_height != 0:    # Simulation with walls
+        if self.avg_gap_height > 0:    # Simulation with walls
             dz = self.avg_gap_height / self.Nz
             self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)     #nm
             self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm3
-            try:
-                bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
-                bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
-                avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
-                self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)     #nm
+            bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
+            bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
+            avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
+            self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)     #nm
 
-            except KeyError:
-                pass
-
-        else:       # Bulk simulation
+        if self.avg_gap_height == 0:       # Bulk simulation
             dz = self.Lz / self.Nz
             self.height_array = np.arange(dz/2.0, self.Lz, dz)     #nm
             self.vol = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * 1e-3 # nm3
+
 
     # Thermodynamic properties-----------------------------------------------
     # -----------------------------------------------------------------------
@@ -134,17 +142,16 @@ class ExtractFromTraj:
         vx_R : arr (Nz,), velocity in different regions along the stream
         """
 
-        vx_full_x = np.array(self.data_x.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-        vx_full_z = np.array(self.data_z.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-
         try:
-            vx_full_x_whole = np.array(self.data_x.variables["Vx_whole"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+            vx_full_x = np.array(self.data_x.variables["Vx_whole"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+            vx_chunkX = np.mean(vx_full_x, axis=(0,2))
+            vx_t = np.mean(vx_full_x, axis=(1,2))
         except KeyError:
-            vx_full_x_whole = 0
+            vx_full_x, vx_chunkX, vx_t = 0, 0, 0
 
-        vx_chunkX = np.mean(vx_full_x, axis=(0,2))
+        # Measured away from the pump (Stable region)
+        vx_full_z = np.array(self.data_z.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
         vx_chunkZ = np.mean(vx_full_z, axis=(0,1))
-        vx_t = np.mean(vx_full_x, axis=(1,2))
 
         try:
             vx_R1_z = np.array(self.data_z.variables["Vx_R1"])[self.skip:] * Angstromperfs_to_mpers  # m/s
@@ -158,7 +165,6 @@ class ExtractFromTraj:
             vx_R3 = np.mean(vx_R3_z, axis=(0,1))
             vx_R4 = np.mean(vx_R4_z, axis=(0,1))
             vx_R5 = np.mean(vx_R5_z, axis=(0,1))
-            print(vx_R5)
 
         except KeyError:
             vx_R1, vx_R2, vx_R3, vx_R4, vx_R5 = 0, 0, 0, 0, 0
@@ -229,19 +235,19 @@ class ExtractFromTraj:
         avg_gap_height = self.avg_gap_height * 1e-9      # m
         bulk_den_avg = np.mean(self.density()['den_t']) * 1e3     # kg/m3
         pGrad = np.absolute(self.virial()['pGrad']) * 1e6 * 1e9  # Pa/m
-        mu = self.transport()['mu'] * 1e-3            # Pa.s
+        eta = self.viscosity_nemd()['eta'] * 1e-3            # Pa.s
         Ly = self.Ly * 1e-9
         kgpers_to_gperns =  1e-9 * 1e3
 
         # Without slip
-        mflowrate_hp = (bulk_den_avg * Ly * pGrad * avg_gap_height**3 * kgpers_to_gperns) / (12 * mu)
+        mflowrate_hp = (bulk_den_avg * Ly * pGrad * avg_gap_height**3 * kgpers_to_gperns) / (12 * eta)
 
         # With slip
         mflowrate_hp_slip = mflowrate_hp + (bulk_den_avg * Ly * kgpers_to_gperns * \
                             np.mean(self.slip_length()['Vs']) * avg_gap_height)
 
         if self.pumpsize == 0:
-            mflowrate_hp = (bulk_den_avg * Ly * np.float(input('pGrad:')) * avg_gap_height**3 * kgpers_to_gperns) / (12 * mu)
+            mflowrate_hp = (bulk_den_avg * Ly * np.float(input('pGrad:')) * avg_gap_height**3 * kgpers_to_gperns) / (12 * eta)
 
         return {'mflowrate_hp':mflowrate_hp, 'mflowrate_hp_slip':mflowrate_hp_slip}
 
@@ -290,116 +296,83 @@ class ExtractFromTraj:
         W<ab>_X : arr (Nx,), ab virial tensor component along the length where ab are cartesian coordinates
         W<ab>_Z : arr (Nz,), ab virial tensor component along the gap height
         W<ab>_t : arr (time,), ab virial tensor component time-series
+
         """
 
-        # Voronoi volume
-        try:
-            totVi = np.array(self.data_x.variables["Voronoi_volumes"])[self.skip:]
-        except KeyError:
-            pass
-
+        # Diagonal components
+        Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wzz_full_z = np.array(self.data_z.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
         # Off-Diagonal components
-        try:
-            Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxy_full_z = np.array(self.data_z.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxz_full_z = np.array(self.data_z.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wyz_full_z = np.array(self.data_z.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
 
-            Wxy_full_z = np.array(self.data_z.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wxz_full_z = np.array(self.data_z.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wyz_full_z = np.array(self.data_z.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
+        # Averaging along the height
+        Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
+        Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
+        Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
+        Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
+        Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
+        Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
+        # Averaging along the length
+        Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
+        Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
+        Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
+        Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
+        Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
+        Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
 
-            Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
-            Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
-            Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
+        Wxx_t = np.mean(Wxx_full_z, axis=(1,2))
+        Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
+        Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
+        Wxy_t = np.mean(Wxy_full_z, axis=(1,2))
+        Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
+        Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
 
-            Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
-            Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
-            Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
+        # If in LAMMPS we can switch off the flow direction to compute the virial
+        # and used only the y-direction (perp. to flow perp. to loading), then
+        # we conisder only that direction in the virial calculation.
 
-            Wxy_t = np.mean(Wxy_full_x, axis=(1,2))
-            Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
-            Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
+        # min_density, max_density =  np.min(self.density()['den_X'][2:-2]),\
+        #                             np.max(self.density()['den_X'][2:-2])
+        #
+        # variation_density = (max_density-min_density)/max_density
+        # variation_density < 0.15 or
 
-        except KeyError:
-            Wxy_full_x, Wxz_full_x, Wyz_full_x, Wxy_full_z, Wxz_full_z, Wyz_full_z, Wxy_chunkX, Wxz_chunkX, Wyz_chunkX, \
-            Wxy_chunkZ, Wxz_chunkZ, Wyz_chunkZ, Wxy_t, Wxz_t, Wyz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
+            print('Virial computed from the three components')
+            vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+            vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+        else:  # Compressible flow
+            print('Virial computed from the y-component')
+            vir_full_x = - Wyy_full_x
+            vir_full_z = - Wyy_full_z
 
-        # Diagonal components (separately)
-        try:
-            Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa # Units: MPa if walls and MPa.A3 if bulk
-            Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
-
-            Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
-            Wzz_full_z = np.array(self.data_z.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
-
-            # Only for systems with walls
-            Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
-            Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
-            Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
-
-            Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
-            Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
-            Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
-
-            if np.mean(self.h) != 0:
-                Wxx_t = np.mean(Wxx_full_x, axis=(1,2))
-                Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
-                Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
-                # Diagonal components
-                # If in LAMMPS we switched off the flow direction to compute the virial
-                # and used only the y-direction (perp. to flow perp. to loading), then
-                # we conisder only that direction in the virial calcualtion..
-                if isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rel_tol=0.2, abs_tol=0.0):
-                    vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
-                    vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-                else:
-                    vir_full_x = -Wyy_full_x
-                    vir_full_z = -Wyy_full_z
-
-                vir_t = np.mean(vir_full_x, axis=(1,2))
-
-                vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-                vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-                vir_fluctuations = sq.get_err(vir_full_x)['var']
-
-            else: # Bulk simulation (Overall pressure)
-                Wxx_t = np.sum(Wxx_full_x, axis=(1)) / (self.vol*1e3)
-                Wyy_t = np.sum(Wyy_full_x, axis=(1)) / (self.vol*1e3)
-                Wzz_t = np.sum(Wzz_full_x, axis=(1)) / (self.vol*1e3)
-
-                # TODO: Correct these by diving by volume of the slab in each time step (in post-processing script)
-                vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
-                vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-                vir_chunkX, vir_chunkZ  = np.mean(vir_full_x, axis=(0,2)), np.mean(vir_full_z, axis=(0,1))
-
-                vir_t = -(Wxx_t + Wyy_t + Wzz_t) / 3.
-                # pGrad, pDiff, p_ratio = 0,0,0
-
-        # The virial pressure (scalar) was computed in the post-processing script
-        except KeyError:
-            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-            vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-            vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-            vir_t = np.mean(vir_full_x, axis=(1,2))
-
-            Wxx_full_x, Wyy_full_x, Wzz_full_x, Wxx_full_z, Wyy_full_z, Wzz_full_z, Wxx_chunkX, Wyy_chunkX, Wzz_chunkX, \
-            Wxx_chunkZ, Wyy_chunkZ, Wzz_chunkZ, Wxx_t, Wyy_t, Wzz_t = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-
+        vir_t = np.mean(vir_full_x, axis=(1,2))
+        vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+        vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+        vir_fluctuations = sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
         # Virial pressure at the inlet and the outlet of the pump
         out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
         # timeseries of the output and input chunks
-        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
+        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk+1]), np.mean(vir_full_x[:, in_chunk+1])
         # Pressure Difference  between inlet and outlet
         pDiff = vir_out - vir_in
         # Pressure gradient in the simulation domain
-        pGrad = - pDiff / pd_length       # MPa/nm
-
+        if pd_length !=0:
+            pGrad = - pDiff / pd_length       # MPa/nm
+        else:
+            pGrad = 0
 
         return {'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
                 'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
@@ -431,7 +404,7 @@ class ExtractFromTraj:
         sigzz_t :  arr (time,), Normal stress times-series
         """
 
-        wall_height = 0.4711    # nm
+        wall_height = 0.4711 * 2   # nm
 
         # in Newtons (Remove the last chunck)
         fx_Upper = np.array(self.data_x.variables["Fx_Upper"])[self.skip:] * kcalpermolA_to_N
@@ -456,9 +429,12 @@ class ExtractFromTraj:
 
         # Stress tensort time series
         sigxz_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / self.wall_A
-        sigxy_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / (wall_height * self.Lx * 1e-18)
         sigyz_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / self.wall_A
         sigzz_t = np.sum(fz_wall,axis=1) * pa_to_Mpa / self.wall_A
+
+        sigxx_t = np.sum(fx_wall,axis=1) * pa_to_Mpa / (wall_height * self.Lx * 1e-18)
+        sigxy_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / (wall_height * self.Lx * 1e-18)
+        sigyy_t = np.sum(fy_wall,axis=1) * pa_to_Mpa / (wall_height * self.Ly * 1e-18)
 
         # Error calculation for the time series
         fxL, fxU = np.sum(fx_Lower,axis=1) , np.sum(fx_Upper,axis=1)
@@ -533,13 +509,16 @@ class ExtractFromTraj:
 
         # Inlet and outlet of the pump region
         temp_bulk = np.max(tempZ)
-        temp_walls = 300 # K #TODO: should be Computesd
+        temp_walls = 300 # K #TODO: should be computed
         temp_ratio = temp_walls / temp_bulk
         # print(f'Temp. at the walls {temp_walls} and in the bulk {temp_bulk}')
         # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
         # pump_length = self.pumpsize * self.Lx      # nm
 
-        temp_grad = (temp_walls - temp_bulk) / (0.5 * self.avg_gap_height * 1e-9)    # K/m
+        if self.avg_gap_height !=0 :
+            temp_grad = (temp_walls - temp_bulk) / (0.5 * self.avg_gap_height * 1e-9)    # K/m
+        else:
+            temp_grad = 1
 
         try:
             temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
@@ -635,32 +614,121 @@ class ExtractFromTraj:
                 'vz_values_thermal': values_z_thermal, 'vz_prob_thermal': probabilities_z_thermal}
 
 
-    def viscosity_gk(self):
+    def green_kubo(self, arr1, arr2, arr3, t_corr):
         """
-        Computes the dynamic viscosity from an equilibrium MD simulation
+        Computes the Green-Kubo transport coefficients from the Autocorrelation functions of
+        3 input arrays (arr1, arr2, arr3).
+        The integral is up to time t_corr.
+
+        Units: input array unit ** 2
+        """
+
+        # The Convolution Autocorrelation functions
+        C_xy = np.correlate(arr1, arr1, 'full')
+        C_xz = np.correlate(arr2, arr2, 'full')
+        C_yz = np.correlate(arr3, arr3, 'full')
+
+        print('Numpy correlation done!')
+
+        # The statistical ACF
+        # C_stat = np.array([1]+[np.corrcoef(Wxz_t[:-i], Wxz_t[i:])[0,1] for i in range(1, t_corr)])
+
+        # Slice part of the positive part of the ACF
+        acf_xy = C_xy[len(C_xy)//2 : len(C_xy)//2 + t_corr] / (len(C_xy)//2)#/ C_xy[len(C_xy)//2]
+        acf_xz = C_xz[len(C_xz)//2 : len(C_xz)//2 + t_corr] / (len(C_xz)//2)#/ C_xz[len(C_xz)//2]
+        acf_yz = C_xy[len(C_yz)//2 : len(C_yz)//2 + t_corr] / (len(C_yz)//2)#/ C_yz[len(C_yz)//2]
+
+        acf = (acf_xy + acf_xz + acf_yz) / 3.
+
+        # time = np.arange(0, t_corr)
+        # np.savetxt('acf.txt', np.c_[time, acf],  delimiter=' ', header='time   acf')
+
+        gamma_xy = np.array([simpson(acf_xy[:n+1]) for n in range(len(acf_xy) - 1)])
+        gamma_xz = np.array([simpson(acf_xz[:n+1]) for n in range(len(acf_xz) - 1)])
+        gamma_yz = np.array([simpson(acf_yz[:n+1]) for n in range(len(acf_yz) - 1)])
+
+        gamma = (gamma_xy + gamma_xz + gamma_yz) / 3.
+
+        print('Integral done!')
+
+        # np.savetxt('gamma.txt', np.c_[self.time[1:t_corr], gamma],  delimiter=' ',\
+        #                 header='time   viscosity')
+
+        return {'acf': acf, 'gamma':gamma,
+                'gamma_xz': gamma_xz, 'gamma_xy': gamma_xy, 'gamma_yz': gamma_yz}
+
+
+    def viscosity_gk_traj(self, tcorr):
+        """
+        Computes the dynamic viscosity from an equilibrium MD simulation (from the trajectory)
         based on Green-Kubo relation - Autocorrelation function of the shear stress
+
+        Several time origins (t0) are considered by moving the wave along time with np correlate
+        correlation time (tcorr) is the time up to which the acf and its integral (viscosity) is computed
 
         Units: mPa.s
         """
-        # TODO: Replace with fluid stress tensor
-        sigxy_t = self.sigwall()['sigxy_t'] * 1e9  # mPa
-        sigxz_t = self.sigwall()['sigxz_t'] * 1e9
-        sigyz_t = self.sigwall()['sigyz_t'] * 1e9
+
+        # Thermodynamic variables printed every
+        thermo_out = 1 #self.time[1] - self.time[0]
 
         temp = np.mean(self.temp()['temp_t'])         # K
+        prefac = sci.atm**2 * 1e3 * np.mean(self.vol) * 1e-27 * thermo_out * 1e-15 / (sci.k * temp)
 
-        prefac = self.vol* 1e-27 / (sci.k * temp)
+        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:]  # atm * A3
+        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:]
+        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:]
 
-        v_xy = prefac * np.sum(sq.acf(sigxy_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
-        v_xz = prefac * np.sum(sq.acf(sigxz_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
-        v_yz = prefac * np.sum(sq.acf(sigyz_t)['non-norm'][:self.skip]) * 1e-15  # mPa.s
+        # Virial off-diagonal components
+        Wxy_t = np.sum(Wxy_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)     # atm
+        Wxz_t = np.sum(Wxz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
+        Wyz_t = np.sum(Wyz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
 
-        viscosity = (v_xz+v_yz+v_xy)/3.
+        # Get the viscosity along t_corr
+        eta = self.green_kubo(Wxy_t, Wxz_t, Wyz_t, tcorr)['gamma'] * prefac
 
-        return {'mu': viscosity}
+        return {'eta': eta}
 
 
-    def transport(self):
+    def viscosity_gk_log(self, logfile, tcorr):
+        """
+        Computes the dynamic viscosity from an equilibrium MD simulation (from the log file)
+        based on Green-Kubo relation - Autocorrelation function of the shear stress
+
+        Several time origins (t0) are considered by moving the wave along time with np correlate
+        correlation time (tcorr) is the time up to which the acf and its integral (viscosity) is computed
+
+        Units: mPa.s
+        """
+
+        # Thermodynamic variables printed every
+        logdata = extract_thermo.extract_data(logfile, self.skip)
+        data = logdata[0]
+        thermo_variables = logdata[1]
+
+        thermo_out = data[:,thermo_variables.index('Step')][-1] - data[:,thermo_variables.index('Step')][-2]
+
+        vol = self.Lx * self.Ly * self.Lz
+        temp = np.mean(data[:,thermo_variables.index('c_tempFluid')])   # K
+        pressure = (np.mean(data[:,thermo_variables.index('Pxx')]) +\
+                    np.mean(data[:,thermo_variables.index('Pyy')]) +\
+                    np.mean(data[:,thermo_variables.index('Pzz')])) / 3.
+        print(f'Press:{pressure*0.101325:.2f} MPa and temp:{temp:.2f} K')
+
+        prefac = sci.atm**2 * 1e3 * np.mean(vol) * 1e-27 * thermo_out * 1e-15 / (sci.k * temp)
+
+        # Virial off-diagonal components
+        Wxy_t = data[:,thermo_variables.index('Pxy')]
+        Wxz_t = data[:,thermo_variables.index('Pxz')]
+        Wyz_t = data[:,thermo_variables.index('Pyz')]
+
+        # Get the viscosity along t_corr
+        eta = self.green_kubo(Wxy_t, Wxz_t, Wyz_t, tcorr)['gamma'] * prefac
+
+        return {'eta': eta, 'thermo_out': thermo_out}
+
+
+    def viscosity_nemd(self):
         """
         Computes the dynamic viscosity and shear rate (and the uncertainties)
         from the corresponding velocity profile of a non-equilibrium MD simulation
@@ -675,15 +743,15 @@ class ExtractFromTraj:
             coeffs_fit = np.polyfit(self.height_array[vels!=0], vels[vels!=0], 1)
             sigxz_avg = np.mean(self.sigwall()['sigxz_t']) * 1e9      # mPa
             shear_rate = coeffs_fit[0] * 1e9
-            mu = sigxz_avg / shear_rate
+            eta = sigxz_avg / shear_rate
 
             coeffs_fit_lo = np.polyfit(self.height_array[vels!=0], sq.get_err(self.velocity()['vx_full_z'])['lo'], 1)
             shear_rate_lo = coeffs_fit_lo[0] * 1e9
-            mu_lo = sigxz_avg / shear_rate_lo
+            eta_lo = sigxz_avg / shear_rate_lo
 
             coeffs_fit_hi = np.polyfit(self.height_array[vels!=0], sq.get_err(self.velocity()['vx_full_z'])['hi'], 1)
             shear_rate_hi = coeffs_fit_hi[0] * 1e9
-            mu_hi = sigxz_avg / shear_rate_hi
+            eta_hi = sigxz_avg / shear_rate_hi
 
         # pd, sp
         if self.pumpsize!=0:
@@ -691,21 +759,58 @@ class ExtractFromTraj:
             sigxz_avg = np.mean(self.sigwall()['sigxz_t']) * 1e9      # mPa
             pgrad = self.virial()['pGrad']            # MPa/m
 
-            coeffs_fit = np.polyfit(self.height_array[vels!=0], vels[vels!=0], 2)
-            mu = pgrad/(2 * coeffs_fit[0])          # mPa.s
-            shear_rate = sigxz_avg / mu
+            coeffs_fit = np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
+            eta = pgrad/(2 * coeffs_fit[0])          # mPa.s
+            shear_rate = sigxz_avg / eta
 
-            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0], sq.get_err(self.velocity()['vx_full_z'])['lo'], 2)
-            mu_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
-            shear_rate_lo = sigxz_avg / mu_lo
+            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0][3:-3], sq.get_err(self.velocity()['vx_full_z'])['lo'][3:-3], 2)
+            eta_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
+            shear_rate_lo = sigxz_avg / eta_lo
 
-            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0], sq.get_err(self.velocity()['vx_full_z'])['hi'], 2)
-            mu_hi = pgrad/(2 * coeffs_fit_hi[0])          # mPa.s
-            shear_rate_hi = sigxz_avg / mu_hi
+            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0][3:-3], sq.get_err(self.velocity()['vx_full_z'])['hi'][3:-3], 2)
+            eta_hi = pgrad/(2 * coeffs_fit_hi[0])          # mPa.s
+            shear_rate_hi = sigxz_avg / eta_hi
 
-        return {'shear_rate': shear_rate, 'mu': mu,
-                'shear_rate_lo': shear_rate_lo, 'mu_lo': mu_lo,
-                'shear_rate_hi': shear_rate_hi, 'mu_hi': mu_hi}
+        return {'shear_rate': shear_rate, 'eta': eta,
+                'shear_rate_lo': shear_rate_lo, 'eta_lo': eta_lo,
+                'shear_rate_hi': shear_rate_hi, 'eta_hi': eta_hi}
+
+
+
+    def conductivity_gk_log(self, logfile, tcorr):
+        """
+        Computes the thermal conductivity (conductivity) from equilibrium MD
+        based on Green-Kubo relation - Autocorrelation function of the of the heat flux.
+        The heat flux vector components were computed according to Irving-Kirkwood expression
+        during the simulation
+
+        Units: J/mKs
+        """
+
+        logdata = extract_thermo.extract_data(logfile, self.skip)
+        data = logdata[0]
+        thermo_variables = logdata[1]
+
+        thermo_out = data[:,thermo_variables.index('Step')][-1] - data[:,thermo_variables.index('Step')][-2]
+
+        vol = self.Lx * self.Ly * self.Lz
+        temp = np.mean(data[:,thermo_variables.index('c_tempFluid')])   # K
+
+        # From post-processing we get kcal/mol * A/fs ---> J * m/s
+        conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
+
+        # Heat flux vector
+        je_x = data[:,thermo_variables.index('v_jex')] * conv_to_Jmpers / np.mean(vol* 1e-27)  # J/m2.s
+        je_y = data[:,thermo_variables.index('v_jey')] * conv_to_Jmpers / np.mean(vol* 1e-27)  # J/m2.s
+        je_z = data[:,thermo_variables.index('v_jez')] * conv_to_Jmpers / np.mean(vol* 1e-27)  # J/m2.s
+
+        temp = np.mean(data[:,thermo_variables.index('c_tempFluid')])   # K
+        prefac =  1e-15 * np.mean(vol) * 1e-27 * thermo_out / (sci.k * temp**2)        # m3.s/(J*K)
+
+        # Get the viscosity along t_corr
+        lambda_time = self.green_kubo(je_x, je_y, je_z, tcorr)['gamma'] * prefac # W/mK
+
+        return {'lambda_time': lambda_time, 'thermo_out': thermo_out}
 
 
     def heat_flux(self):
@@ -726,27 +831,7 @@ class ExtractFromTraj:
         return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
 
 
-    def lambda_gk(self):
-        """
-        Computes the thermal conductivity (lambda) from equilibrium MD
-        based on Green-Kubo relation - Autocorrelation function of the of the heat flux
-
-        Units: J/mKs
-        """
-
-        T = np.mean(self.temp()['temp_t']) # K
-        prefac =  np.mean(self.vol*1e-27)/(sci.k*T**2)        # m3/(J*K)
-
-        # GK relation to get lambda from Equilibrium
-        lambda_x = prefac * np.sum(sq.acf(self.heat_flux()['je_x'])['non-norm'][:self.skip])* 1e-15      # J/mKs
-        lambda_y = prefac * np.sum(sq.acf(self.heat_flux()['je_y'])['non-norm'][:self.skip])* 1e-15      # J/mKs
-        lambda_z = prefac * np.sum(sq.acf(self.heat_flux()['je_z'])['non-norm'][:self.skip])* 1e-15      # J/mKs
-        lambda_tot = (lambda_x+lambda_y+lambda_z)/3.
-
-        return {'lambda_tot':lambda_tot}
-
-
-    def lambda_ecouple(self, logfile):
+    def conductivity_ecouple(self, logfile):
         """
         Computes the heat flow rate from the slope of the energy removed by the thermostat with time in NEMD
         LAMMPS keyword is Ecouple.
@@ -755,36 +840,30 @@ class ExtractFromTraj:
         Units: J/mKs and J/s for the thermal conductivty and heat flow rate, respectively
         """
 
-        os.system(f"cat {os.path.dirname(logfile)}/log.lammps | sed -n '/Step/,/Loop time/p' \
-        | head -n-1 > {os.path.dirname(logfile)}/thermo.out")
-        with open(f'{os.path.dirname(logfile)}/thermo.out', 'r') as f:
-            for line in f:
-                if line.split()[0]!='Step' and line.split()[0]!='Loop':
-                    with open(f"{os.path.dirname(logfile) + '/thermo2.out'}", "a") as o:
-                        o.write(line)
-        data = np.loadtxt(f"{os.path.dirname(logfile) + '/thermo2.out'}", skiprows=self.skip, dtype=float)
-        os.system(f"rm {os.path.dirname(logfile)+'/thermo2.out'}")
+        logdata = extract_thermo.extract_data(logfile, self.skip)
+        data = logdata[0]
 
         # Ecouple from the thermostat:
-        delta_energy = data[:,2] # kcal/mol
+        delta_energy = data[:,thermo_variables.index('f_nvt')] # kcal/mol
         cut = self.skip + 10000 # Consider the energy slope in a window of 10 ns
 
         # Heat flow rate: slope of the energy with time
         qdot, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
         qdot *= 4184 / (sci.N_A * 1e-15)     # J/s
-        # qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
+        # qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
+        #       self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
 
         # Heat flux
         j =  qdot / (2 * self.wall_A) # J/(m2.s)
 
         temp_grad = self.temp()['temp_grad']     # K/m
         print(f'Tgrad = {temp_grad:e} K/m')
-        lambda_z = -j / temp_grad
+        conductivity_z = -j / temp_grad
 
-        return {'lambda_z':lambda_z, 'qdot':qdot}#, 'qdot_continuum':qdot_continuum}
+        return {'conductivity_z':conductivity_z, 'qdot':qdot} #, 'qdot_continuum':qdot_continuum}
 
 
-    def lambda_IK(self):
+    def conductivity_IK(self):
         """
         Computes the heat flow rate from the Irving-Kirkwood expression in NEMD
         and the corresponding z-component of thermal conductivity vector from Fourier's law
@@ -794,14 +873,22 @@ class ExtractFromTraj:
 
         je_z = -self.heat_flux()['je_z']   # J/m2.s
         temp_grad = self.temp()['temp_grad']   # K/m
+        conductivity_z = -je_z / temp_grad
 
-        qdot = np.mean(je_z) * self.wall_A  # W
-        lambda_z = -je_z / temp_grad
+        # CORRECT: The wall area (the heat flux was calculated only in the stable region)
+        stable_region_area = 0.4 * self.wall_A
+        qdot = np.mean(je_z) * stable_region_area  # W
 
-        qdot_continuum = self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * self.wall_A * self.avg_gap_height * 1e-9 / 2.
-        lambda_continuum = - self.transport()['mu'] * 1e-3 * self.transport()['shear_rate']**2 * self.avg_gap_height * 1e-9 / (2 * temp_grad)   # W/(m.K)
+        qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 \
+                    * self.viscosity_nemd()['shear_rate']**2 * stable_region_area \
+                    * self.avg_gap_height * 1e-9 / 2.
 
-        return {'lambda_z':lambda_z, 'lambda_continuum':lambda_continuum, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
+        conductivity_continuum = - self.viscosity_nemd()['eta'] * 1e-3 \
+                    * self.viscosity_nemd()['shear_rate']**2 \
+                    * self.avg_gap_height * 1e-9 / (2 * temp_grad)   # W/(m.K)
+
+        return {'conductivity_z':conductivity_z, 'conductivity_continuum':conductivity_continuum,\
+                'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
     def slip_length(self):
@@ -843,8 +930,11 @@ class ExtractFromTraj:
         # length where there are no atoms
         Ls = np.abs(root_left) + self.height_array[vels!=0][0]
 
-        # Slip velocity according to Navier boundary
-        Vs = Ls * sci.nano * self.transport()['shear_rate']        # m/s
+        if self.pumpsize != 0:
+            Vs = vels[vels!=0][2]
+        else:
+            # Slip velocity according to Navier boundary
+            Ls * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
 
         return {'root_left':root_left, 'Ls':Ls, 'Vs':Vs,
                 'xdata_left':xdata_left,
@@ -856,7 +946,8 @@ class ExtractFromTraj:
 
     def coexistence_densities(self):
         """
-        Computes the Liquid and vapor densities densities in equilibrium Liquid/Vapor interface simulations
+        Computes the Liquid and vapor densities densities in equilibrium
+        Liquid/Vapor interface simulations
 
         Units: g/cm^3
         """
@@ -869,6 +960,23 @@ class ExtractFromTraj:
         return {'rho_l':rho_liquid, 'rho_v':rho_vapour}
 
 
+    def reynolds_num(self):
+        """
+        Computes the Reynolds number of the flow
+        """
+
+        rho = np.mean(self.density()['den_t']) * 1e3 # kg/m3
+        u = np.mean(self.velocity()['vx_t']) # m/s
+        h = self.avg_gap_height * 1e-9 # m
+        eta = self.viscosity_nemd()['eta'] * 1e-3 # Pa.s
+
+        Re = rho * u * h / eta
+
+        return Re
+
+
+    # Structural properties ---------------------------------------------------
+
     def surface_tension(self):
         """
         Computes the surface tension (γ) from an equilibrium Liquid/Vapor interface
@@ -879,26 +987,11 @@ class ExtractFromTraj:
 
         virxx, viryy, virzz = -self.virial()['Wxx_t'], -self.virial()['Wyy_t'], -self.virial()['Wzz_t']   # MPa
         if self.avg_gap_height !=0: # Walls
-            gamma = self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
+            gamma = 0.5 * self.avg_gap_height * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
         else:
             gamma = 0.5 * self.Lz * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
 
         return {'gamma':gamma}
-
-
-    def reynolds_num(self):
-        """
-        Computes the Reynolds number of the flow
-        """
-
-        rho = np.mean(self.density()['den_t']) * 1e3 # kg/m3
-        u = np.mean(self.velocity()['vx_t']) # m/s
-        h = self.avg_gap_height * 1e-9 # m
-        mu = self.transport()['mu'] * 1e-3 # Pa.s
-
-        Re = rho * u * h / mu
-
-        return Re
 
 
     def sf(self):
@@ -974,6 +1067,8 @@ class ExtractFromTraj:
 
         return {'ISF':ISF}
 
+
+    # Time-correlation functions ------------------------------------------------
 
     def transverse_acf(self):
         """
