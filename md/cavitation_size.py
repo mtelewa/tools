@@ -187,7 +187,7 @@ class CavitySize:
         # Get the cavity radius from the cylinder area if thin
         if self.shape=='cylinder':
             radius = (np.sqrt(height**2+(2*area/np.pi))-height)/2.
-        if self.shape=='sphere':   # from sphere volume if thick
+        elif self.shape=='sphere':   # from sphere volume if thick
             radius = (3/4*(volume/np.pi))**(1/3)
         else:
             print('Void shape undefined!')
