@@ -21,7 +21,7 @@ def get_parser():
                         Needed for the calculation of mass flux and density')
     parser.add_argument('qtty', metavar='qtty', nargs='+', action='store', type=str,
                     help='the quantity to print')
-    parser.add_argument('--pumpsize', metavar='format', action='store', type=float,
+    parser.add_argument('--pumpsize', metavar='pumpsize', action='store', type=float,
                     help='Pump size. Needed for the pressure gradient compuation.')
 
     parsed, unknown = parser.parse_known_args()
