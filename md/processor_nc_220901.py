@@ -31,7 +31,7 @@ t0 = timer.time()
 
 class TrajtoGrid:
 
-    def __init__(self, data, start, end, Nx, Nz, mf, A_per_molecule, Ny=1, tessellate=0, TW_interface=1):
+    def __init__(self, data, start, end, Nx, Nz, mf, A_per_molecule, fluid, Ny=1, tessellate=0, TW_interface=1):
 
         self.data = data
         self.start, self.end = start, end
@@ -86,11 +86,18 @@ class TrajtoGrid:
             solid_idx.append(np.where(type == 3))
             solid_idx = solid_idx[0][0]
         # Hydrocarbons with sticking and slipping walls
-        if np.max(type)==4:
+        if np.max(type)==4 and fluid='pentane':
             walls = 1
             fluid_idx.append(np.where([type == 1, type == 2]))
             fluid_idx = fluid_idx[0][1]
             solid_idx.append(np.where([type == 3, type == 4]))
+            solid_idx = solid_idx[0][1]
+
+        if np.max(type)==4 and fluid='squalane':
+            walls = 1
+            fluid_idx.append(np.where([type == 1, type == 2, type == 3]))
+            fluid_idx = fluid_idx[0][1]
+            solid_idx.append(np.where([type == 4]))
             solid_idx = solid_idx[0][1]
 
         if walls == 1:

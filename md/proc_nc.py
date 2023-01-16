@@ -59,6 +59,8 @@ if __name__ == "__main__":
         mf, A_per_molecule = 100.21, 7
     if args.fluid=='triacontane':
         mf, A_per_molecule = 422.83, 30
+    if args.fluid=='squalane':
+        mf, A_per_molecule = 422.83, 30
 
-    grid.make_grid(args.infile, args.Nx, args.Nz, args.slice_size, mf, A_per_molecule,
+    grid.make_grid(args.infile, args.Nx, args.Nz, args.slice_size, mf, A_per_molecule, args.fluid,
                     args.stable_start, args.stable_end, args.pump_start, args.pump_end)
