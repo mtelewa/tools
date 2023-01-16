@@ -56,8 +56,11 @@ class ExtractFromTraj:
         self.data_x = netCDF4.Dataset(self.infile_x)
         self.data_z = netCDF4.Dataset(self.infile_z)
         self.mf = mf
-        if self.mf == 72.15: self.A_per_molecule = 5.   # Pentane
         if self.mf == 39.948 : self.A_per_molecule = 1. # Lennard-Jones
+        if self.mf == 44.09 : self.A_per_molecule = 3  # propane
+        if self.mf == 72.15: self.A_per_molecule = 5.   # Pentane
+        if self.mf == 100.21 : self.A_per_molecule = 7  # heptane
+        if self.mf == 442.83 : self.A_per_molecule = 30  # squalane
         self.pumpsize = pumpsize
         self.Nf = len(self.data_x.dimensions["Nf"])     # No. of fluid atoms
 

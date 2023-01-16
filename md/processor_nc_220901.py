@@ -41,6 +41,7 @@ class TrajtoGrid:
         self.ms = 196.96 # gold atom
         self.tessellate = tessellate
         self.TW_interface = TW_interface
+        self.fluid = fluid
 
     def get_dimensions(self):
         # Box dimensions
@@ -86,14 +87,14 @@ class TrajtoGrid:
             solid_idx.append(np.where(type == 3))
             solid_idx = solid_idx[0][0]
         # Hydrocarbons with sticking and slipping walls
-        if np.max(type)==4 and fluid='pentane':
+        if np.max(type)==4 and self.fluid=='pentane':
             walls = 1
             fluid_idx.append(np.where([type == 1, type == 2]))
             fluid_idx = fluid_idx[0][1]
             solid_idx.append(np.where([type == 3, type == 4]))
             solid_idx = solid_idx[0][1]
 
-        if np.max(type)==4 and fluid='squalane':
+        if np.max(type)==4 and self.fluid=='squalane':
             walls = 1
             fluid_idx.append(np.where([type == 1, type == 2, type == 3]))
             fluid_idx = fluid_idx[0][1]
