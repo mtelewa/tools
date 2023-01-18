@@ -520,9 +520,9 @@ class TrajtoGrid:
 
             # Heat flux --------------
             try:
-                je_x = np.sum(fluid_evx + fluid_svx), axis=1)
-                je_y = np.sum(fluid_evy + fluid_svy), axis=1)
-                je_z = np.sum(fluid_evz + fluid_svz), axis=1)
+                je_x = np.sum((fluid_evx + fluid_svx), axis=1)
+                je_y = np.sum((fluid_evy + fluid_svy), axis=1)
+                je_z = np.sum((fluid_evz + fluid_svz), axis=1)
             except UnboundLocalError:
                 je_x, je_y, je_z = None, None, None
 
