@@ -845,6 +845,7 @@ class ExtractFromTraj:
 
         logdata = extract_thermo.extract_data(logfile, self.skip)
         data = logdata[0]
+        thermo_variables = logdata[1]
 
         # Ecouple from the thermostat:
         delta_energy = data[:,thermo_variables.index('f_nvt')] # kcal/mol
