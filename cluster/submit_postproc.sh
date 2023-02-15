@@ -11,7 +11,7 @@
 
 export KMP_AFFINITY=compact,1,0
 
-source $HOME/fireworks/bin/activate
+source $HOME/venv/bin/activate
 
 module load compiler/intel/19.1
 module load mpi/openmpi/4.0
