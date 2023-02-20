@@ -20,6 +20,18 @@ def extract_data(logfile, skip):
                     o.write(line)
             if line.split()[0]=='Step':
                 thermo_variables = line.split()
-    data = np.loadtxt(f"{logfile_dir + '/thermo2.out'}", skiprows=skip, dtype=float)
+
+    f = open(f'{logfile_dir}/thermo2.out', 'r')
+
+    lines = f.readlines()
+    for i,j in enumerate(lines[:-1]):
+        if lines[i].split()[0]!=lines[i+1].split()[0]:
+            with open(f"{logfile_dir + '/thermo3.out'}", "a") as o:
+                o.write(j)
+
+    data = np.loadtxt(f"{logfile_dir + '/thermo3.out'}", skiprows=skip, dtype=float)
+
+    if exists(f"{logfile_dir}/thermo.out"):
+        os.system(f"rm {logfile_dir}/thermo*.out")
 
     return data, thermo_variables
