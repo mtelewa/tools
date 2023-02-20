@@ -196,10 +196,12 @@ class TrajtoGrid:
             ev = np.array(ev_data[self.start:self.end]).astype(np.float32)
             centroid_vir = np.array(centroid_vir_data[self.start:self.end]).astype(np.float32)
 
+            # in kcal/mol * A/fs
             fluid_evx, fluid_evy, fluid_evz = ev[:, fluid_idx, 0], \
                                               ev[:, fluid_idx, 1], \
                                               ev[:, fluid_idx, 2]
 
+            # in Kcal/mol * A/fs
             fluid_svx, fluid_svy, fluid_svz = centroid_vir[:, fluid_idx, 0] ,\
                                               centroid_vir[:, fluid_idx, 1] ,\
                                               centroid_vir[:, fluid_idx, 2]
