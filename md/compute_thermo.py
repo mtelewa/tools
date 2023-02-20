@@ -24,6 +24,7 @@ from scipy.integrate import simpson
 from math import isclose
 from operator import itemgetter
 import extract_thermo
+import numpy.ma as ma
 
 # np.seterr(all='raise')
 
@@ -35,7 +36,6 @@ pa_to_Mpa = 1e-6
 fs_to_ns = 1e-6
 Angstromperfs_to_mpers = 1e5
 kcalpermolA_to_N = 6.947694845598684e-11
-
 
 class ExtractFromTraj:
 
@@ -154,6 +154,10 @@ class ExtractFromTraj:
 
         # Measured away from the pump (Stable region)
         vx_full_z = np.array(self.data_z.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+
+        # Discard timesteps with zero average velocity in any bin
+        # vx_full_z = ma.masked_where(vx_full_z == 0, vx_full_z)
+
         vx_chunkZ = np.mean(vx_full_z, axis=(0,1))
 
         try:
@@ -505,6 +509,7 @@ class ExtractFromTraj:
 
         temp_full_x = np.array(self.data_x.variables["Temperature"])[self.skip:]
         temp_full_z = np.array(self.data_z.variables["Temperature"])[self.skip:]
+        temp_full_z = ma.masked_where(temp_full_z == 0, temp_full_z)
 
         tempX = np.mean(temp_full_x,axis=(0,2))
         tempZ = np.mean(temp_full_z,axis=(0,1))
@@ -537,6 +542,7 @@ class ExtractFromTraj:
             # Temp in X-direction
             tempX_full_x = np.array(self.data_x.variables["TemperatureX"])[self.skip:]  # Along length
             tempX_full_z = np.array(self.data_z.variables["TemperatureX"])[self.skip:]  # Along height
+            tempX_full_z = ma.masked_where(tempX_full_z == 0, tempX_full_z)
             tempX_len = np.mean(tempX_full_x,axis=(0,2))
             tempX_height = np.mean(tempX_full_z,axis=(0,1))
             tempX_t = np.mean(tempX_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
@@ -544,6 +550,7 @@ class ExtractFromTraj:
             # Temp in Y-direction
             tempY_full_x = np.array(self.data_x.variables["TemperatureY"])[self.skip:]
             tempY_full_z = np.array(self.data_z.variables["TemperatureY"])[self.skip:]
+            tempY_full_z = ma.masked_where(tempY_full_z == 0, tempY_full_z)
             tempY_len = np.mean(tempY_full_x,axis=(0,2))
             tempY_height = np.mean(tempY_full_z,axis=(0,1))
             tempY_t = np.mean(tempY_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
@@ -551,6 +558,7 @@ class ExtractFromTraj:
             # Temp in Y-direction
             tempZ_full_x = np.array(self.data_x.variables["TemperatureZ"])[self.skip:]
             tempZ_full_z = np.array(self.data_z.variables["TemperatureZ"])[self.skip:]
+            tempZ_full_z = ma.masked_where(tempZ_full_z == 0, tempZ_full_z)
             tempZ_len = np.mean(tempZ_full_x,axis=(0,2))
             tempZ_height = np.mean(tempZ_full_z,axis=(0,1))
             tempZ_t = np.mean(tempZ_full_x,axis=(1,2)) # Do not include the wild oscillations along the height
@@ -593,13 +601,15 @@ class ExtractFromTraj:
         probabilities : arr, probabilities of these velocities
         """
 
-        fluid_vx = np.array(self.data_x.variables["Fluid_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
-        fluid_vy = np.array(self.data_x.variables["Fluid_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
-        fluid_vz = np.array(self.data_x.variables["Fluid_Vz"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+        fluid_vx = np.array(self.data_x.variables["Fluid_Vx"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_vy = np.array(self.data_x.variables["Fluid_Vy"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_vz = np.array(self.data_x.variables["Fluid_Vz"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_v = np.sqrt(fluid_vx**2+fluid_vy**2+fluid_vz**2)
 
-        fluid_vx_thermal = np.array(self.data_x.variables["Fluid_lte_Vx"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
-        fluid_vy_thermal = np.array(self.data_x.variables["Fluid_lte_Vy"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
-        fluid_vz_thermal = np.array(self.data_x.variables["Fluid_lte_Vz"])[self.skip:] *  A_per_fs_to_m_per_s       # m/s
+        fluid_vx_thermal = np.array(self.data_x.variables["Fluid_lte_Vx"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_vy_thermal = np.array(self.data_x.variables["Fluid_lte_Vy"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_vz_thermal = np.array(self.data_x.variables["Fluid_lte_Vz"]) *  Angstromperfs_to_mpers       # m/s
+        fluid_v_thermal = np.sqrt(fluid_vx_thermal**2+fluid_vy_thermal**2+fluid_vz_thermal**2)
 
         values_x, probabilities_x = sq.get_err(fluid_vx)['values'], sq.get_err(fluid_vx)['probs']
         values_y, probabilities_y = sq.get_err(fluid_vy)['values'], sq.get_err(fluid_vy)['probs']
@@ -614,7 +624,8 @@ class ExtractFromTraj:
                 'vz_values': values_z, 'vz_prob': probabilities_z,
                 'vx_values_thermal': values_x_thermal, 'vx_prob_thermal': probabilities_x_thermal,
                 'vy_values_thermal': values_y_thermal, 'vy_prob_thermal': probabilities_y_thermal,
-                'vz_values_thermal': values_z_thermal, 'vz_prob_thermal': probabilities_z_thermal}
+                'vz_values_thermal': values_z_thermal, 'vz_prob_thermal': probabilities_z_thermal,
+                'fluid_v':fluid_v, 'fluid_v_thermal':fluid_v_thermal}
 
 
     def green_kubo(self, arr1, arr2, arr3, t_corr):
@@ -827,9 +838,9 @@ class ExtractFromTraj:
         conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
 
         # Heat flux vector
-        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
-        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
-        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers * 1/np.mean(self.vol* 1e-27)  # J/m2.s
+        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers /np.mean(self.vol* 1e-27)  # J/m2.s
+        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers /np.mean(self.vol* 1e-27)  # J/m2.s
+        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers /np.mean(self.vol* 1e-27)  # J/m2.s
 
         return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
 
@@ -849,13 +860,13 @@ class ExtractFromTraj:
 
         # Ecouple from the thermostat:
         delta_energy = data[:,thermo_variables.index('f_nvt')] # kcal/mol
-        cut = self.skip + 10000 # Consider the energy slope in a window of 10 ns
-
+        cut_ds = self.skip + 5000 # Consider the energy slope in a window of 10 ns
+        cut_log = 5000
         # Heat flow rate: slope of the energy with time
-        qdot, _  = np.polyfit(self.time[self.skip:cut], delta_energy[self.skip:cut], 1)  # (kcal/mol) / fs
-        qdot *= 4184 / (sci.N_A * 1e-15)     # J/s
-        # qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
-        #       self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
+        qdot, _  = np.polyfit(self.time[self.skip:cut_ds], delta_energy[:cut_log], 1)  # (kcal/mol) / fs
+        qdot *= 4184 / (sci.N_A * 1e-15)    # J/s
+        qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
+              self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
 
         # Heat flux
         j =  qdot / (2 * self.wall_A) # J/(m2.s)
@@ -864,7 +875,7 @@ class ExtractFromTraj:
         print(f'Tgrad = {temp_grad:e} K/m')
         conductivity_z = -j / temp_grad
 
-        return {'conductivity_z':conductivity_z, 'qdot':qdot} #, 'qdot_continuum':qdot_continuum}
+        return {'conductivity_z':conductivity_z, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
     def conductivity_IK(self):
@@ -877,6 +888,7 @@ class ExtractFromTraj:
 
         je_z = -self.heat_flux()['je_z']   # J/m2.s
         temp_grad = self.temp()['temp_grad']   # K/m
+        print(f'Tgrad = {temp_grad:e} K/m')
         conductivity_z = -je_z / temp_grad
 
         # CORRECT: The wall area (the heat flux was calculated only in the stable region)
@@ -885,11 +897,11 @@ class ExtractFromTraj:
 
         qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 \
                     * self.viscosity_nemd()['shear_rate']**2 * stable_region_area \
-                    * self.avg_gap_height * 1e-9 / 2.
+                    * self.avg_gap_height * 1e-9
 
         conductivity_continuum = - self.viscosity_nemd()['eta'] * 1e-3 \
                     * self.viscosity_nemd()['shear_rate']**2 \
-                    * self.avg_gap_height * 1e-9 / (2 * temp_grad)   # W/(m.K)
+                    * self.avg_gap_height * 1e-9 / (temp_grad)   # W/(m.K)
 
         return {'conductivity_z':conductivity_z, 'conductivity_continuum':conductivity_continuum,\
                 'qdot':qdot, 'qdot_continuum':qdot_continuum}
