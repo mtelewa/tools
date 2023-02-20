@@ -75,7 +75,7 @@ lpad -l $HOME/.fireworks/launchpad.yaml get_wflows
 #You need admin permissions to install MongoDB 
 sudo apt-get install mongodb
 
-#Option 1: (Instance created by Johannes) (PROBLEM:When running Python scripts, requires authentication)
+#Option 2: (Instance created by Johannes) (PROBLEM:When running Python scripts, requires authentication)
 #host: localhost
 #port: 27017
 #name: <db-name>
