@@ -43,6 +43,7 @@ if __name__ == "__main__":
     elif args.fluid=='propane': mf = 44.09
     elif args.fluid=='pentane': mf = 72.15
     elif args.fluid=='heptane': mf = 100.21
+    elif args.fluid=='squalane': mf = 422.83
 
     # Get the pump size to calculate the pressure gradient
     if not args.pumpsize:
