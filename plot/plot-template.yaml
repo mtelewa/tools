@@ -1,5 +1,4 @@
 # Plot global settings
-dim: 'h'
 nrows: 1
 ncols: 1
 legend_elements: 'h'
@@ -53,9 +52,45 @@ alpha_2: 0.8
 
 lstyle_3: '-'
 mstyle_3:
-color_3: tab:gray
+color_3: tab:red
 label_3:
 alpha_3: 0.8
+
+lstyle_4: '-'
+mstyle_4:
+color_4: tab:purple
+label_4:
+alpha_4: 0.8
+
+lstyle_5: '-'
+mstyle_5:
+color_5: tab:brown
+label_5:
+alpha_5: 0.8
+
+lstyle_6: '-'
+mstyle_6:
+color_6: tab:pink
+label_6:
+alpha_6: 0.8
+
+lstyle_7: '-'
+mstyle_7:
+color_7: tab:gray
+label_7:
+alpha_7: 0.8
+
+lstyle_8: '-'
+mstyle_8:
+color_8: tab:olive
+label_8:
+alpha_8: 0.8
+
+lstyle_8: '-'
+mstyle_8:
+color_8: tab:cyan
+label_8:
+alpha_8: 0.8
 
 label_x-pos:
 rotation_of_label_0:
