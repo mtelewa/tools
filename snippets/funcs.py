@@ -54,7 +54,7 @@ def density_scaling(x,a,c):
 def rectilinear_diameters(x,a,b):
     # 147.2 is the critical temperature of argon from my simulations
     # 465.857 is the critical temperature of n-pentane from my simulations
-    return a*x-b+147.2
+    return a*x-b+458.887  #147.2
 
 def solve_quadratic(a,b,c):
     d = np.abs(b**2 - (4*a*c))
@@ -208,3 +208,14 @@ def RP_full(y, t, rho, pv, pl, gamma, eta):
     R, Rdot = y
     dydt = [Rdot, -3/(2*R)*Rdot**2 + ((pv-pl)/(rho*R)) - (2*gamma/R) - (4*eta*Rdot/R)]
     return dydt
+
+
+def mb_distribution(v, T, m):
+    """
+    Computes the probability density function of the Maxwell-Boltzmann distribution
+    for a given velocity v(m/s), temperature T(K), and mass m(kg/mol).
+    """
+    kb = 8.314462618 # J/mol.K
+    prefactor = 4 * np.pi * (m / (2 * np.pi * kb * T))**1.5
+    exp_factor = -m * v**2 / (2 * kb * T)
+    return prefactor * v**2 * np.exp(exp_factor)
