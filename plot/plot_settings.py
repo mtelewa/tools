@@ -43,7 +43,7 @@ class Initialize:
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,8)) #7,8
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,8)) # TODO:
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -52,13 +52,22 @@ class Initialize:
 
             if self.config['broken_axis'] is not None:
                 # Hide the bottom spines and ticks of all the axes except the last (bottom) one
-                for ax in axes_array[:-2]: # [:-1] # TODO:
-                    ax.spines.bottom.set_visible(False)
-                    ax.tick_params(labeltop=False, bottom=False)  # don't put tick labels at the bottom
-                # Hide the top spines and ticks of all the axes except the first (top) one
-                for ax in axes_array[1:-1]: #[1:]
-                    ax.spines.top.set_visible(False)
-                    ax.tick_params(labeltop=False, top=False)  # don't put tick labels at the top
+                if len(axes_array)>2:
+                    for ax in axes_array[:-2]: # [:-1] # TODO:
+                        ax.spines.bottom.set_visible(False)
+                        ax.tick_params(labeltop=False, bottom=False)  # don't put tick labels at the bottom
+                    # Hide the top spines and ticks of all the axes except the first (top) one
+                    for ax in axes_array[1:-1]: #[1:]
+                        ax.spines.top.set_visible(False)
+                        ax.tick_params(labeltop=False, top=False)  # don't put tick labels at the top
+                else:
+                    for ax in axes_array[:-1]:
+                        ax.spines.bottom.set_visible(False)
+                        ax.tick_params(labeltop=False, bottom=False)  # don't put tick labels at the bottom
+                    # Hide the top spines and ticks of all the axes except the first (top) one
+                    for ax in axes_array[1:]:
+                        ax.spines.top.set_visible(False)
+                        ax.tick_params(labeltop=False, top=False)  # don't put tick labels at the top
 
         # 3D plots
         if self.config['3d']:
@@ -118,7 +127,11 @@ class Modify:
         if self.config['label_x-pos'] is not None: self.label_inline(lines)
         if self.config['label_subplot'] is not None: self.label_subplot(axes_array)
         if self.config['vertical_line_pos_1'] is not None: self.plot_vlines(axes_array)
-        if self.config['broken_axis'] is not None: self.plot_broken(axes_array)
+        if self.config['broken_axis'] is not None:
+            if self.config['shared_label'] is None:
+                self.plot_broken(axes_array)
+            else:
+                self.plot_broken(axes_array, shared_label=1)
         if self.config['set_ax_height'] is not None: self.set_ax_height(axes_array)
         # if self.config['plot_inset'] is not None: self.plot_inset(axes_array)
 
@@ -130,13 +143,15 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
-        #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current')]
-
-        # legend_elements = [Line2D([0], [0], color='tab:gray', lw=2.5, ls=' ', marker='s', label='Wall $\sigma_{xz}$')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
+        #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
+                           Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
+                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
+        #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall $\sigma_{zz}$')]
 
         handles.extend(legend_elements)
 
@@ -146,7 +161,7 @@ class Modify:
         # Import legend items from the elements specified
         elif self.config['legend_elements']=='e':
             if self.config['legend_loc'] == 1:
-                axis.legend(handles=legend_elements, frameon=False, loc=(0.,0.45))
+                axis.legend(handles=legend_elements, frameon=False, loc=(0.65,-0.12))#loc=(0.,0.45))
             if isinstance(self.config['legend_loc'], str):
                 axis.legend(handles=legend_elements, frameon=False, loc=self.config['legend_loc'])
             if self.config['legend_loc'] is None:
@@ -223,6 +238,7 @@ class Modify:
 
         if shared_label:
             self.fig.supylabel(axes[0].get_ylabel())
+            self.fig.text(0.5, 0.005, axes[-1].get_xlabel(), ha='center')
         else:
             #Set the common labels # TODO : generalize the y-axis labels and their positions
             self.fig.text(0.5, 0.04, axes[-1].get_xlabel(), ha='center', size=14)

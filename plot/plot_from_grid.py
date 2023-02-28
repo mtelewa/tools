@@ -19,10 +19,12 @@ logger.setLevel(logging.INFO)
 # Import golbal plot configuration
 plt.style.use('imtek')
 
+# np.seterr(all='raise')
+
 #           0             1                   2                    3
 labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$)',
 #           4                                           5             6                    7
-        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', '$u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
+        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Velocity $u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
@@ -87,7 +89,7 @@ class PlotFromGrid:
         inset_ax = self.fig.add_axes([xpos, ypos, w, h]) # X, Y, width, height
 
         # Inset x-axis limit
-        inset_ax.set_xlim(right=0.2*np.max(xdata))
+        inset_ax.set_xlim(left=0.2*np.max(xdata),right=np.max(xdata))#(right=0.2*np.max(xdata))
         # Inset axes labels
         inset_ax.set_xlabel(self.config['inset_xlabel'])
         inset_ax.set_ylabel(self.config['inset_ylabel'])
@@ -166,7 +168,10 @@ class PlotFromGrid:
                 if self.config['extrapolate']:
                     x_extrapolate = data.slip_length()['xdata_left']
                     y_extrapolate = data.slip_length()['extrapolate_left']
+                    x_extrapolateR = data.slip_length()['xdata_right']
+                    y_extrapolateR = data.slip_length()['extrapolate_right']
                     self.axes_array[n].plot(x_extrapolate, y_extrapolate, marker=' ', ls='--', color='k')
+                    self.axes_array[n].plot(x_extrapolateR, y_extrapolateR, marker=' ', ls='--', color='k')
                     # ax.set_xlim([data.slip_length()['root_left'], 0.5*np.max(x)])
                     # ax.set_ylim([0, 1.1*np.max(y)])
                 if self.nrows>1: n+=1
@@ -398,6 +403,8 @@ class PlotFromGrid:
                 if self.dimension=='H': arr, y = data.temp()['temp_full_z'], data.temp()['temp_Z']
                 if self.dimension=='T': arr, y = None, data.temp()['temp_t']
                 if self.config['broken_axis'] is None: self.plot_data(self.axes_array[n], x, y)
+                # Fitting the data
+                if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
                 if self.config['broken_axis']:
                     try:
@@ -409,7 +416,9 @@ class PlotFromGrid:
                         while n<self.nrows-1: # plot the same data on all the axes except the last one
                             self.axes_array[n].plot(x, y[1:-1])
                             n+=1
-
+                # fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
+                # np.savetxt('temp-height.txt', np.c_[x[y!=0][2:-2]/np.max(x[y!=0][2:-2]), y[y!=0][2:-2], fit_data],  delimiter=' ',\
+                #                 header='Height (nm)              Temperature (K)            Fit')
             # Solid temperature - Scalar
             if any('tempS' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[6])
@@ -432,7 +441,7 @@ class PlotFromGrid:
             inset_ax = self.plot_inset(data0.length_array[1:-1])
             inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1], color='tab:blue')
             inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1], color='tab:orange')
-            inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
+            # inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
 
             self.plot_uncertainty(inset_ax, data0.length_array, data0.virial()['vir_X'],
                                             data0.virial()['vir_full_x'], color='tab:blue')

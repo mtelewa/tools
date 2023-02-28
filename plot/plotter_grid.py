@@ -55,6 +55,7 @@ if __name__ == "__main__":
     if args.fluid=='propane': mf = 44.09
     if args.fluid=='pentane': mf = 72.15
     if args.fluid=='heptane': mf = 100.21
+    if args.fluid=='squalane': mf = 422.83
 
     # Dimension to plot against
     if '_length' in args.variables[0]: dim='L'

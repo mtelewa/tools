@@ -13,6 +13,9 @@ import funcs
 import sample_quality as sq
 from compute_thermo import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
+from matplotlib.ticker import ScalarFormatter
+import numpy.ma as ma
+import scipy.stats as stats
 
 # Uncomment to change Matplotlib backend
 # mpl.use('TkAgg')
@@ -95,27 +98,33 @@ class PlotGeneral:
 
         first_dataset = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
         T =  np.mean(first_dataset.temp()['temp_t'])
-        vx = first_dataset.vel_distrib()['vx_values_lte']
-        vx = np.array(vx)
-        kb = 8.314462618 # J/mol.K
-        mb_distribution = np.sqrt((self.mf / (2*5*np.pi*kb*T))) * np.exp((-self.mf*vx**2)/(2*5*kb*T))
+        # vx = np.array(first_dataset.vel_distrib()['vx_values_thermal'])
+        # vy = np.array(first_dataset.vel_distrib()['vy_values_thermal'])
+        # vz = np.array(first_dataset.vel_distrib()['vz_values_thermal'])
+        v = np.array(first_dataset.vel_distrib()['fluid_v_thermal'])
+        v = ma.masked_where(v == 0, v)
 
         for i in range(len(self.datasets_x)):
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-            vx_values = data.vel_distrib()['vx_values_lte']
-            vx_prob = data.vel_distrib()['vx_prob_lte']
+            vx_values = data.vel_distrib()['vx_values_thermal']
+            vx_prob = data.vel_distrib()['vx_prob_thermal']
 
-            vy_values = data.vel_distrib()['vy_values_lte']
-            vy_prob = data.vel_distrib()['vy_prob_lte']
+            vy_values = data.vel_distrib()['vy_values_thermal']
+            vy_prob = data.vel_distrib()['vy_prob_thermal']
 
-            vz_values = data.vel_distrib()['vz_values_lte']
-            vz_prob = data.vel_distrib()['vz_prob_lte']
+            vz_values = data.vel_distrib()['vz_values_thermal']
+            vz_prob = data.vel_distrib()['vz_prob_thermal']
 
             ax.plot(vx_values, vx_prob)
             ax.plot(vy_values, vy_prob)
             ax.plot(vz_values, vz_prob)
-            # TODO : Add the Maxwell-Boltzmann distribution
-            # ax.plot(vx_values, mb_distribution)
+            # Maxwell-Boltzmann distribution
+            maxwell = stats.maxwell
+            para = maxwell.fit(v)
+            params = maxwell.fit(v,floc=0)
+            mean, var, skew, kurt = maxwell.stats(moments='mvsk')
+            x = np.linspace(0, 1.2, 100)
+            ax.plot(x+para[0], maxwell.pdf(x, *params), lw=3)
 
         Modify(vx_values, self.fig, self.axes_array, self.configfile)
 
@@ -218,7 +227,7 @@ class PlotGeneral:
         for i, val in enumerate(self.datasets_x):
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
 
-            # From FF simulation
+            # From FF sietalation
             if 'ff' in val:
                 mflowrate_hp.append(data.mflowrate_hp()['mflowrate_hp'])
                 mflowrate_hp_slip.append(data.mflowrate_hp()['mflowrate_hp_slip'])
@@ -226,7 +235,7 @@ class PlotGeneral:
                 shear_rate.append(data.viscosity_nemd()['shear_rate'])
                 mflowrate_ff_avg.append(np.mean(data.mflux()['mflowrate_stable']))
                 mflowrate_ff_err.append(sq.get_err(data.mflux()['mflowrate_stable'])['uncertainty'])
-            # From FC simulation
+            # From FC sietalation
             if 'fc' in val:
                 mflowrate_fc_avg.append(np.mean(data.mflux()['mflowrate_stable']))
                 mflowrate_fc_err.append(sq.get_err(data.mflux()['mflowrate_stable'])['uncertainty'])
@@ -268,7 +277,6 @@ class PlotGeneral:
         shear_rate_err, viscosity_err = [], []
         shear_rate_ff, viscosity_ff = [], []
         shear_rate_ff_err, viscosity_ff_err = [], []
-
         shear_rate_fc, viscosity_fc = [], []
         shear_rate_fc_err, viscosity_fc_err = [], []
         shear_rate_vib, viscosity_vib = [], []
@@ -280,35 +288,35 @@ class PlotGeneral:
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
                 shear_rate.append(data.viscosity_nemd()['shear_rate'])
-                viscosity.append(data.viscosity_nemd()['mu'])
+                viscosity.append(data.viscosity_nemd()['eta'])
                 shear_rate_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
-                viscosity_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
+                viscosity_err.append(data.viscosity_nemd()['eta_hi'] - data.viscosity_nemd()['eta_lo'])
 
             if 'ff' in val:
                 print('Plotting FF rate-viscosity data')
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
                 shear_rate_ff.append(data.viscosity_nemd()['shear_rate'])
-                viscosity_ff.append(data.viscosity_nemd()['mu'])
+                viscosity_ff.append(data.viscosity_nemd()['eta'])
                 shear_rate_ff_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
-                viscosity_ff_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
+                viscosity_ff_err.append(data.viscosity_nemd()['eta_hi'] - data.viscosity_nemd()['eta_lo'])
 
             if 'fc' in val:
                 print('Plotting FC rate-viscosity data')
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
                 shear_rate_fc.append(data.viscosity_nemd()['shear_rate'])
-                viscosity_fc.append(data.viscosity_nemd()['mu'])
+                viscosity_fc.append(data.viscosity_nemd()['eta'])
                 shear_rate_fc_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
-                viscosity_fc_err.append(data.viscosity_nemd()['mu_hi'] - data.viscosity_nemd()['mu_lo'])
+                viscosity_fc_err.append(data.viscosity_nemd()['eta_hi'] - data.viscosity_nemd()['eta_lo'])
 
             if 'vib' in val:
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
                 shear_rate_vib.append(data.viscosity_nemd()['shear_rate'])
-                viscosity_vib.append(data.viscosity_nemd()['mu'])
+                viscosity_vib.append(data.viscosity_nemd()['eta'])
 
             if 'rigid' in val:
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
                 shear_rate_rigid.append(data.viscosity_nemd()['shear_rate'])
-                viscosity_rigid.append(data.viscosity_nemd()['mu'])
+                viscosity_rigid.append(data.viscosity_nemd()['eta'])
 
         # Plot raw data (with fit if specified)
         if not self.config['err_caps'] and not self.config['err_fill']:
@@ -417,7 +425,7 @@ class PlotGeneral:
         """
         ax=self.axes_array[0]
         ax.set_xlabel(labels[11])
-        ax.set_ylabel('Slip Length (nm)')
+        ax.set_ylabel('Slip Length $b$ (nm)')
         ax.set_xscale('log', nonpositive='clip')
         mpl.rcParams.update({'lines.markersize': 8})
 
@@ -429,13 +437,13 @@ class PlotGeneral:
                 pumpsize = 0
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
                 shear_rate.append(data.viscosity_nemd()['shear_rate'])
-                slip.append(data.slip_length()['Ls'])
+                slip.append(data.slip_length()['b'])
 
             if 'ff' in val or 'fc' in val:
                 pumpsize = self.pumpsize
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
                 shear_rate_pd.append(data.viscosity_nemd()['shear_rate'])
-                slip_pd.append(data.slip_length()['Ls'])
+                slip_pd.append(data.slip_length()['b'])
 
         if shear_rate: ax.plot(shear_rate, slip)
         if shear_rate_pd: ax.plot(shear_rate_pd, slip_pd)
@@ -505,23 +513,51 @@ class PlotGeneral:
         ax = self.axes_array[0]
         ax.set_xlabel(labels[11])
         ax.ticklabel_format(axis='y', style='sci', useOffset=False)
-        ax.set_ylabel(r'${\mathrm{\dot{Q}}} \times 10^{-24}}$ (W)')
-        # ax.set_xscale('log', nonpositive='clip')
+        ax.set_ylabel(r'${\mathrm{\dot{Q}}} \times 10^{-6}}$ (W)')
+        ax.set_xscale('log', nonpositive='clip')
         mpl.rcParams.update({'lines.markersize': 6})
 
         shear_rate, qdot, qdot_continuum = [], [], []
+        shear_rate_beskok, qdot_beskok = [], []
+
+        shear_rate_lgv, qdot_lgv = [], []
+        shear_rate_be, qdot_be = [], []
+        shear_rate_nh, qdot_nh = [], []
 
         for idx, val in enumerate(self.datasets_x):
             pumpsize = self.pumpsize
+            log_file = os.path.dirname(os.path.abspath(self.datasets_x[idx]))+'/log.lammps'
             data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-            shear_rate.append(data.viscosity_nemd()['shear_rate'])
-            qdot.append(np.mean(data.conductivity_IK()['qdot'])*1e24)
-            qdot_continuum.append(np.mean(data.conductivity_IK()['qdot_continuum'])*1e24)
+            cond = data.conductivity_ecouple(log_file)
+            if 'beskok' not in val:
+                shear_rate.append(data.viscosity_nemd()['shear_rate'])
+                qdot.append(np.mean(cond['qdot'])*1e6)
+                qdot_continuum.append(np.mean(cond['qdot_continuum'])*1e6)
+            else:
+                shear_rate_beskok.append(data.viscosity_nemd()['shear_rate'])
+                qdot_beskok.append(np.mean(cond['qdot'])*1e6)
+                # qdot_continuum.append(np.mean(cond['qdot_continuum'])*1e6)
+            # if 'lgv' in val:
+            #     shear_rate_lgv.append(data.viscosity_nemd()['shear_rate'])
+            #     qdot_lgv.append(np.mean(cond['qdot'])*1e6)
+            # if 'berendsen' in val:
+            #     shear_rate_be.append(data.viscosity_nemd()['shear_rate'])
+            #     qdot_be.append(np.mean(cond['qdot'])*1e6)
+            # if 'nh' in val:
+            #     shear_rate_nh.append(data.viscosity_nemd()['shear_rate'])
+            #     qdot_nh.append(np.mean(cond['qdot'])*1e6)
+
 
         ax.plot(shear_rate, qdot)
+        if shear_rate_beskok: ax.plot(shear_rate_beskok, qdot_beskok)
         ax.plot(shear_rate, qdot_continuum)
 
-        Modify(shear_rate, self.fig, self.axes_array, self.configfile)
+        # ax.plot(shear_rate_lgv, qdot_lgv)
+        # ax.plot(shear_rate_lgv, qdot_lgv)
+        # ax.plot(shear_rate_be, qdot_be)
+        # ax.plot(shear_rate_nh, qdot_nh)
+
+        Modify(shear_rate_lgv, self.fig, self.axes_array, self.configfile)
 
 
     def rate_conductivity(self):
@@ -536,24 +572,37 @@ class PlotGeneral:
         ax.set_xscale('log', nonpositive='clip')
         mpl.rcParams.update({'lines.markersize': 6})
 
-        shear_rate, conductivity_z, conductivity_continuum = [], [], []
+        shear_rate_lgv, conductivity_z_lgv, shear_rate_berendsen, \
+        conductivity_z_berendsen, shear_rate_nh, conductivity_z_nh = [], [], [], [], [], []
 
         for idx, val in enumerate(self.datasets_x):
             pumpsize = self.pumpsize
+            log_file = os.path.dirname(os.path.abspath(self.datasets_x[idx]))+'/log.lammps'
             data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-            shear_rate.append(data.viscosity_nemd()['shear_rate'])
-            conductivity_z.append(np.mean(data.conductivity_IK()['conductivity_z']))
-            conductivity_continuum.append(np.mean(data.conductivity_IK()['conductivity_continuum']))
 
-        ax.plot(shear_rate, conductivity_z)
-        ax.plot(shear_rate, conductivity_continuum)
+            if 'lgv' in val:
+                shear_rate_lgv.append(data.viscosity_nemd()['shear_rate'])
+                conductivity_z_lgv.append(np.mean(data.conductivity_IK()['conductivity_z']))
+                # conductivity_continuum.append(np.mean(data.conductivity_IK()['conductivity_continuum']))
+            if 'berendsen' in val:
+                shear_rate_berendsen.append(data.viscosity_nemd()['shear_rate'])
+                conductivity_z_berendsen.append(np.mean(data.conductivity_ecouple(log_file)['conductivity_z']))
+            if 'nh' in val:
+                shear_rate_nh.append(data.viscosity_nemd()['shear_rate'])
+                conductivity_z_nh.append(np.mean(data.conductivity_ecouple(log_file)['conductivity_z']))
 
-        Modify(shear_rate, self.fig, self.axes_array, self.configfile)
+        if shear_rate_lgv: ax.plot(shear_rate_lgv, conductivity_z_lgv)
+        if shear_rate_berendsen: ax.plot(shear_rate_berendsen, conductivity_z_berendsen)
+        if shear_rate_nh: ax.plot(shear_rate_nh, conductivity_z_nh)
+
+        # ax.plot(shear_rate, conductivity_continuum)
+
+        Modify(shear_rate_lgv, self.fig, self.axes_array, self.configfile)
 
 
     def thermal_conduct(self):
         """
-        Plots the thermal conductivity with Pressure. Equilibrium simulations.
+        Plots the thermal conductivity with Pressure. Equilibrium sietalations.
         """
         ax = self.axes_array[0]
         ax.set_xlabel(labels[7])
@@ -577,12 +626,12 @@ class PlotGeneral:
     def eos(self):
         """
         Plots the equation of state of the fluid
-        Equilibrium simualtions can be:
+        Equilibrium sietaaltions can be:
             * Isotherms (NPT) with density as output, plot ρ vs P
                 * Gautschi Integtator
                 * Velocity Verlet Integrator
             * Isochores (NVT) with pressure as output, plot T vs P
-        Nonequilibrium simulations:
+        Nonequilibrium sietalations:
             * Change of T with P, to see the effect of the pump ΔP on the fluid temperature
         """
         mpl.rcParams.update({'lines.markersize': 8})
@@ -647,8 +696,10 @@ class PlotGeneral:
             if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den, press, maxfev=8000)
                 coeffs_temp = curve_fit(funcs.power, temp, press, maxfev=8000)
-                print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
-                print(f'Adiabatic exponent (gamma) is {coeffs_temp[0][1]}')
+                print(coeffs_den[0])
+                print(coeffs_temp[0])
+                print(f'Polytropic index (k) is {-coeffs_den[0][1]}')
+                print(f'Polytropic index (k) is {coeffs_temp[0][1]/(1-coeffs_temp[0][1])}')
                 self.axes_array[0].plot(den, funcs.power(den, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
                 self.axes_array[1].plot(temp, funcs.power(temp, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
 
@@ -674,20 +725,20 @@ class PlotGeneral:
 
         if ds_isotherms:
             if self.config['log']:
-                # print(np.max(den_isotherms))
-                den_isotherms /= 0.72 #np.max(den_isotherms)
-                press_isotherms /= 250 #np.max(press_isotherms)
+                den_isotherms /= np.max(den_isotherms)
+                press_isotherms /= np.max(press_isotherms)
 
             if ds_gau_1fs: self.axes_array[0].plot(den_isotherms_gau_1fs, press_isotherms_gau_1fs)
             if ds_gau_4fs: self.axes_array[0].plot(den_isotherms_gau_4fs, press_isotherms_gau_4fs)
             if ds_ver_1fs: self.axes_array[0].plot(den_isotherms_ver_1fs, press_isotherms_ver_1fs)
             if ds_ver_4fs: self.axes_array[0].plot(den_isotherms_ver_4fs, press_isotherms_ver_4fs)
 
-            # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
-            exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
-            exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            self.axes_array[0].plot(den_isotherms, press_isotherms)
 
-            self.axes_array[0].plot(exp_density, exp_press)
+            # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
+            # exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+            # exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            # self.axes_array[0].plot(exp_density, exp_press)
 
             if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den_isotherms, press_isotherms, maxfev=8000)
@@ -702,8 +753,8 @@ class PlotGeneral:
 
         if ds_isochores:
             if self.config['log']:
-                temp_list /= 300 #np.max(temp_list)
-                press_isochores /=  250 #np.max(press_isochores)
+                temp_list /= np.max(temp_list)
+                press_isochores /= np.max(press_isochores)
 
             self.axes_array[1].plot(temp_list, press_isochores)
 
@@ -737,7 +788,7 @@ class PlotGeneral:
         ax.plot(rho_l,temp)
 
         if self.mf ==39.948:
-            #Exp.: Lemmon et al.
+            #Exp.: Lemmon et al. (NIST)
             rhoc, Tc = 0.5356,150.65 # g/cm3, K
             temp_exp = [85,90,95,100,105,110,115,120,125,130,135]
             rho_v_exp = [0.0051,0.0085,0.0136,0.0187,0.0255,0.0373,0.0441,0.0611,0.0798,0.1052,0.1392]
@@ -747,6 +798,7 @@ class PlotGeneral:
 
         if self.mf == 72.15:
             # Exp.: B.D. Smith and R. Srivastava, Thermodynamic Data for Pure Compounds: Part A Hydrocarbons and Ketone
+            # and etalero et al. 2012
             rhoc, Tc = 0.232, 469.70  # g/cm3, K
             temp_exp = [150,175,200,225,250,275,300,325,350,375,400,425]
             rho_v_exp = [0,0,0,0,0,0,0.0006,0.0048,0.0109,0.0182,0.0315,0.0497]
@@ -876,6 +928,7 @@ class PlotGeneral:
         data = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
 
         kx = data.sf()['kx']
+        print(kx)
         ky = data.sf()['ky']
         # k = data.sf()['k']
 

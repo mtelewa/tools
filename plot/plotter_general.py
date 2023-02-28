@@ -128,7 +128,7 @@ if __name__ == "__main__":
     if 'rate_slip' in args.variables: pg.rate_slip()
     if 'rate_temp' in args.variables: pg.rate_temp()
     if 'rate_qdot' in args.variables: pg.rate_qdot()
-    if 'rate_lambda' in args.variables: pg.rate_lambda()
+    if 'rate_conductivity' in args.variables: pg.rate_conductivity()
     # if 'pt_ratio' in args.variables[0]: pg.pt_ratio()
     if 'eos' in args.variables: pg.eos()
     if 'lambda' in args.variables: pg.thermal_conduct()

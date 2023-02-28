@@ -20,23 +20,28 @@ def lj(r, sigma, epsilon, wca=None):
     return u
 
 
-if __name__ =' __main__':
+if __name__ == '__main__':
+    r = np.linspace(2.4, 7, 100)
+    
+    u_stick = lj(r, 2.655, 0.809)
+    u_intermed = lj(r, 2.655, 0.0809) #(r, 3.405, 0.23488) # For argon, units: Angstrom and Kcal/mol
+    u_slip = lj(r, 2.655, 0.00809)
 
-    r = np.linspace(2.8, 7, 100)
-    u = lj(r, 3.405, 0.23488) # For argon, units: Angstrom and Kcal/mol
-
-    if 'wca' in sys.argv:
-        u = lj(r, 3.405, 0.23488, wca=1) # For argon, units: Angstrom and Kcal/mol
-
+    #if 'wca' in sys.argv: u_wca = lj(r, 3.405, 0.23488, wca=1) # For argon, units: Angstrom and Kcal/mol
+    
     fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
-    ax.set_xlabel('$r_{ij}$')
-    ax.set_ylabel('$U(r_{ij})$')
+    ax.set_xlabel('Separation $r_{ij} (\AA)$')
+    ax.set_ylabel('Energy $U(r_{ij})$ (Kcal/mol)')
     ax.axhline(y = 0, ls='--', color='k')
+
+    ax.plot(r, u_stick, label='Wetting')
+    ax.plot(r, u_intermed, label='Intermediate wetting')
+    ax.plot(r, u_slip, label='Non-wetting')
+
+    ax.set_ylim(top=0.6)
+
     ax.legend(frameon=False)
 
-    ax.plot(r, u, label='Lennard-Jones')
-
-    if 'wca' in sys.argv:
-        ax.plot(r, u_wca, label='WCA')
+    #if 'wca' in sys.argv: ax.plot(r, u_wca, label='WCA')
 
     fig.savefig('lj.png' , format='png')

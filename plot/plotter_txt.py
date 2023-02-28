@@ -36,6 +36,10 @@ def get_parser():
         if arg.startswith(("-ds")):
             parser.add_argument(arg.split('=')[0], type=str,
                                 help='files for plotting')
+        if arg.startswith(("-all")):
+            # plot all datasets in multiple directories
+            parser.add_argument(arg.split('=')[0], type=str,
+                                help='directory with the datasets for plotting')
     return parser
 
 
@@ -46,13 +50,32 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     datasets = []
-    for key, val in vars(args).items():
-        if key.startswith('ds'):
-            datasets.append(val)
+    for key, value in vars(args).items():
+        if key.startswith('ds') and value!='all':
+            datasets.append(os.path.abspath(value))
+        # plot all datasets in a certain directory
+        if key.startswith('ds') and value=='all':
+            for i in os.listdir(os.getcwd()):
+                if os.path.isdir(i):
+                    datasets.append(f"{os.path.abspath(os.getcwd())+ '/' + i}")
+        # plot all datasets in multiple directories
+        if key.startswith('all'):
+            for i in os.listdir(value):
+                a = os.path.abspath(f"{value+ '/' +i}")
+                if os.path.isdir(a):
+                    datasets.append(a)
 
     if len(datasets) < 0.:
         logging.error("No Datasets Found! Make sure the Path to the datset is correct")
         quit()
+
+    # Order as indexed on the FileSystem. Sorting is needed if all datasets are
+    # points on the same curve e.g. EOS
+    if 'all' in vars(args).values():
+        datasets.sort()
+    for i in vars(args).keys():
+        if i.startswith('all'):
+            datasets.sort()
 
     txts = []
     for k in datasets:
@@ -84,8 +107,12 @@ if __name__ == "__main__":
                 if i == 'flow.nc' or i == 'equilib.nc' or i == 'nvt.nc':
                     trajactories.append(os.path.join(root, i))
 
-    if 'log' in args.filename: ptxt.extract_plot(args.variables)
-    if 'press-profile' in args.filename: ptxt.press_md_cont(args.variables)
+    if 'log' in args.filename and 'eos' not in args.variables: ptxt.extract_plot(args.variables)
+    if 'log' in args.filename and 'nvt_eos' in args.variables: ptxt.nvt_eos()
+    # if 'eta' in args.filename: ptxt.GK()
+    if 'pvisco' or 'pconduct' in args.filename: ptxt.transport_press()
+    if 'press-profile' in args.filename: ptxt.press_md_cont()
+    if 'temp' in args.filename: ptxt.temp()
     if 'radius' in args.variables:
         # iter-12-thick:
         # r0, v0, pl, start, stop, method = 33.6e-10, 0, -, 100, 180, 'dynamic'    35e-10, 405, 455, 'dynamic'
