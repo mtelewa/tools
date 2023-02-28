@@ -20,7 +20,7 @@ import scipy.constants as sci
 from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 from scipy.stats import pearsonr, spearmanr
 from scipy.optimize import curve_fit
-from scipy.integrate import simpson
+from scipy.integrate import simpson, trapezoid
 from math import isclose
 from operator import itemgetter
 import extract_thermo
@@ -637,71 +637,49 @@ class ExtractFromTraj:
         Units: input array unit ** 2
         """
 
-        # The Convolution Autocorrelation functions
-        C_xy = np.correlate(arr1, arr1, 'full')
-        C_xz = np.correlate(arr2, arr2, 'full')
-        C_yz = np.correlate(arr3, arr3, 'full')
+        # Correlation time is 20000 steps (100e3 fs)
+        time_origins = [0]#, 60000, 100000, 150000] # correspond to 100e3, 300e3, 500e3 fs
 
-        print('Numpy correlation done!')
+        acf_xy = np.zeros((len(time_origins), t_corr))
+        acf_xz = np.zeros((len(time_origins), t_corr))
+        acf_yz = np.zeros((len(time_origins), t_corr))
 
-        # The statistical ACF
-        # C_stat = np.array([1]+[np.corrcoef(Wxz_t[:-i], Wxz_t[i:])[0,1] for i in range(1, t_corr)])
+        for i,t in enumerate(time_origins):
+            # The Convolution Autocorrelation functions
+            C_xy = np.correlate(arr1[t:], arr1[t:], 'full')
+            C_xz = np.correlate(arr2[t:], arr2[t:], 'full')
+            C_yz = np.correlate(arr3[t:], arr3[t:], 'full')
 
-        # Slice part of the positive part of the ACF
-        acf_xy = C_xy[len(C_xy)//2 : len(C_xy)//2 + t_corr] / (len(C_xy)//2)#/ C_xy[len(C_xy)//2]
-        acf_xz = C_xz[len(C_xz)//2 : len(C_xz)//2 + t_corr] / (len(C_xz)//2)#/ C_xz[len(C_xz)//2]
-        acf_yz = C_xy[len(C_yz)//2 : len(C_yz)//2 + t_corr] / (len(C_yz)//2)#/ C_yz[len(C_yz)//2]
+            print('Numpy correlation done!')
 
+            # The statistical ACF
+            # C_stat = np.array([1]+[np.corrcoef(Wxz_t[:-i], Wxz_t[i:])[0,1] for i in range(1, t_corr)])
+
+            # Slice part of the positive part of the ACF
+            acf_xy[i,:] = C_xy[len(C_xy)//2 : len(C_xy)//2 + t_corr] / (len(C_xy)//2)#/ C_xy[len(C_xy)//2]
+            acf_xz[i,:] = C_xz[len(C_xz)//2 : len(C_xz)//2 + t_corr] / (len(C_xz)//2)#/ C_xz[len(C_xz)//2]
+            acf_yz[i,:] = C_xy[len(C_yz)//2 : len(C_yz)//2 + t_corr] / (len(C_yz)//2)#/ C_yz[len(C_yz)//2]
+
+        acf_xy_avg = np.mean(acf_xy, axis=0)
+        acf_xz_avg = np.mean(acf_xz, axis=0)
+        acf_yz_avg = np.mean(acf_yz, axis=0)
         acf = (acf_xy + acf_xz + acf_yz) / 3.
 
-        # time = np.arange(0, t_corr)
+        # time = np.arange(0, t_corr)*5
         # np.savetxt('acf.txt', np.c_[time, acf],  delimiter=' ', header='time   acf')
 
-        gamma_xy = np.array([simpson(acf_xy[:n+1]) for n in range(len(acf_xy) - 1)])
-        gamma_xz = np.array([simpson(acf_xz[:n+1]) for n in range(len(acf_xz) - 1)])
-        gamma_yz = np.array([simpson(acf_yz[:n+1]) for n in range(len(acf_yz) - 1)])
+        gamma_xy = np.array([simpson(acf_xy_avg[:n+1]) for n in range(len(acf_xy_avg) - 1)]) #np.array([trapezoid(acf_xy_avg[:n+1]) for n in range(len(acf_xy_avg)-1)]) #
+        gamma_xz = np.array([simpson(acf_xz_avg[:n+1]) for n in range(len(acf_xz_avg) - 1)]) #np.array([trapezoid(acf_xz_avg[:n+1]) for n in range(len(acf_xz_avg)-1)]) #
+        gamma_yz = np.array([simpson(acf_yz_avg[:n+1]) for n in range(len(acf_yz_avg) - 1)]) #np.array([trapezoid(acf_yz_avg[:n+1]) for n in range(len(acf_yz_avg)-1)]) #
 
         gamma = (gamma_xy + gamma_xz + gamma_yz) / 3.
 
         print('Integral done!')
 
-        # np.savetxt('gamma.txt', np.c_[self.time[1:t_corr], gamma],  delimiter=' ',\
-        #                 header='time   viscosity')
+        # np.savetxt('gamma.txt', np.c_[self.time[1:t_corr], gamma],  delimiter=' ', header='time   viscosity')
 
         return {'acf': acf, 'gamma':gamma,
                 'gamma_xz': gamma_xz, 'gamma_xy': gamma_xy, 'gamma_yz': gamma_yz}
-
-
-    def viscosity_gk_traj(self, tcorr):
-        """
-        Computes the dynamic viscosity from an equilibrium MD simulation (from the trajectory)
-        based on Green-Kubo relation - Autocorrelation function of the shear stress
-
-        Several time origins (t0) are considered by moving the wave along time with np correlate
-        correlation time (tcorr) is the time up to which the acf and its integral (viscosity) is computed
-
-        Units: mPa.s
-        """
-
-        # Thermodynamic variables printed every
-        thermo_out = 1 #self.time[1] - self.time[0]
-
-        temp = np.mean(self.temp()['temp_t'])         # K
-        prefac = sci.atm**2 * 1e3 * np.mean(self.vol) * 1e-27 * thermo_out * 1e-15 / (sci.k * temp)
-
-        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:]  # atm * A3
-        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:]
-        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:]
-
-        # Virial off-diagonal components
-        Wxy_t = np.sum(Wxy_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)     # atm
-        Wxz_t = np.sum(Wxz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
-        Wyz_t = np.sum(Wyz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
-
-        # Get the viscosity along t_corr
-        eta = self.green_kubo(Wxy_t, Wxz_t, Wyz_t, tcorr)['gamma'] * prefac
-
-        return {'eta': eta}
 
 
     def viscosity_gk_log(self, logfile, tcorr):
@@ -742,6 +720,38 @@ class ExtractFromTraj:
         return {'eta': eta, 'thermo_out': thermo_out}
 
 
+    def viscosity_gk_traj(self, tcorr):
+        """
+        Computes the dynamic viscosity from an equilibrium MD simulation (from the trajectory)
+        based on Green-Kubo relation - Autocorrelation function of the shear stress
+
+        Several time origins (t0) are considered by moving the wave along time with np correlate
+        correlation time (tcorr) is the time up to which the acf and its integral (viscosity) is computed
+
+        Units: mPa.s
+        """
+
+        # Thermodynamic variables printed every
+        thermo_out = 5 #self.time[1] - self.time[0]
+
+        temp = np.mean(self.temp()['temp_t'])         # K
+        prefac = sci.atm**2 * 1e3 * np.mean(self.vol) * 1e-27 * thermo_out * 1e-15 / (sci.k * temp)
+
+        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:]  # atm * A3
+        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:]
+        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:]
+
+        # Virial off-diagonal components
+        Wxy_t = np.sum(Wxy_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)     # atm
+        Wxz_t = np.sum(Wxz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
+        Wyz_t = np.sum(Wyz_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)
+
+        # Get the viscosity along t_corr
+        eta = self.green_kubo(Wxy_t, Wxz_t, Wyz_t, tcorr)['gamma'] * prefac
+
+        return {'eta': eta}
+
+
     def viscosity_nemd(self):
         """
         Computes the dynamic viscosity and shear rate (and the uncertainties)
@@ -774,6 +784,9 @@ class ExtractFromTraj:
             pgrad = self.virial()['pGrad']            # MPa/m
 
             coeffs_fit = np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
+            # x = 1.3 #.25
+            # y = 2*coeffs_fit[0]*x + coeffs_fit[1]
+            # print(y*1e9)
             eta = pgrad/(2 * coeffs_fit[0])          # mPa.s
             shear_rate = sigxz_avg / eta
 
@@ -919,19 +932,19 @@ class ExtractFromTraj:
         vels = self.velocity()['vx_Z']
 
         if self.pumpsize==0:
-            fit_data = funcs.fit(self.height_array[vels!=0], vels[vels!=0], 1)['fit_data']
+            fit_data = funcs.fit(self.height_array[vels!=0][2:-2], vels[vels!=0][2:-2], 1)['fit_data']
         else:
-            fit_data = funcs.fit(self.height_array[vels!=0], vels[vels!=0], 2)['fit_data']
+            fit_data = funcs.fit(self.height_array[vels!=0][2:-2], vels[vels!=0][2:-2], 2)['fit_data']
 
         npoints = len(self.height_array[vels!=0])
         # Positions to inter/extrapolate
-        xdata_left = np.linspace(-1, self.height_array[vels!=0][0], npoints)
-        xdata_right = np.linspace(self.height_array[vels!=0][-1], 12 , npoints)
+        xdata_left = np.linspace(-1, self.height_array[vels!=0][2:-2][0], npoints)
+        xdata_right = np.linspace(self.height_array[vels!=0][2:-2][-1], 12 , npoints)
 
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
         order = 1
         # do inter/extrapolation
-        extrapolate = InterpolatedUnivariateSpline(self.height_array[vels!=0], fit_data, k=order)
+        extrapolate = InterpolatedUnivariateSpline(self.height_array[vels!=0][2:-2], fit_data, k=order)
         coeffs_extrapolate_left = np.polyfit(xdata_left, extrapolate(xdata_left), 1)
         coeffs_extrapolate_right = np.polyfit(xdata_right, extrapolate(xdata_right), 1)
 
@@ -944,15 +957,18 @@ class ExtractFromTraj:
 
         # Slip length is the extrapolated length in addition to the depletion region: small
         # length where there are no atoms
-        Ls = np.abs(root_left) + self.height_array[vels!=0][0]
+        b = np.abs(root_left) #+ self.height_array[vels!=0][0]
 
         if self.pumpsize != 0:
             Vs = vels[vels!=0][2]
         else:
+            Vs = vels[vels!=0][2]
+            print(Vs)
             # Slip velocity according to Navier boundary
-            Ls * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
+            Vs = b * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
+            print(Vs)
 
-        return {'root_left':root_left, 'Ls':Ls, 'Vs':Vs,
+        return {'root_left':root_left, 'b':b, 'Vs':Vs,
                 'xdata_left':xdata_left,
                 'extrapolate_left':extrapolate(xdata_left),
                 'root_right':root_right,
