@@ -118,10 +118,13 @@ class ExtractFromTraj:
             dz = self.avg_gap_height / self.Nz
             self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)     #nm
             self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm3
-            bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
-            bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
-            avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
-            self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)     #nm
+            try:
+                bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
+                bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
+                avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
+                self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)     #nm
+            except KeyError:
+                pass
 
         if self.avg_gap_height == 0:       # Bulk simulation
             dz = self.Lz / self.Nz
@@ -305,6 +308,15 @@ class ExtractFromTraj:
         W<ab>_t : arr (time,), ab virial tensor component time-series
 
         """
+        # vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:,] * sci.atm * pa_to_Mpa
+        # vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:,] * sci.atm * pa_to_Mpa
+        #
+        # vir_t = np.mean(vir_full_x, axis=(1,2))
+        # vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+        # vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+        #
+        # return {'vir_t': vir_t, 'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
+        #         'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
 
         # Diagonal components
         Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
@@ -321,21 +333,23 @@ class ExtractFromTraj:
         Wxz_full_z = np.array(self.data_z.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
         Wyz_full_z = np.array(self.data_z.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
 
-        # Averaging along the height
+        # Averaging along time and height
         Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
         Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
         Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
-        Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
-        Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
-        Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
-        # Averaging along the length
+        # Averaging along time and length
         Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
         Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
         Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
+
+        Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
+        Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
+        Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
         Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
         Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
         Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
 
+        # Averaging along length and height
         Wxx_t = np.mean(Wxx_full_z, axis=(1,2))
         Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
         Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
@@ -363,6 +377,12 @@ class ExtractFromTraj:
             vir_full_z = - Wyy_full_z
 
         vir_t = np.mean(vir_full_x, axis=(1,2))
+
+        if self.avg_gap_height == 0:
+            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
+
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
         vir_fluctuations = sq.get_err(vir_full_x)['var']
@@ -1000,11 +1020,24 @@ class ExtractFromTraj:
         rho = np.mean(self.density()['den_t']) * 1e3 # kg/m3
         u = np.mean(self.velocity()['vx_t']) # m/s
         h = self.avg_gap_height * 1e-9 # m
-        eta = self.viscosity_nemd()['eta'] * 1e-3 # Pa.s
+        eta = 5e-4 #self.viscosity_nemd()['eta'] * 1e-3 # Pa.s
 
         Re = rho * u * h / eta
 
         return Re
+
+
+    def cavitation_num(self, pl, pv):
+        """
+        Computes the cavitation number of the flow
+        """
+
+        rho = np.max(self.density()['den_X']) * 1e3 # Liquid density (kg/m3)
+        u = self.velocity()['vx_X'] # m/s
+
+        K = (pl-pv)/(0.5*rho*u**2)
+
+        return K
 
 
     # Structural properties ---------------------------------------------------
