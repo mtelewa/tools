@@ -178,7 +178,9 @@ if __name__ == "__main__":
         if 'Re' in args.qtty:
             Reynolds = get.reynolds_num()
             print(f'Reynolds number: {Reynolds}')
-
+        if 'cav_num' in args.qtty:
+            pl, pv = 73.579e3, 73e3
+            print(f'Cavitation number: {get.cavitation_num(pl,pv)}')
 
     if 'viscosity_gk' in args.qtty:
         # viscosity with correlation time plots for average of all replicates
