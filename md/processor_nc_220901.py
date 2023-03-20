@@ -1028,18 +1028,18 @@ class TrajtoGrid:
 
                     # Virial pressure--------------------------------------
                     try:
-                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) / vol_cell[i,0,k]
-                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) / vol_cell[i,0,k]
-                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
                         vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
                     except UnboundLocalError:
                         pass
 
                     # Simulations with virial off-diagonal components calculation
                     try:
-                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) / vol_cell[i,0,k]
-                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) / vol_cell[i,0,k]
-                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) / vol_cell[i,0,k]
+                        Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
+                        Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
 
                     except (IndexError, UnboundLocalError) as e:
                         pass
