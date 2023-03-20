@@ -8,6 +8,8 @@ from scipy.optimize import curve_fit
 def quadratic(x,a,b,c):
     return a*x**2+b*x+c
 
+def cubic(x,a,b,c,d):
+    return a*x**3+b*x**2+c*x+d
 
 # Parabola derivative
 def quad_slope(x,a,b):
