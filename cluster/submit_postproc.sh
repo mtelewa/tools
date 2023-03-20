@@ -11,6 +11,8 @@
 
 export KMP_AFFINITY=compact,1,0
 
+module load devel/python/3.8.6_intel_19.1
+
 source $HOME/venv/bin/activate
 
 module load compiler/intel/19.1
