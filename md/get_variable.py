@@ -163,7 +163,7 @@ if __name__ == "__main__":
             print(f"Thermal Conductivity = {np.mean(get.conductivity_IK()['conductivity_z'])} W/mK")
         if 'viscosity_nemd' in args.qtty:
             params = get.viscosity_nemd()
-            print(f"Viscosity is {params['eta']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
+            print(f"Bulk Viscosity is {params['eta']:.4f} mPa.s at Bulk Shear rate {params['shear_rate']:e} s^-1")
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']:.2f} m/s")
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
@@ -171,9 +171,10 @@ if __name__ == "__main__":
             gamma = np.mean(get.surface_tension()['gamma'])
             print(f'Surface tension (gamma) = {gamma*1e3:.4f} mN/m')
         if 'contact_angle' in args.qtty:
-            gamma_sv_gamma_ls = np.mean(get.surface_tension()['gamma'])*1e3
+            gamma_ls_gamma_sv = np.mean(get.surface_tension()['gamma'])*1e3
+            print(gamma_ls_gamma_sv)
             gamma_lv = 12.1320 # mN/m (At 300K for pentane)
-            contact_angle = np.degrees(np.arccos(-gamma_sv_gamma_ls/gamma_lv))
+            contact_angle = np.degrees(np.arccos(-gamma_ls_gamma_sv/gamma_lv))
             print(f'Wetting angle (θ) = {contact_angle:.4f} degrees')
         if 'Re' in args.qtty:
             Reynolds = get.reynolds_num()
