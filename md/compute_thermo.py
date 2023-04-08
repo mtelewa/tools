@@ -383,6 +383,10 @@ class ExtractFromTraj:
             vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
             vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
 
+            Wxx_t = np.sum(Wxx_full_z, axis=(1,2)) / (self.vol*1e3)
+            Wyy_t = np.sum(Wyy_full_z, axis=(1,2)) / (self.vol*1e3)
+            Wzz_t = np.sum(Wzz_full_z, axis=(1,2)) / (self.vol*1e3)
+
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
         vir_fluctuations = sq.get_err(vir_full_x)['var']
@@ -803,18 +807,22 @@ class ExtractFromTraj:
             sigxz_avg = np.mean(self.sigwall()['sigxz_t']) * 1e9      # mPa
             pgrad = self.virial()['pGrad']            # MPa/m
 
-            coeffs_fit = np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
-            # x = 1.3 #.25
-            # y = 2*coeffs_fit[0]*x + coeffs_fit[1]
-            # print(y*1e9)
+            # Shear rate at the walls
+            coeffs_fit_walls =  np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
+            rate_walls = (coeffs_fit_walls[0]* 2 * x - coeffs_fit_walls[0] * self.avg_gap_height) * 1e9
+            print(f"Interfacial Shear rate at z=0 is {rate_walls:e} s^-1")
+            print(f"Interfacial Viscosity z=0 is {sigxz_avg/rate_walls:.2f} mPa.s")
+
+            # Shear rate in the bulk
+            coeffs_fit = np.polyfit(self.height_array[vels!=0][40:-40], vels[vels!=0][40:-40], 2)
             eta = pgrad/(2 * coeffs_fit[0])          # mPa.s
             shear_rate = sigxz_avg / eta
 
-            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0][3:-3], sq.get_err(self.velocity()['vx_full_z'])['lo'][3:-3], 2)
+            coeffs_fit_lo = np.polyfit(self.height_array[vels!=0][40:-40], sq.get_err(self.velocity()['vx_full_z'])['lo'][40:-40], 2)
             eta_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
             shear_rate_lo = sigxz_avg / eta_lo
 
-            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0][3:-3], sq.get_err(self.velocity()['vx_full_z'])['hi'][3:-3], 2)
+            coeffs_fit_hi = np.polyfit(self.height_array[vels!=0][40:-40], sq.get_err(self.velocity()['vx_full_z'])['hi'][40:-40], 2)
             eta_hi = pgrad/(2 * coeffs_fit_hi[0])          # mPa.s
             shear_rate_hi = sigxz_avg / eta_hi
 
@@ -975,18 +983,12 @@ class ExtractFromTraj:
         # If the root is positive or very small, there is much noise in the velocity profile
         if root_left > 0 or np.abs(root_left) < 0.1 : root_left = 0
 
-        # Slip length is the extrapolated length in addition to the depletion region: small
-        # length where there are no atoms
-        b = np.abs(root_left) #+ self.height_array[vels!=0][0]
-
-        if self.pumpsize != 0:
-            Vs = vels[vels!=0][2]
-        else:
-            Vs = vels[vels!=0][2]
-            print(Vs)
-            # Slip velocity according to Navier boundary
-            Vs = b * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
-            print(Vs)
+        # Slip length is the extrapolated length from the velocity profile fit
+        b = np.abs(root_left)
+        # Slip velocity
+        Vs = vels[vels!=0][2]
+        # # Slip velocity according to Navier boundary
+        # Vs = b * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
 
         return {'root_left':root_left, 'b':b, 'Vs':Vs,
                 'xdata_left':xdata_left,
@@ -1020,7 +1022,7 @@ class ExtractFromTraj:
         rho = np.mean(self.density()['den_t']) * 1e3 # kg/m3
         u = np.mean(self.velocity()['vx_t']) # m/s
         h = self.avg_gap_height * 1e-9 # m
-        eta = 5e-4 #self.viscosity_nemd()['eta'] * 1e-3 # Pa.s
+        eta = self.viscosity_nemd()['eta'] * 1e-3 # Pa.s
 
         Re = rho * u * h / eta
 
@@ -1047,7 +1049,7 @@ class ExtractFromTraj:
         Computes the surface tension (γ) from an equilibrium Liquid/Vapor interface
         The pressure tensor is computed from the "virial" method using IK expression
 
-        Units: mN/m
+        Units: N/m
         """
 
         virxx, viryy, virzz = -self.virial()['Wxx_t'], -self.virial()['Wyy_t'], -self.virial()['Wzz_t']   # MPa
@@ -1068,9 +1070,14 @@ class ExtractFromTraj:
         kx = np.array(self.data_x.variables["kx"])
         ky = np.array(self.data_x.variables["ky"])
 
+        # For the fluid
         sf_real = np.array(self.data_x.variables["sf"])[self.skip:]
         sf_x_real = np.array(self.data_x.variables["sf_x"])[self.skip:]
         sf_y_real = np.array(self.data_x.variables["sf_y"])[self.skip:]
+        # For the solid
+        sf_real_solid = np.array(self.data_x.variables["sf_solid"])[self.skip:]
+        sf_x_real_solid = np.array(self.data_x.variables["sf_x_solid"])[self.skip:]
+        sf_y_real_solid = np.array(self.data_x.variables["sf_y_solid"])[self.skip:]
 
         # Structure factor averaged over time for each k
         sf = np.mean(sf_real, axis=0)
@@ -1078,25 +1085,12 @@ class ExtractFromTraj:
         sf_x = np.mean(sf_x_real, axis=0)
         sf_y = np.mean(sf_y_real, axis=0)
 
-        # For the solid
-        # sf_real_solid = np.array(self.data_x.variables["sf_solid"])[self.skip:]
-        # sf_x_real_solid = np.array(self.data_x.variables["sf_x_solid"])[self.skip:]
-        # sf_y_real_solid = np.array(self.data_x.variables["sf_y_solid"])[self.skip:]
+        sf_solid = np.mean(sf_real_solid, axis=0)
+        sf_x_solid = np.mean(sf_x_real_solid, axis=0)
+        sf_y_solid = np.mean(sf_y_real_solid, axis=0)
 
-        # sf_solid = np.mean(sf_real_solid, axis=0)
-        # sf_x_solid = np.mean(sf_x_real_solid, axis=0)
-        # sf_y_solid = np.mean(sf_y_real_solid, axis=0)
-
-        # How to get S(k) in radial direction (In 2D from k=(kx,ky) and the sf=(sfx,sfy))
-        # k_vals=[]
-        # sf_r=[]
-        # for i in range(len(kx)):
-        #     for k in range(len(ky)):
-        #         k_vals.append(np.sqrt(kx[i]**2+ky[k]**2))
-        #         sf_r.append(np.sqrt(sf_x[i]**2+sf_y[k]**2))
-
-        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time}
-                # 'sf_solid':sf_solid, 'sf_x_solid':sf_x_solid, 'sf_y_solid':sf_y_solid}
+        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time,
+                'sf_solid':sf_solid, 'sf_x_solid':sf_x_solid, 'sf_y_solid':sf_y_solid}
 
     def ISF(self):
         """
