@@ -148,12 +148,14 @@ class TrajtoGrid:
         Lx, Ly, Lz = self.get_dimensions()
 
         # Discrete Wavevectors
-        nx = np.linspace(1, nx, nx, endpoint=True)
-        ny = np.linspace(1, ny, ny, endpoint=True)
-        nz = np.linspace(1, nz, nz, endpoint=True)
+        step = 2
+        nx = np.arange(0, nx, step)
+        ny = np.arange(0, ny, step)
+        nz = np.arange(0, nz, step)
+
         # Wavevectors
         kx = 2. * np.pi * nx / Lx
-        ky = 2. * np.pi * ny / Ly
+        ky = 2. * np.pi * ny / Lx   # For 1:1 aspect ratio
 
         # Array dimensions: (time, idx, dimesnion)
         try:
@@ -710,11 +712,13 @@ class TrajtoGrid:
             # Structure Factor calculation
             maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
             masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
-            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10)['mask']
+            # maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10)['mask']       # Rigid walls
+            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 14, 18)['mask']        # Vibrating walls
 
             maskx_layer_solid = utils.region(solid_xcoords, solid_xcoords, 0, Lx)['mask']
             masky_layer_solid = utils.region(solid_ycoords, solid_ycoords, 0, Ly)['mask']
-            maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 7, 10)['mask']
+            # maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 7, 10)['mask']     # Rigid walls
+            maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 11, 14)['mask']       # Vibrating walls
 
             mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
             mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
