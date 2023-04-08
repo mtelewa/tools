@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
         dataset = CavitySize(trajactories[i], args.start, args.stop, args.nevery, args.rprobe, args.shape)
 
-        time_list, radius_list = [], []
+        time_list, radius_list, radius_min_list = [], [], []
 
         # # Run the data pipleine
         for idx,val in enumerate(dataset.frames_to_process):
@@ -87,10 +87,13 @@ if __name__ == "__main__":
             if args.region == 'full':
                 if r.size==0:
                     radius_list.append(0)
+                    radius_min_list.append(0)
                 elif r.size==1:
                      radius_list.append(r[0])
+                     radius_min_list.append(0)
                 else:
                     radius_list.append(np.max(r))
+                    radius_min_list.append(np.min(r))
                     # else:
                     # if val*dataset.lammps_dump_every<1.5908e06: #5.1e5: # Time where the two bubble curves meet
                     # if len(r)>1:
@@ -103,6 +106,8 @@ if __name__ == "__main__":
 
                 # print(radius_list)
         np.savetxt(f'radius_{idx}.txt', np.c_[time_list, radius_list],  delimiter=' ',\
+                                        header='Time (fs)              Radius (A)')
+        np.savetxt(f'radius_min_{idx}.txt', np.c_[time_list, radius_min_list],  delimiter=' ',\
                                         header='Time (fs)              Radius (A)')
 
         with open(f'rargs_{idx}.txt', 'w') as myfile:
