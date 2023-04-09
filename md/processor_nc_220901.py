@@ -556,7 +556,7 @@ class TrajtoGrid:
             # Stable --------------------------------------------
             stableRangeX = np.arange(dim[0] + 1) / dim[0] * stable_length + stableStartX
             bounds_stable = [stableRangeX, bounds_fluid[1], bounds_fluid[2]]
-            xx_stable, yy_sytable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
+            xx_stable, yy_stable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
                                                                 bounds_stable[1], bounds_stable[2])
 
 
