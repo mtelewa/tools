@@ -218,8 +218,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
-            nx /= step_reciprocal
-            ny /= step_reciprocal
+            nx = np.int(nx/step_reciprocal)
+            ny = np.int(ny/step_reciprocal)
             sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             sf_solid_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
