@@ -117,7 +117,7 @@ class TrajtoGrid:
         return fluid_idx, solid_start, Nf, Nm
 
 
-    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz):
+    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz, step):
         """
         Partitions the box into regions (solid and fluid) as well as chunks in
         those regions
@@ -148,7 +148,6 @@ class TrajtoGrid:
         Lx, Ly, Lz = self.get_dimensions()
 
         # Discrete Wavevectors
-        step = 2
         nx = np.arange(0, nx, step)
         ny = np.arange(0, ny, step)
         nz = np.arange(0, nz, step)
