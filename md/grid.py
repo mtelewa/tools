@@ -22,7 +22,7 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=5):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=1, step_reciprocal=1):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -143,7 +143,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
                                   'den_bulk_ch',
                                   'Nf', 'Nm',
                                   'fluid_vol')(init.get_chunks(stable_start,
-                                    stable_end, pump_start, pump_end, nx, ny, nz))
+                                    stable_end, pump_start, pump_end, nx, ny, nz, step_reciprocal))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
@@ -218,6 +218,8 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
             # Density Fourier coefficients
+            nx /= step_reciprocal
+            ny /= step_reciprocal
             sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             sf_solid_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
