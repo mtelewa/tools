@@ -148,9 +148,9 @@ class TrajtoGrid:
         Lx, Ly, Lz = self.get_dimensions()
 
         # Discrete Wavevectors
-        nx = np.arange(0, nx, step)
-        ny = np.arange(0, ny, step)
-        nz = np.arange(0, nz, step)
+        nx = np.arange(1, nx+1, step)
+        ny = np.arange(1, ny+1, step)
+        nz = np.arange(1, nz+1, step)
 
         # Wavevectors
         kx = 2. * np.pi * nx / Lx
