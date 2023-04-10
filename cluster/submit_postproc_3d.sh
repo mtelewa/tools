@@ -74,8 +74,8 @@ cd $(pwd)
 
 mpirun --bind-to core --map-by core -report-bindings proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid $stable_start $stable_end $pump_start $pump_end
 
-if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
-  mv ${infile}_${Nchunks}x${NchunksY}x${NchunksZ}_000.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
+if [ ! -f ${infile}_${NchunksX}x1_001.nc ]; then
+  mv ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_000.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
 else
   cdo mergetime ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_*.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
   rm ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_*
