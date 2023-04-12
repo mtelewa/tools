@@ -117,7 +117,7 @@ class TrajtoGrid:
         return fluid_idx, solid_start, Nf, Nm
 
 
-    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz, step):
+    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz):
         """
         Partitions the box into regions (solid and fluid) as well as chunks in
         those regions
@@ -148,13 +148,13 @@ class TrajtoGrid:
         Lx, Ly, Lz = self.get_dimensions()
 
         # Discrete Wavevectors
-        nx = np.arange(1, nx+1, step)
-        ny = np.arange(1, ny+1, step)
-        nz = np.arange(1, nz+1, step)
+        nx = np.linspace(1, nx, nx, endpoint=True)
+        ny = np.linspace(1, ny, ny, endpoint=True)
+        nz = np.linspace(1, nz, nz, endpoint=True)
 
         # Wavevectors
         kx = 2. * np.pi * nx / Lx
-        ky = 2. * np.pi * ny / Lx   # For 1:1 aspect ratio
+        ky = 2. * np.pi * ny / Ly
 
         # Array dimensions: (time, idx, dimesnion)
         try:
@@ -736,21 +736,21 @@ class TrajtoGrid:
 
             # Structure factor
             for i in range(len(kx)):
-                sf_x[:, i] = (np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
-                sf_x_solid[:, i] = (np.sum(np.exp(1.j * kx[i] * solid_xcoords_unavgd * mask_layer_solid), axis=1))**2 / N_layer_mask_solid
+                sf_x[:, i] = np.abs((np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1)))**2 / N_layer_mask
+                sf_x_solid[:, i] = np.abs((np.sum(np.exp(1.j * kx[i] * solid_xcoords_unavgd * mask_layer_solid), axis=1)))**2 / N_layer_mask_solid
             for k in range(len(ky)):
-                sf_y[:, k] = (np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1))**2 / N_layer_mask
-                sf_y_solid[:, k] = (np.sum(np.exp(1.j * ky[k] * solid_ycoords_unavgd * mask_layer_solid), axis=1))**2 / N_layer_mask_solid
+                sf_y[:, k] = np.abs((np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1)))**2 / N_layer_mask
+                sf_y_solid[:, k] = np.abs((np.sum(np.exp(1.j * ky[k] * solid_ycoords_unavgd * mask_layer_solid), axis=1)))**2 / N_layer_mask_solid
 
             for i in range(len(kx)):
                 for k in range(len(ky)):
                     # Fourier components of the density
                     rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
                                         ky[k]*fluid_ycoords_unavgd*mask_layer)) )
-                    sf[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
-                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1))**2 / N_layer_mask
-                    sf_solid[:, i, k] =  (np.sum( np.exp(1.j * (kx[i]*solid_xcoords_unavgd*mask_layer_solid +
-                                        ky[k]*solid_ycoords_unavgd*mask_layer_solid) ) , axis=1))**2 / N_layer_mask_solid
+                    sf[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
+                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1)))**2 / N_layer_mask
+                    sf_solid[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i]*solid_xcoords_unavgd*mask_layer_solid +
+                                        ky[k]*solid_ycoords_unavgd*mask_layer_solid) ) , axis=1)))**2 / N_layer_mask_solid
 
             for i in range(self.Nx):
                 for k in range(self.Nz):

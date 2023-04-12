@@ -22,13 +22,12 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1, nx_tot=1, ny_tot=1, nz_tot=1, step_reciprocal=1):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=1):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
     Nx, Nz = comm.bcast(Nx, root=0), comm.bcast(Nz, root=0)
-    nx = comm.bcast(np.int(nx_tot/step_reciprocal), root=0)
-    ny = comm.bcast(np.int(ny_tot/step_reciprocal), root=0)
+    nx, ny = comm.bcast(nx, root=0), comm.bcast(ny, root=0)
     slice_size = comm.bcast(slice_size, root=0)
 
     # Timesteps
@@ -145,7 +144,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
                                   'den_bulk_ch',
                                   'Nf', 'Nm',
                                   'fluid_vol')(init.get_chunks(stable_start,
-                                    stable_end, pump_start, pump_end, nx_tot, ny_tot, nz_tot, step_reciprocal))
+                                    stable_end, pump_start, pump_end, nx, ny, nz))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
