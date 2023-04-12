@@ -187,7 +187,7 @@ class ExtractFromTraj:
     def mflux(self):
         """
         Computes the x-component of the mass flux and the mass flow rate of the fluid
-        Units: g/(m^2.ns) and g/s for the mass flux and mass flow rate, respectively
+        Units: g/(m^2.ns) and g/ns for the mass flux and mass flow rate, respectively
 
         Returns
         -------
@@ -223,7 +223,7 @@ class ExtractFromTraj:
             mflowrate_full_x = np.array(self.data_x.variables["mdot"])[self.skip:] * Angstromperfs_to_mpers
             mflowrate_chunkX = (self.mf/sci.N_A) * np.mean(mflowrate_full_x, axis=(0,2)) * 1e-9 / (self.Lx*1e-9/self.Nx)
             # Time-averaged mass flow rate in the whole domain
-            mflowrate_t = (self.mf/sci.N_A) * np.sum(mflowrate_full_x, axis=(1,2)) / (self.Lx*1e-9)
+            mflowrate_t = (self.mf/sci.N_A) * np.sum(mflowrate_full_x, axis=(1,2)) * 1e-9 / (self.Lx*1e-9)
         except KeyError:
             mflowrate_full_x, mflowrate_chunkX, mflowrate_t = 0 ,0 ,0
 
@@ -389,7 +389,7 @@ class ExtractFromTraj:
 
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-        vir_fluctuations = sq.get_err(vir_full_x)['var']
+        vir_fluctuations = 0  #sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
