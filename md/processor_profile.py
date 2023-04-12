@@ -23,22 +23,22 @@ class profile:
     def __init__(self,inputfile,tSkip,columns):
 
         # ------------------- Collecting the data -------------------------------#
-        # with open('info.dat', 'r') as f:
-        #     for line in f:
-        #         if line.split()[0]=='BoxHeight':
-        #             total_box_height=float(line.split()[1])
-        #         if line.split()[0]=='gapHeight':
-        #             gapheight=float(line.split()[1])
-        #         if line.split()[0]=='AChunk':
-        #             ChunkArea=float(line.split()[1])
-        #         if line.split()[0]=='VChunkX':
-        #             ChunkVolX=float(line.split()[1])
-        #         if line.split()[0]=='VChunkZ':
-        #             ChunkVolZ=float(line.split()[1])
-        #         if line.split()[0]=='vShear':
-        #             vwall=float(line.split()[1])
+        with open('info.dat', 'r') as f:
+            for line in f:
+                if line.split()[0]=='BoxHeight':
+                    total_box_height=float(line.split()[1])
+                if line.split()[0]=='gapHeight':
+                    gapheight=float(line.split()[1])
+                if line.split()[0]=='AChunk':
+                    ChunkArea=float(line.split()[1])
+                if line.split()[0]=='VChunkX':
+                    ChunkVolX=float(line.split()[1])
+                if line.split()[0]=='VChunkZ':
+                    ChunkVolZ=float(line.split()[1])
+                if line.split()[0]=='vShear':
+                    vwall=float(line.split()[1])
 
-        total_box_height, gapheight, ChunkArea, ChunkVolX, ChunkVolZ, vwall = 1,1,1,1,1,1
+        # total_box_height, gapheight, ChunkArea, ChunkVolX, ChunkVolZ, vwall = 1,1,1,1,1,1
 
         # Unit conversion
         atm_to_mpa=101325*1e-6

@@ -75,10 +75,13 @@ if __name__ == "__main__":
     if args.quantity=='sigzzU':
         plot = profile('fzU.profile',args.skip,4)
     if args.quantity=='sigzz':
-        sigzz_upper = profile('fzU.profile',args.skip,4).sigzzU
-        sigzz_lower = profile('fzL.profile',args.skip,4).sigzzL
-        length = profile('fzU.profile',args.skip,4).length
-        sigzz = 0.5*(sigzz_lower-sigzz_upper)
+        computeU = profile('fzU.profile',args.skip,4)
+        computeL = profile('fzL.profile',args.skip,4)
+        sigzz_upper = computeU.sigzzU
+        sigzz_lower = computeL.sigzzL
+        length = computeU.length
+        print(sigzz_upper, sigzz_lower)
+        sigzz = 0.5*(sigzz_lower+sigzz_upper)
         np.savetxt("sigzz.txt", np.c_[length,sigzz],delimiter="  ",header="Length(nm)       Sigmazz(MPa)")
     if args.quantity=='acf':
         time = profile('profile.gk.2d',args.skip,5).time
