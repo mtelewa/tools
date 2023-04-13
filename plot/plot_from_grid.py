@@ -111,7 +111,7 @@ class PlotFromGrid:
             fit_data = funcs.fit(x[1:-1] ,y[1:-1], self.config[f'fit'])['fit_data']
             ax.plot(x[1:-1], fit_data, lw=1.5)
         if self.dimension=='H':
-            fit_data = funcs.fit(x[self.skipchunkszstart:self.skipchunkszend] ,y[self.skipchunkszstart:self.skipchunkszend]), self.config[f'fit'])['fit_data']
+            fit_data = funcs.fit(x[self.skipchunkszstart:self.skipchunkszend] ,y[self.skipchunkszstart:self.skipchunkszend], self.config[f'fit'])['fit_data']
             ax.plot(x[self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
             # fit_data = funcs.fit(x[y!=0][self.skipchunkszstart:self.skipchunkszend] ,y[y!=0][self.skipchunkszstart:self.skipchunkszend], self.config[f'fit'])['fit_data']
             # ax.plot(x[y!=0][self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
