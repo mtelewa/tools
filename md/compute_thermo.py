@@ -367,14 +367,14 @@ class ExtractFromTraj:
         # variation_density = (max_density-min_density)/max_density
         # variation_density < 0.15 or
 
-        if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
-            print('Virial computed from the three components')
-            vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
-            vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-        else:  # Compressible flow
-            print('Virial computed from the y-component')
-            vir_full_x = - Wyy_full_x
-            vir_full_z = - Wyy_full_z
+        # if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
+        #     print('Virial computed from the three components')
+        #     vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+        #     vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+        # else:  # Compressible flow
+        #     print('Virial computed from the y-component')
+        vir_full_x = - Wyy_full_x
+        vir_full_z = - Wyy_full_z
 
         vir_t = np.mean(vir_full_x, axis=(1,2))
 
@@ -389,7 +389,7 @@ class ExtractFromTraj:
 
         vir_chunkX = np.mean(vir_full_x, axis=(0,2))
         vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-        vir_fluctuations = 0  #sq.get_err(vir_full_x)['var']
+        vir_fluctuations = sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize*self.Lx      # nm
@@ -808,6 +808,7 @@ class ExtractFromTraj:
             pgrad = self.virial()['pGrad']            # MPa/m
 
             # Shear rate at the walls
+            x=0
             coeffs_fit_walls =  np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
             rate_walls = (coeffs_fit_walls[0]* 2 * x - coeffs_fit_walls[0] * self.avg_gap_height) * 1e9
             print(f"Interfacial Shear rate at z=0 is {rate_walls:e} s^-1")
@@ -906,8 +907,8 @@ class ExtractFromTraj:
         # Heat flow rate: slope of the energy with time
         qdot, _  = np.polyfit(self.time[self.skip:cut_ds], delta_energy[:cut_log], 1)  # (kcal/mol) / fs
         qdot *= 4184 / (sci.N_A * 1e-15)    # J/s
-        qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
-              self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
+        # qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
+        #       self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
 
         # Heat flux
         j =  qdot / (2 * self.wall_A) # J/(m2.s)
@@ -916,7 +917,7 @@ class ExtractFromTraj:
         print(f'Tgrad = {temp_grad:e} K/m')
         conductivity_z = -j / temp_grad
 
-        return {'conductivity_z':conductivity_z, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
+        return {'conductivity_z':conductivity_z, 'qdot':qdot}#, 'qdot_continuum':qdot_continuum}
 
 
     def conductivity_IK(self):
