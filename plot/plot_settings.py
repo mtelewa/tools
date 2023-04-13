@@ -37,13 +37,13 @@ class Initialize:
 
         # One plot per figure
         if nrows==1 and ncols==1:
-            fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True) #,figsize=(4.6, 4.1))
+            fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)#, figsize=(7.8,6.8)) #,figsize=(4.6, 4.1))
             axes_array = np.array(ax).reshape(-1)
 
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,8)) # TODO:
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True)#, figsize=(7,8))
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -72,6 +72,13 @@ class Initialize:
         # 3D plots
         if self.config['3d']:
             fig, ax = plt.figure(dpi=1200), plt.axes(projection='3d')
+
+        # Heat map
+        try:
+            if self.config['heat']:
+                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
+        except KeyError:
+            pass
 
         return {'fig': fig, 'ax': ax, 'axes_array': axes_array}
 
@@ -143,15 +150,15 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', label='Fixed Force'),
-                           Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', label='Fixed Current'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
-        #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall $\sigma_{zz}$')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', markersize=8, label='Fixed Force'),
+        #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', markersize=8, label='Fixed Current'),
+        #                    Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit')]
+        # #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall $\sigma_{zz}$')]
 
         handles.extend(legend_elements)
 
@@ -161,14 +168,18 @@ class Modify:
         # Import legend items from the elements specified
         elif self.config['legend_elements']=='e':
             if self.config['legend_loc'] == 1:
-                axis.legend(handles=legend_elements, frameon=False, loc=(0.65,-0.12))#loc=(0.,0.45))
+                axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.5), columnspacing=1, ncol=3)#loc=(0.,0.45))
             if isinstance(self.config['legend_loc'], str):
                 axis.legend(handles=legend_elements, frameon=False, loc=self.config['legend_loc'])
             if self.config['legend_loc'] is None:
                 axis.legend(handles=legend_elements, frameon=False)
         # Import legend items from the handles
         elif self.config['legend_elements']=='h':
-            axis.legend(frameon=False)
+            if self.config['legend_loc'] == 1:
+                # axis.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.12), ncol=4)
+                axis.legend(frameon=False, loc='upper left')
+            else:
+                axis.legend(frameon=False)
 
 
     def label_inline(self, lines):
@@ -185,7 +196,7 @@ class Modify:
                 rot = self.config[f'rotation_of_label_{i}']
                 y_offset = self.config[f'Y-offset_for_label_{i}']
                 label_lines.label_line(line, xpos, yoffset= y_offset, \
-                         label=line.get_label(), fontsize= 14, rotation= rot)
+                         label=line.get_label(), rotation= rot)
 
 
     def label_subplot(self, axes):
@@ -197,13 +208,13 @@ class Modify:
         if self.config['broken_axis'] is None:
             for i, ax in enumerate(axes):
                 axes[i].text(-0.1, 1.1, sublabels[i], transform=ax.transAxes,
-                        fontsize=16, fontweight='bold', va='top', ha='right')
+                        fontweight='bold', va='top', ha='right')
         else: # TODO: Generalize later
             last_axis = len(axes)-1
             axes[0].text(-0.1, 1.1, sublabels[0], transform=axes[0].transAxes,
-                        fontsize=16, fontweight='bold', va='top', ha='right')
+                        fontweight='bold', va='top', ha='right')
             axes[last_axis].text(-0.1, 1.1, sublabels[1], transform=axes[last_axis].transAxes,
-                        fontsize=16, fontweight='bold', va='top', ha='right')
+                        fontweight='bold', va='top', ha='right')
 
 
     def plot_vlines(self, axes):
@@ -231,6 +242,10 @@ class Modify:
         axes[0].plot([0, 1], [0, 0], transform=axes[0].transAxes, **kwargs)
         axes[1].plot([0, 1], [1, 1], transform=axes[1].transAxes, **kwargs)
 
+        if len(axes)>3:
+            axes[1].plot([0, 1], [0, 0], transform=axes[1].transAxes, **kwargs)
+            axes[2].plot([0, 1], [1, 1], transform=axes[2].transAxes, **kwargs)
+
         # Remove all axes label
         for ax in axes:
             ax.xaxis.label.set_visible(False)
@@ -241,9 +256,9 @@ class Modify:
             self.fig.text(0.5, 0.005, axes[-1].get_xlabel(), ha='center')
         else:
             #Set the common labels # TODO : generalize the y-axis labels and their positions
-            self.fig.text(0.5, 0.04, axes[-1].get_xlabel(), ha='center', size=14)
-            self.fig.text(0.04, 0.70, axes[0].get_ylabel(), va='center', rotation='vertical', size=14)
-            self.fig.text(0.04, 0.30, axes[-1].get_ylabel(), va='center', rotation='vertical', size=14)
+            self.fig.text(0.5, 0.04, axes[-1].get_xlabel(), ha='center')
+            self.fig.text(0.04, 0.70, axes[0].get_ylabel(), va='center', rotation='vertical')
+            self.fig.text(0.04, 0.30, axes[-1].get_ylabel(), va='center', rotation='vertical')
 
 
     def set_ax_height(self, axes):
