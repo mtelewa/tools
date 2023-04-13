@@ -305,7 +305,7 @@ class ExtractFromTraj:
             data_yt = np.mean(data, axis=(1,3)) / (self.vol*1e3)
             data_zt = np.mean(data, axis=(1,2)) / (self.vol*1e3)
 
-        return {'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
+        return {'data':data, 'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
                 'data_yz':data_yz, 'data_yt':data_yt, 'data_zt':data_zt}
 
 
