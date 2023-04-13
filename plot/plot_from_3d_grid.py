@@ -124,247 +124,131 @@ class PlotFromGrid:
             self.ax.set_ylabel('Time (ns)')
 
         for i in range(len(datasets)):
-            n=0    # subplot
             data = dataset(self.skip, self.datasets[i], self.mf, self.pumpsize)
-            if self.dimension=='LH':
-                x = data.length_array   # nm
-                y = data.height_array
-            if self.dimension=='LW':
-                x = data.length_array
-                y = data.width_array
-                print(x)
-                print(y)
-            if self.dimension=='LT':
-                x = data.length_array
-                y = self.time[self.skip:] * 1e-6      # ns
-            if self.dimension=='WH':
-                x = data.width_array
-                y = data.height_array
-            if self.dimension=='WT':
-                x = data.width_array
-                y = self.time[self.skip:] * 1e-6
-            if self.dimension=='HT':
-                x = data.height_array
-                y = self.time[self.skip:] * 1e-6
+            if self.dimension=='LH': x, y = data.length_array, data.height_array   # nm
+            if self.dimension=='LW': x, y = data.length_array, data.width_array
+            if self.dimension=='LT': x, y = data.length_array, self.time[self.skip:] * 1e-6      # ns
+            if self.dimension=='WH': x, y = data.width_array, data.height_array
+            if self.dimension=='WT': x, y  = data.width_array, self.time[self.skip:] * 1e-6
+            if self.dimension=='HT': x, y = data.height_array, self.time[self.skip:] * 1e-6
+
+            # if 'H' in self.dimension and any('virial' in var for var in variables) or any('den_bulk' in var for var in variables):
+            #     print('Bulk height is used here!')
+            #     try:
+            #         x = data.bulk_height_array  # simulation with walls
+            #     except AttributeError:
+            #         x = data.height_array       # bulk simulations
 
             X, Y = np.meshgrid(x, y)
 
             # Velocity - x component
-            if any('vx' in var for var in variables):
-                if self.dimension=='LH': Z = data.velocity()['data_xz']
-                if self.dimension=='LW': Z = data.velocity()['data_xy']
-                if self.dimension=='LT': Z = data.velocity()['data_xt']
-                if self.dimension=='WH': Z = data.velocity()['data_yz']
-                if self.dimension=='WT': Z = data.velocity()['data_yt']
-                if self.dimension=='HT': Z = data.velocity()['data_zt']
-
-                if self.config['3d']:
-                    surf = self.ax.plot_surface(X, Y, Z, cmap=mpl.cm.jet,
-                        rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
-                    self.fig.colorbar(surf, shrink=0.5, aspect=5)
-                    self.ax.zaxis.set_rotate_label(False)
-                    self.ax.set_zlabel(labels[5], labelpad=15)
-                    self.ax.zaxis.set_label_coords(0.5, 1.15)
-                    self.ax.view_init(35,60) #(35,60)
-                    self.ax.grid(False)
-                if self.config['heat']:
-                    im = plt.imshow(Z, cmap='viridis', interpolation='lanczos',
-                        extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower')
-                    cbar = self.ax.figure.colorbar(im, ax=self.ax)
-
-            # Gap height
-            if any('gapheight' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[0])
-                if self.dimension=='T': arr, y = None, data.h
-
-            # Gap height
-            if any('gapdiv' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[0])
-                if self.dimension=='T': arr, y = None, data.h_div
-
-            # Gap height
-            if any('gapconv' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[0])
-                if self.dimension=='T': arr, y = None, data.h_conv
-
-            # Mass flux - x component
-            if any('jx' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[4])
-                if self.dimension=='L': arr, y = data.mflux()['jx_full_x'], data.mflux()['jx_X']
-                if self.dimension=='H': arr, y = data.mflux()['jx_full_z'], data.mflux()['jx_Z']
-                if self.dimension=='T': arr, y = None, data.mflux()['jx_t']
-
-            # Heat flux - z component
-            if any('je' in var for var in variables):
-                self.axes_array[n].set_ylabel('J_e')
-                if self.dimension=='T': arr, y = None, data.heat_flux()['jez_t']
-
-            # Mass flowrate - x component
-            if any('mflowrate' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[10])
-                if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']*1e20
-                if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']*1e20
-
-            # Virial Pressure - Scalar
-            if any('virial' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L':
-                    arr, y = data.virial()['vir_full_x'], data.virial()['vir_X']
-                    # Save the pressure data to a txt file (to compare with the continuum)
-                    ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
-                    # Include the part before the pump
-                    xval = x[ymax:] - x[ymax]
-                if self.dimension=='H':
-                    try:
-                        x = data.bulk_height_array  # simulation with walls
-                    except AttributeError:
-                        x = data.height_array       # bulk simulations
-                    arr, y = data.virial()['vir_full_z'], data.virial()['vir_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['vir_t']
-
+            if any('vx' in var for var in variables): array_to_plot = data.velocity()
             # Mass density
-            if any('den' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[3])
-                if self.dimension=='L': arr, y = data.density()['den_full_x'], data.density()['den_X']
-                if self.dimension=='H': arr, y = data.density()['den_full_z'], data.density()['den_Z']
-                if self.dimension=='T': arr, y = None, data.density()['den_t']
-                # self.axes_array[n].plot(np.roll(y[y!=0][1:-1],85), x[y!=0][1:-1], color=colors[i])
+            if any('den' in var for var in variables): array_to_plot = data.density()
+            # Bulk density
+            if any('den_bulk' in var for var in variables): array_to_plot = data.density_bulk()
+            # Virial Pressure - Scalar
+            if any('virial' in var for var in variables): array_to_plot = data.virial()
+            # Virial Pressure - Scalar
+            if any('temp' in var for var in variables): array_to_plot = data.temp()
 
-            # Virial - xx component
-            if any('virxx' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxx_full_x'], data.virial()['Wxx_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxx_full_z'], data.virial()['Wxx_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxx_t']
+            if self.dimension=='LH': Z = array_to_plot['data_xz']
+            if self.dimension=='LW': Z = array_to_plot['data_xy']
+            if self.dimension=='LT': Z = array_to_plot['data_xt']
+            if self.dimension=='WH': Z = array_to_plot['data_yz']
+            if self.dimension=='WT': Z = array_to_plot['data_yt']
+            if self.dimension=='HT': Z = array_to_plot['data_zt']
 
-            # Virial - xy component
-            if any('virxy' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxy_full_x'], data.virial()['Wxy_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxy_full_z'], data.virial()['Wxy_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxy_t']
+            if self.config['3d']:
+                surf = self.ax.plot_surface(X, Y, Z, cmap=mpl.cm.jet,
+                    rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
+                self.fig.colorbar(surf, shrink=0.5, aspect=5)
+                self.ax.zaxis.set_rotate_label(False)
 
-            # Virial - xz component
-            if any('virxz' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxz_full_x'], data.virial()['Wxz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxz_full_z'], data.virial()['Wxz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxz_t']
+                if any('vx' in var for var in variables): self.ax.set_zlabel(labels[5], labelpad=15)
+                if any('den' in var for var in variables): self.ax.set_zlabel(labels[3], labelpad=15)
+                if any('virial' in var for var in variables): self.ax.set_zlabel(labels[7], labelpad=15)
+                if any('temp' in var for var in variables): self.ax.set_zlabel(labels[6], labelpad=15)
 
-            # Virial - yy component
-            if any('viryy' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wyy_full_x'], data.virial()['Wyy_X']
-                if self.dimension=='H': arr, y = data.virial()['Wyy_full_z'], data.virial()['Wyy_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wyy_t']
+                self.ax.zaxis.set_label_coords(0.5, 1.15)
+                self.ax.view_init(35,60) #(35,60)
+                self.ax.grid(False)
 
-            # Virial - yz component
-            if any('viryz' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wyz_full_x'], data.virial()['Wyz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wyz_full_z'], data.virial()['Wyz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wyz_t']
+            if self.config['heat']:
+                im = plt.imshow(Z.T, cmap='viridis', interpolation='lanczos',
+                    extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower')
+                cbar = self.ax.figure.colorbar(im, ax=self.ax)
 
-            # Virial - zz component
-            if any('virzz' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wzz_full_x'], data.virial()['Wzz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wzz_full_z'], data.virial()['Wzz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wzz_t']
-
-            if any('sigzz' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L':
-                    arr, y = None, data.sigwall()['sigzz_X']
-
-                if self.dimension=='T':
-                    arr, y = None, data.sigwall()['sigzz_t']
-
-                if self.config['err_caps']:
-                    y = data.sigwall()['sigzz_X']
-                    err =  data.sigwall()['sigzz_err']
-                    self.plot_uncertainty(self.axes_array[n], x, y, err)
-                if self.config['err_fill']:
-                    lo =  data.sigwall()['sigzz_lo'][1:-1]
-                    hi =  data.sigwall()['sigzz_hi'][1:-1]
-
-                    self.plot_uncertainty(self.axes_array[n], x, y, err)
-
-            if any('sigxz' in var for var in variables):
-                self.axes_array[n].set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-                if self.dimension=='L':
-                    arr, y = None, data.sigwall()['sigxz_X']
-
-                if self.dimension=='T':
-                    arr, y = None, data.sigwall()['sigxz_t']
-
-                if self.config['err_caps']:
-                    # if self.dimension=='L': # Error in eachchunk
-                    y = data.sigwall()['sigxz_X']
-                    err =  data.sigwall()['sigxz_err']
-                    # else:
-                    #     err =  data.sigwall()['sigxz_err_t']
-                    self.plot_uncertainty(self.axes_array[n], x, y, err)
-                if self.config['err_fill']:
-                    # if self.dimension=='L': # Error in eachchunk
-                    lo =  data.sigwall()['sigxz_lo'][1:-1]
-                    hi =  data.sigwall()['sigxz_hi'][1:-1]
-                    # else:   # Error in timeseries
-                    #     lo =  data.sigwall()['sigxz_lo_t']
-                    #     hi =  data.sigwall()['sigxz_hi_t']
-
-                    self.plot_uncertainty(self.axes_array[n], x, y, err)
-
-            # Fluid temperature - x component
-            if any('tempX' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempX_full_x'], data.temp()['tempX_len']
-                if self.dimension=='H': arr, y = data.temp()['tempX_full_z'], data.temp()['tempX_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempX_t']
-
-            # Fluid temperature - y component
-            if any('tempY' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempY_full_x'], data.temp()['tempY_len']
-                if self.dimension=='H': arr, y = data.temp()['tempY_full_z'], data.temp()['tempY_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempY_t']
-
-            # Fluid temperature - z component
-            if any('tempZ' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempZ_full_x'], data.temp()['tempZ_len']
-                if self.dimension=='H': arr, y = data.temp()['tempZ_full_z'], data.temp()['tempZ_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempZ_t']
-
-            # Fluid temperature - Scalar
-            if any('temp' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['temp_full_x'], data.temp()['temp_X']
-                if self.dimension=='H': arr, y = data.temp()['temp_full_z'], data.temp()['temp_Z']
-                if self.dimension=='T': arr, y = None, data.temp()['temp_t']
-
-                if self.config['broken_axis']:
-                    try:
-                        if self.config['plot_on_all']:
-                            for n in range(self.nrows): # plot the same data on all the axes except the last one
-                                self.axes_array[n].plot(x, y[1:-1])
-                                n+=1
-                    except KeyError:
-                        while n<self.nrows-1: # plot the same data on all the axes except the last one
-                            self.axes_array[n].plot(x, y[1:-1])
-                            n+=1
-                # fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
-                # np.savetxt('temp-height.txt', np.c_[x[y!=0][2:-2]/np.max(x[y!=0][2:-2]), y[y!=0][2:-2], fit_data],  delimiter=' ',\
-                #                 header='Height (nm)              Temperature (K)            Fit')
-            # Solid temperature - Scalar
-            if any('tempS' in var for var in variables):
-                self.axes_array[n].set_ylabel(labels[6])
-                try:
-                    if self.dimension=='L': arr, y = data.temp()['temp_full_x_solid'], data.temp()['tempS_len']
-                    if self.dimension=='H': arr, y = data.temp()['temp_full_z_solid'], data.temp()['tempS_height']
-                    if self.dimension=='T': arr, y = None, data.temp()['tempS_t']
-                except KeyError:
-                    pass
+            # # Mass flux - x component
+            # if any('jx' in var for var in variables):
+            #     self.axes_array[n].set_ylabel(labels[4])
+            #     if self.dimension=='L': arr, y = data.mflux()['jx_full_x'], data.mflux()['jx_X']
+            #     if self.dimension=='H': arr, y = data.mflux()['jx_full_z'], data.mflux()['jx_Z']
+            #     if self.dimension=='T': arr, y = None, data.mflux()['jx_t']
+            #
+            # # Heat flux - z component
+            # if any('je' in var for var in variables):
+            #     self.axes_array[n].set_ylabel('J_e')
+            #     if self.dimension=='T': arr, y = None, data.heat_flux()['jez_t']
+            #
+            # # Mass flowrate - x component
+            # if any('mflowrate' in var for var in variables):
+            #     self.axes_array[n].set_ylabel(labels[10])
+            #     if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']*1e20
+            #     if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']*1e20
+            #
+            # if any('sigzz' in var for var in variables):
+            #     self.axes_array[n].set_ylabel(labels[7])
+            #     if self.dimension=='L':
+            #         arr, y = None, data.sigwall()['sigzz_X']
+            #
+            #     if self.dimension=='T':
+            #         arr, y = None, data.sigwall()['sigzz_t']
+            #
+            #     if self.config['err_caps']:
+            #         y = data.sigwall()['sigzz_X']
+            #         err =  data.sigwall()['sigzz_err']
+            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
+            #     if self.config['err_fill']:
+            #         lo =  data.sigwall()['sigzz_lo'][1:-1]
+            #         hi =  data.sigwall()['sigzz_hi'][1:-1]
+            #
+            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
+            #
+            # if any('sigxz' in var for var in variables):
+            #     self.axes_array[n].set_ylabel('Wall $\sigma_{xz}$ (MPa)')
+            #     if self.dimension=='L':
+            #         arr, y = None, data.sigwall()['sigxz_X']
+            #
+            #     if self.dimension=='T':
+            #         arr, y = None, data.sigwall()['sigxz_t']
+            #
+            #     if self.config['err_caps']:
+            #         # if self.dimension=='L': # Error in eachchunk
+            #         y = data.sigwall()['sigxz_X']
+            #         err =  data.sigwall()['sigxz_err']
+            #         # else:
+            #         #     err =  data.sigwall()['sigxz_err_t']
+            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
+            #     if self.config['err_fill']:
+            #         # if self.dimension=='L': # Error in eachchunk
+            #         lo =  data.sigwall()['sigxz_lo'][1:-1]
+            #         hi =  data.sigwall()['sigxz_hi'][1:-1]
+            #         # else:   # Error in timeseries
+            #         #     lo =  data.sigwall()['sigxz_lo_t']
+            #         #     hi =  data.sigwall()['sigxz_hi_t']
+            #
+            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
+            #
+            # # Solid temperature - Scalar
+            # if any('tempS' in var for var in variables):
+            #     self.axes_array[n].set_ylabel(labels[6])
+            #     try:
+            #         if self.dimension=='L': arr, y = data.temp()['temp_full_x_solid'], data.temp()['tempS_len']
+            #         if self.dimension=='H': arr, y = data.temp()['temp_full_z_solid'], data.temp()['tempS_height']
+            #         if self.dimension=='T': arr, y = None, data.temp()['tempS_t']
+            #     except KeyError:
+            #         pass
 
         try:
             Modify(x, self.fig, self.axes_array, self.configfile)
