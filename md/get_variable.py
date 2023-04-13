@@ -159,6 +159,7 @@ if __name__ == "__main__":
         if 'conductivity_ecouple' in args.qtty:
             log_file = datasets[i]+'/data/log.lammps'
             print(f"Thermal Conductivity = {get.conductivity_ecouple(log_file)['conductivity_z']} W/mK")
+            print(f"Heat flow rate = {get.conductivity_ecouple(log_file)['qdot']} W")
         if 'conductivity_IK' in args.qtty:
             print(f"Thermal Conductivity = {np.mean(get.conductivity_IK()['conductivity_z'])} W/mK")
         if 'viscosity_nemd' in args.qtty:
