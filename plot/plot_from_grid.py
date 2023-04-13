@@ -4,12 +4,15 @@
 import numpy as np
 import sys, os, logging
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from operator import itemgetter
 import yaml
 import funcs
+import matplotlib as mpl
 import sample_quality as sq
 from compute_thermo import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
+from scipy.integrate import trapezoid
 
 # Logger Settings
 logging.basicConfig(level=logging.INFO)
@@ -17,12 +20,23 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Import golbal plot configuration
-plt.style.use('imtek')
+# plt.style.use('imtek')
+plt.style.use('thesis')
+# Specify the path to the font file
+font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
+# Register the font with Matplotlib
+fm.fontManager.addfont(font_path)
+# Set the font family for all text elements
+plt.rcParams['font.family'] = 'Linux Libertine'
+plt.rcParams['mathtext.fontset'] = 'custom'
+plt.rcParams['mathtext.rm'] = 'Linux Libertine'
+plt.rcParams['mathtext.it'] = 'Linux Libertine:italic'
+plt.rcParams['mathtext.bf'] = 'Linux Libertine:bold'
 
 # np.seterr(all='raise')
 
 #           0             1                   2                    3
-labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$)',
+labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density $\rho$ (g/${\mathrm{cm^3}}$)',
 #           4                                           5             6                    7
         r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Velocity $u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
 #           8                                   9
@@ -32,6 +46,18 @@ labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$
 #           12
         r'${\mathrm{\eta}}$ (mPa.s)', r'$N_{\mathrm{\pump}}$', r'Energy (Kcal/mol)', '$R(t)$ (${\AA}$)')
 
+def colorFader(c1, c2, mix=0): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
+    c1 = np.array(mpl.colors.to_rgb(c1))
+    c2 = np.array(mpl.colors.to_rgb(c2))
+    return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
+
+# Color gradient
+c1 = 'tab:blue' #blue
+c2 = 'tab:red' #red
+n = 5
+colors = []
+for x in range(n+1):
+    colors.append(colorFader(c1,c2,x/n))
 
 class PlotFromGrid:
 
@@ -58,13 +84,20 @@ class PlotFromGrid:
         self.time = first_dataset.time
         self.Ly = first_dataset.Ly
 
+        self.skipchunkszstart = 4
+        if self.skipchunkszstart == 0:
+            self.skipchunkszend = None
+        else:
+            self.skipchunkszend = -self.skipchunkszstart
 
     def plot_data(self, ax, x, y):
         """
         Plots the raw data
         """
         if self.dimension=='L': ax.plot(x[1:-1], y[1:-1])
-        if self.dimension=='H': ax.plot(x[y!=0][2:-2], y[y!=0][2:-2])
+        if self.dimension=='H':
+            ax.plot(x[self.skipchunkszstart:self.skipchunkszend], y[self.skipchunkszstart:self.skipchunkszend])
+            # ax.plot(x[y!=0][self.skipchunkszstart:self.skipchunkszend], y[y!=0][self.skipchunkszstart:self.skipchunkszend])
         if self.dimension=='T':
             ax.plot(x, y)
             if input('Plot time-average?') == 'y':
@@ -78,11 +111,13 @@ class PlotFromGrid:
             fit_data = funcs.fit(x[1:-1] ,y[1:-1], self.config[f'fit'])['fit_data']
             ax.plot(x[1:-1], fit_data, lw=1.5)
         if self.dimension=='H':
-            fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
-            ax.plot(x[y!=0][2:-2], fit_data, lw=1.5)
+            fit_data = funcs.fit(x[self.skipchunkszstart:self.skipchunkszend] ,y[self.skipchunkszstart:self.skipchunkszend]), self.config[f'fit'])['fit_data']
+            ax.plot(x[self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
+            # fit_data = funcs.fit(x[y!=0][self.skipchunkszstart:self.skipchunkszend] ,y[y!=0][self.skipchunkszstart:self.skipchunkszend], self.config[f'fit'])['fit_data']
+            # ax.plot(x[y!=0][self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
 
 
-    def plot_inset(self, xdata, xpos=0.64, ypos=0.28, w=0.23, h=0.17):
+    def plot_inset(self, xdata, xpos=0.64, ypos=0.23, w=0.23, h=0.17):
         """
         Adds an inset figure
         """
@@ -108,21 +143,21 @@ class PlotFromGrid:
                 else:
                     err = arr
                 markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err[1:-1],
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             if self.dimension=='H':
                 err = sq.get_err(arr)['uncertainty'][y!=0][2:-2]
                 markers, caps, bars= ax.errorbar(x[y!=0][2:-2], y[y!=0][2:-2], xerr=None, yerr=err[y!=0][2:-2],
-                                            capsize=3.5, markersize=4, lw=2, alpha=0.8)
+                                            capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
         if self.config['err_fill']:
             if self.dimension=='L':
                 lo, hi = sq.get_err(arr)['lo'][1:-1], sq.get_err(arr)['hi'][1:-1]
-                ax.fill_between(x[1:-1], lo, hi, color=color, alpha=0.4)
+                ax.fill_between(x[1:-1], lo, hi, alpha=0.4)
             if self.dimension=='H':
                 lo, hi = sq.get_err(arr)['lo'][y!=0][2:-2], sq.get_err(arr)['hi'][y!=0][2:-2]
-                ax.fill_between(x[y!=0][2:-2], lo, hi, color=color, alpha=0.4)
+                ax.fill_between(x[y!=0][2:-2], lo, hi, alpha=0.4)
 
 
     def extract_plot(self, *arr_to_plot, **kwargs):
@@ -171,7 +206,7 @@ class PlotFromGrid:
                     x_extrapolateR = data.slip_length()['xdata_right']
                     y_extrapolateR = data.slip_length()['extrapolate_right']
                     self.axes_array[n].plot(x_extrapolate, y_extrapolate, marker=' ', ls='--', color='k')
-                    self.axes_array[n].plot(x_extrapolateR, y_extrapolateR, marker=' ', ls='--', color='k')
+                    # self.axes_array[n].plot(x_extrapolateR, y_extrapolateR, marker=' ', ls='--', color='k')
                     # ax.set_xlim([data.slip_length()['root_left'], 0.5*np.max(x)])
                     # ax.set_ylim([0, 1.1*np.max(y)])
                 if self.nrows>1: n+=1
@@ -255,10 +290,10 @@ class PlotFromGrid:
                 if self.config['err_fill']:
                     self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data.virial()['vir_full_x'], color='tab:blue')
+                                                data.virial()['vir_full_x'])
                 if self.config['err_caps']:
                     self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data.virial()['vir_full_x'], color='tab:blue')
+                                                data.virial()['vir_full_x'])
                 else:
                     self.plot_data(self.axes_array[n], x, y)
 
@@ -270,6 +305,7 @@ class PlotFromGrid:
                 if self.dimension=='L': arr, y = data.density()['den_full_x'], data.density()['den_X']
                 if self.dimension=='H': arr, y = data.density()['den_full_z'], data.density()['den_Z']
                 if self.dimension=='T': arr, y = None, data.density()['den_t']
+                # self.axes_array[n].plot(np.roll(y[y!=0][1:-1],85), x[y!=0][1:-1], color=colors[i])
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
