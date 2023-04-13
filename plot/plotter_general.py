@@ -135,12 +135,16 @@ if __name__ == "__main__":
     # ACFs
     if 'acf' in args.variables: pg.acf()
     if 'transverse' in args.variables: pg.transverse()
-    if 'sk' in args.variables: pg.struc_factor()
+    if 'sk_solid' in args.variables: pg.struc_factor(fluid=0)
+    if 'sk' in args.variables: pg.struc_factor(fluid=1)
     if 'isf' in args.variables: pg.isf()
     # Coexistence curves
     if 'coexist' in args.variables: pg.coexistence_curve()
     if 'rc_gamma' in args.variables: pg.rc_gamma()
     if 'temp_gamma' in args.variables: pg.temp_gamma()
+    # Cavitation
+    pl, pv = 73.579e3, 73e3
+    if 'length_cav' in args.variables: pg.cav_num_length(pl, pv)
 
     if args.format is not None:
         if args.format == 'eps':

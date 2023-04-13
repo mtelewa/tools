@@ -5,6 +5,7 @@ import numpy as np
 import sys, os, logging
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from operator import itemgetter
 import scipy.constants as sci
 from scipy.optimize import curve_fit
@@ -26,12 +27,25 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Import golbal plot configuration
-plt.style.use('imtek')
+# plt.style.use('imtek')
+plt.style.use('thesis')
+# Specify the path to the font file
+font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
+# Register the font with Matplotlib
+fm.fontManager.addfont(font_path)
+# Set the font family for all text elements
+plt.rcParams['font.family'] = 'Linux Libertine'
+plt.rcParams['mathtext.fontset'] = 'custom'
+plt.rcParams['mathtext.rm'] = 'Linux Libertine'
+plt.rcParams['mathtext.it'] = 'Linux Libertine:italic'
+plt.rcParams['mathtext.bf'] = 'Linux Libertine:bold'
+
+mpl.rcParams.update({'lines.markersize': 8})
 
 #           0             1                   2                    3
-labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density (g/${\mathrm{cm^3}}$)',
+labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density $\rho$ (g/${\mathrm{cm^3}}$)',
 #           4                                           5             6                    7
-        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Vx (m/s)', 'Temperature (K)', 'Pressure (MPa)',
+        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Velocity $u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
@@ -141,8 +155,8 @@ class PlotGeneral:
         This is mainly to observe the compressibility of the fluid along the stream
         """
         ax = self.axes_array[0]
-        ax.set_xlabel('Height (nm)')
-        ax.set_ylabel('$u$ (m/s)')
+        ax.set_xlabel(labels[0])
+        ax.set_ylabel(labels[5])
 
         # Color gradient
         c1 = 'tab:blue' #blue
@@ -271,7 +285,6 @@ class PlotGeneral:
         ax.set_ylabel(labels[12])
         ax.set_xscale('log', nonpositive='clip')
         # mpl.rcParams.update({'lines.linewidth': 2})
-        # mpl.rcParams.update({'lines.markersize': 8})
 
         shear_rate, viscosity = [], []
         shear_rate_err, viscosity_err = [], []
@@ -283,22 +296,25 @@ class PlotGeneral:
         shear_rate_rigid, viscosity_rigid = [], []
 
         for idx, val in enumerate(self.datasets_x):
-            if 'couette' in val:
+            if 'mixture' in val:
                 print('Plotting Couette rate-viscosity data')
-                pumpsize = 0
-                data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize)
-                shear_rate.append(data.viscosity_nemd()['shear_rate'])
-                viscosity.append(data.viscosity_nemd()['eta'])
-                shear_rate_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
-                viscosity_err.append(data.viscosity_nemd()['eta_hi'] - data.viscosity_nemd()['eta_lo'])
+                # pumpsize = 0
+                data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
+                visco = data.viscosity_nemd()
+                shear_rate.append(visco['shear_rate'])
+                viscosity.append(visco['eta'])
+                print(viscosity)
+                shear_rate_err.append(visco['shear_rate_hi'] - visco['shear_rate_lo'])
+                viscosity_err.append(visco['eta_hi'] - visco['eta_lo'])
 
-            if 'ff' in val:
+            if 'pentane' in val:
                 print('Plotting FF rate-viscosity data')
                 data = dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, self.pumpsize)
-                shear_rate_ff.append(data.viscosity_nemd()['shear_rate'])
-                viscosity_ff.append(data.viscosity_nemd()['eta'])
-                shear_rate_ff_err.append(data.viscosity_nemd()['shear_rate_hi'] - data.viscosity_nemd()['shear_rate_lo'])
-                viscosity_ff_err.append(data.viscosity_nemd()['eta_hi'] - data.viscosity_nemd()['eta_lo'])
+                visco = data.viscosity_nemd()
+                shear_rate_ff.append(visco['shear_rate'])
+                viscosity_ff.append(visco['eta'])
+                shear_rate_ff_err.append(visco['shear_rate_hi'] - visco['shear_rate_lo'])
+                viscosity_ff_err.append(visco['eta_hi'] - visco['eta_lo'])
 
             if 'fc' in val:
                 print('Plotting FC rate-viscosity data')
@@ -322,13 +338,13 @@ class PlotGeneral:
         if not self.config['err_caps'] and not self.config['err_fill']:
             if viscosity:
                 ax.plot(shear_rate, viscosity)
-            if viscosity_ff and not viscosity_vib:
+            if viscosity_ff:
                 ax.plot(shear_rate_ff, viscosity_ff)
-            if viscosity_fc and not viscosity_vib:
-                ax.plot(shear_rate_fc, viscosity_fc)
-            if viscosity_vib:
-                ax.plot(shear_rate_rigid, viscosity_rigid)
-                ax.plot(shear_rate_vib, viscosity_vib)
+            # if viscosity_fc and not viscosity_vib:
+            #     ax.plot(shear_rate_fc, viscosity_fc)
+            # if viscosity_vib:
+            #     ax.plot(shear_rate_rigid, viscosity_rigid)
+            #     ax.plot(shear_rate_vib, viscosity_vib)
 
         # Plot data with error bars
         if self.config['err_caps'] or self.config['err_fill']:
@@ -339,6 +355,8 @@ class PlotGeneral:
         if self.config['fit']: #plot fit for Couette data
             popt, pcov = curve_fit(funcs.power, shear_rate, viscosity, maxfev=8000)
             ax.plot(shear_rate, funcs.power(shear_rate, *popt))
+            popt2, pcov2 = curve_fit(funcs.power, shear_rate_ff, viscosity_ff, maxfev=8000)
+            ax.plot(shear_rate_ff, funcs.power(shear_rate_ff, *popt2))
 
         if viscosity:
             Modify(shear_rate, self.fig, self.axes_array, self.configfile)
@@ -362,7 +380,6 @@ class PlotGeneral:
         ax.set_xlabel(labels[11])
         ax.set_ylabel('$\sigma_{xz}$ (MPa)')
         ax.set_xscale('log', nonpositive='clip')
-        mpl.rcParams.update({'lines.markersize': 8})
 
         shear_rate, stress = [], []
         shear_rate_err, stress_err = [], []
@@ -427,7 +444,6 @@ class PlotGeneral:
         ax.set_xlabel(labels[11])
         ax.set_ylabel('Slip Length $b$ (nm)')
         ax.set_xscale('log', nonpositive='clip')
-        mpl.rcParams.update({'lines.markersize': 8})
 
         shear_rate, slip = [], []
         shear_rate_pd, slip_pd = [], []
@@ -634,7 +650,6 @@ class PlotGeneral:
         Nonequilibrium sietalations:
             * Change of T with P, to see the effect of the pump ΔP on the fluid temperature
         """
-        mpl.rcParams.update({'lines.markersize': 8})
 
         if self.config['log']:
             # self.axes_array[0].xaxis.major.formatter.set_scientific(False)
@@ -710,35 +725,41 @@ class PlotGeneral:
 
         den_isotherms, press_isotherms = np.asarray(den_isotherms), np.asarray(press_isotherms)
 
-        for i in ds_gau_1fs:
-            den_isotherms_gau_1fs.append(np.mean(i.density()['den_t']))
-            press_isotherms_gau_1fs.append(np.mean(i.virial()['vir_t']))
-        for i in ds_gau_4fs:
-            den_isotherms_gau_4fs.append(np.mean(i.density()['den_t']))
-            press_isotherms_gau_4fs.append(np.mean(i.virial()['vir_t']))
-        for i in ds_ver_1fs:
-            den_isotherms_ver_1fs.append(np.mean(i.density()['den_t']))
-            press_isotherms_ver_1fs.append(np.mean(i.virial()['vir_t']))
-        for i in ds_ver_4fs:
-            den_isotherms_ver_4fs.append(np.mean(i.density()['den_t']))
-            press_isotherms_ver_4fs.append(np.mean(i.virial()['vir_t']))
+        # for i in ds_gau_1fs:
+        #     den_isotherms_gau_1fs.append(np.mean(i.density()['den_t']))
+        #     press_isotherms_gau_1fs.append(np.mean(i.virial()['vir_t']))
+        # for i in ds_gau_4fs:
+        #     den_isotherms_gau_4fs.append(np.mean(i.density()['den_t']))
+        #     press_isotherms_gau_4fs.append(np.mean(i.virial()['vir_t']))
+        # for i in ds_ver_1fs:
+        #     den_isotherms_ver_1fs.append(np.mean(i.density()['den_t']))
+        #     press_isotherms_ver_1fs.append(np.mean(i.virial()['vir_t']))
+        # for i in ds_ver_4fs:
+        #     den_isotherms_ver_4fs.append(np.mean(i.density()['den_t']))
+        #     press_isotherms_ver_4fs.append(np.mean(i.virial()['vir_t']))
 
         if ds_isotherms:
             if self.config['log']:
                 den_isotherms /= np.max(den_isotherms)
                 press_isotherms /= np.max(press_isotherms)
 
-            if ds_gau_1fs: self.axes_array[0].plot(den_isotherms_gau_1fs, press_isotherms_gau_1fs)
-            if ds_gau_4fs: self.axes_array[0].plot(den_isotherms_gau_4fs, press_isotherms_gau_4fs)
-            if ds_ver_1fs: self.axes_array[0].plot(den_isotherms_ver_1fs, press_isotherms_ver_1fs)
-            if ds_ver_4fs: self.axes_array[0].plot(den_isotherms_ver_4fs, press_isotherms_ver_4fs)
+            # if ds_gau_1fs: self.axes_array[0].plot(den_isotherms_gau_1fs, press_isotherms_gau_1fs)
+            # if ds_gau_4fs: self.axes_array[0].plot(den_isotherms_gau_4fs, press_isotherms_gau_4fs)
+            # if ds_ver_1fs: self.axes_array[0].plot(den_isotherms_ver_1fs, press_isotherms_ver_1fs)
+            # if ds_ver_4fs: self.axes_array[0].plot(den_isotherms_ver_4fs, press_isotherms_ver_4fs)
 
             self.axes_array[0].plot(den_isotherms, press_isotherms)
 
+            # Fit to cubic EOS
+            coeffs_den_cubic = curve_fit(funcs.cubic, den_isotherms*1000, press_isotherms*1e6, maxfev=8000)
+            print(f'Coefficients of the cubic EOS for n-pentane are {coeffs_den_cubic[0][0], coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]}')
+            self.axes_array[0].plot(den_isotherms, funcs.cubic(den_isotherms, coeffs_den_cubic[0][0],
+             coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]))
+
             # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
-            # exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
-            # exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
-            # self.axes_array[0].plot(exp_density, exp_press)
+            exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+            exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            self.axes_array[0].plot(exp_density, exp_press)
 
             if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den_isotherms, press_isotherms, maxfev=8000)
@@ -784,6 +805,7 @@ class PlotGeneral:
             rho_l.append(ds.coexistence_densities()['rho_l'])
             rho_v.append(ds.coexistence_densities()['rho_v'])
 
+        # Plot MD data
         ax.plot(rho_v,temp)
         ax.plot(rho_l,temp)
 
@@ -797,20 +819,31 @@ class PlotGeneral:
             ax.plot(rho_l_exp,temp_exp)
 
         if self.mf == 72.15:
-            # Exp.: B.D. Smith and R. Srivastava, Thermodynamic Data for Pure Compounds: Part A Hydrocarbons and Ketone
-            # and etalero et al. 2012
+            # Exp.: Thol, M., Uhde, T., Lemmon, E.W., and Span, R., 2018. (NIST)
             rhoc, Tc = 0.232, 469.70  # g/cm3, K
             temp_exp = [150,175,200,225,250,275,300,325,350,375,400,425]
-            rho_v_exp = [0,0,0,0,0,0,0.0006,0.0048,0.0109,0.0182,0.0315,0.0497]
+            rho_v_exp = [0, 0, 0, 0.00006, 0.0003, 0.0009, 0.0022, 0.0048, 0.0094, 0.0170, 0.0291, 0.0491]
             rho_l_exp = [0.7575,0.7339,0.7115,0.6891,0.6661,0.6431,0.6201,0.5940,0.5662,0.5341,0.5008,0.4554]
+
+            # MC: J. Phys. Chem. B, Vol. 102, No. 14, 1998
+            rhoc_mc, Tc_mc = 0.239, 471
+            temp_mc = [300, 338, 373, 403, 440]
+            rho_l_mc = [0.625, 0.583, 0.540, 0.499, 0.419]
+            rho_v_mc = [0.0034, 0.0088, 0.0196, 0.0413, 0.0684]
+
+            # Plot Exp. and MC data
             ax.plot(rho_v_exp,temp_exp)
             ax.plot(rho_l_exp,temp_exp)
+
+            ax.plot(rho_v_mc, temp_mc)
+            ax.plot(rho_l_mc, temp_mc)
 
         # For Density scaling law ---> Get Tc
         rho_diff = np.array(rho_l) - np.array(rho_v)
         popt, pcov = curve_fit(funcs.density_scaling, rho_diff/np.max(rho_diff), temp, maxfev=8000)
         Tc_fit = popt[1]
 
+        # Plot the fits for MD data
         ax.plot(rho_l,funcs.density_scaling(rho_diff/np.max(rho_diff), *popt))
         ax.plot(rho_v,funcs.density_scaling(rho_diff/np.max(rho_diff), *popt))
 
@@ -820,8 +853,10 @@ class PlotGeneral:
         rhoc_fit=popt2[1]/(popt2[0]*2)
         print(f'Critical Point is:({rhoc_fit,Tc_fit})')
 
+        # Plot the critical points from MD, Exp. and MC
         ax.plot(rhoc_fit, Tc_fit)
         ax.plot(rhoc, Tc)
+        ax.plot(rhoc_mc, Tc_mc)
 
         Modify(rho_l, self.fig, self.axes_array, self.configfile)
 
@@ -833,7 +868,7 @@ class PlotGeneral:
         """
         ax = self.axes_array[0]
         ax.set_xlabel('$r_c/\sigma$')
-        ax.set_ylabel('$\gamma$ (mN/m)')
+        ax.set_ylabel('Surface tension $\gamma$ (mN/m)')
 
         if self.mf == 39.948: rc = [3,4,5,6,7]
         if self.mf == 72.15: rc = [10,12,14,18,21,24]
@@ -854,7 +889,7 @@ class PlotGeneral:
         """
         ax = self.axes_array[0]
         ax.set_xlabel('Temperature (K)')
-        ax.set_ylabel('$\gamma$ (mN/m)')
+        ax.set_ylabel('Surface tension $\gamma$ (mN/m)')
 
         temp, gamma = [], []
         temp_gautschi, gamma_gautschi = [], []
@@ -881,13 +916,12 @@ class PlotGeneral:
             ax.plot(temp, gamma)
             popt, pcov = curve_fit(funcs.power_new, temp/np.max(temp), gamma, maxfev=8000)
             print(f'Critical temperature: Tc = {popt[1]*np.max(temp):.2f}')
+            ax.plot(temp, gamma_exp)
             ax.plot(temp,funcs.power_new(temp/np.max(temp), *popt))
         if temp_gautschi:
             ax.plot(temp_gautschi, gamma_gautschi)
         if temp_gautschi_5:
             ax.plot(temp_gautschi_5, gamma_gautschi_5)
-
-        ax.plot(temp,gamma_exp)
 
         Modify(temp, self.fig, self.axes_array, self.configfile)
 
@@ -920,7 +954,31 @@ class PlotGeneral:
 
 
 
-    def struc_factor(self):
+    def cav_num_length(self, pl, pv):
+        """
+        Plots the auto correlation function
+        # TODO: Check that this works properly!
+        """
+        ax = self.axes_array[0]
+        ax.set_xlabel(labels[1])
+        ax.set_ylabel('Cavitation number $K$')
+        # mpl.rcParams.update({'lines.linewidth':'1'})
+
+        for i in range(len(self.datasets_x)):
+            ds = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
+            cav_num = ds.cavitation_num(pl, pv)
+            ax.plot(ds.length_array, cav_num)
+
+            # acf_flux = sq.acf(data.mflux()['jx_t'])['norm']
+            # ax.plot(self.time*1e-6, acf_flux[:10000])
+
+        # ax.axhline(y= 0, color='k', linestyle='dashed', lw=1)
+
+        Modify(ds.length_array, self.fig, self.axes_array, self.configfile)
+
+
+
+    def struc_factor(self, fluid):
         """
         Plots the structure factor on the x-axis and the wave length (kx or ky) on the y-axis in 2D figure
         or both (kx and ky) on the y- and z- axes in a 3D figure
@@ -928,19 +986,32 @@ class PlotGeneral:
         data = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
 
         kx = data.sf()['kx']
-        print(kx)
         ky = data.sf()['ky']
         # k = data.sf()['k']
 
         sfx = data.sf()['sf_x']
         sfy = data.sf()['sf_y']
         sf_time = data.sf()['sf_time']
-        sf = data.sf()['sf']
+        if fluid == 1:
+            sf = data.sf()['sf']
+        else:
+            sf = data.sf()['sf_solid']
         # sf_solid = data.sf()['sf_solid']
 
-        if self.config['3d']:
-            self.ax.set_xlabel('$k_x (\AA^{-1})$')
-            self.ax.set_ylabel('$k_y (\AA^{-1})$')
+        if self.config['heat']:
+            self.ax.set_ylim(bottom=0, top=ky.max())
+            self.ax.set_xlim(left=0, right=kx.max())
+            self.ax.set_xlabel(r'$k_x \, \mathrm{(\AA^{-1})}$')
+            self.ax.set_ylabel(r'$k_y \, \mathrm{(\AA^{-1})}$')
+            Kx, Ky = np.meshgrid(kx, ky)
+
+            plt.imshow(sf.T, cmap='viridis', interpolation='lanczos',
+                extent=[kx.min(), kx.max(), ky.min(), ky.max()], origin='lower')
+            # plt.colorbar()
+
+        elif self.config['3d']:
+            self.ax.set_xlabel('$k_x \, (\AA^{-1})$')
+            self.ax.set_ylabel('$k_y \, (\AA^{-1})$')
             self.ax.set_zlabel('$S(k)$')
             self.ax.invert_xaxis()
             self.ax.set_ylim(ky[-1]+1,0)
@@ -948,12 +1019,11 @@ class PlotGeneral:
             self.ax.set_zticks([])
 
             Kx, Ky = np.meshgrid(kx, ky)
-            self.ax.plot_surface(Kx, Ky, sf.T, cmap=mpl.cm.jet,
-                        rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
-            # self.fig.colorbar(surf, shrink=0.5, aspect=5)
 
-            self.ax.view_init(90,0) # (35,60)
-            # pickle.dump(self.fig, open('FigureObject.fig.pickle', 'wb')) # This is for Python 3 - py2 may need `file` instead of `open`
+            self.ax.plot_surface(Kx, Ky, sf.T, cmap=mpl.cm.jet,
+                rcount=200, ccount=200 ,linewidth=0.2, antialiased=True)#, linewidth=0.2)
+            # self.fig.colorbar(surf, shrink=0.5, aspect=5)
+            self.ax.view_init(35,60) #(90,0)
 
         else:
             a = input('x or y or r or t:')
@@ -961,14 +1031,12 @@ class PlotGeneral:
             if a=='x':
                 ax.set_xlabel('$k_x (\AA^{-1})$')
                 ax.set_ylabel('$S(K_x)$')
-                ax.plot(kx, sfx, ls= '-', marker=' ', alpha=opacity,
-                           label=input('Label:'))
+                ax.plot(kx, sfx)
                 Modify(kx, self.fig, self.axes_array, self.configfile)
             elif a=='y':
                 ax.set_xlabel('$k_y (\AA^{-1})$')
                 ax.set_ylabel('$S(K_y)$')
-                ax.plot(ky, sfy, ls= '-', marker=' ', alpha=opacity,
-                           label=input('Label:'))
+                ax.plot(ky, sfy)
                 Modify(ky, self.fig, self.axes_array, self.configfile)
             elif a=='t':
                 ax.set_xlabel('$t (fs)$')
@@ -976,12 +1044,6 @@ class PlotGeneral:
                 ax.plot(self.time[self.skip:], sf_time, ls= '-', marker=' ', alpha=opacity,
                            label=input('Label:'))
                 Modify(self.time[self.skip:], self.fig, self.axes_array, self.configfile)
-            # elif a=='r':
-            #     ax.set_xlabel('$k (\AA^{-1})$')
-            #     ax.set_ylabel('$S(K)$')
-            #     ax.plot(k, sf_r, ls= ' ', marker='x', alpha=opacity,
-            #                label=input('Label:'))
-
 
     def isf(self):
         """
