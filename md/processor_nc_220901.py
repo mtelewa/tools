@@ -117,7 +117,7 @@ class TrajtoGrid:
         return fluid_idx, solid_start, Nf, Nm
 
 
-    def get_chunks(self, stable_start, stable_end, pump_start, pump_end, nx, ny, nz):
+    def get_chunks(self, stable_start, stable_end, pump_start, pump_end):
         """
         Partitions the box into regions (solid and fluid) as well as chunks in
         those regions
@@ -146,15 +146,6 @@ class TrajtoGrid:
 
         fluid_idx, solid_start, Nf, Nm = self.get_indices()
         Lx, Ly, Lz = self.get_dimensions()
-
-        # Discrete Wavevectors
-        nx = np.linspace(1, nx, nx, endpoint=True)
-        ny = np.linspace(1, ny, ny, endpoint=True)
-        nz = np.linspace(1, nz, nz, endpoint=True)
-
-        # Wavevectors
-        kx = 2. * np.pi * nx / Lx
-        ky = 2. * np.pi * ny / Ly
 
         # Array dimensions: (time, idx, dimesnion)
         try:
@@ -382,9 +373,6 @@ class TrajtoGrid:
 
             fluid_lengths = [Lx, Ly, avg_gap_height_div]
 
-            # Wave vectors in the z-direction
-            kz = 2. * np.pi * nz / avg_gap_height_div
-
             fluid_vol = None
 
         else:
@@ -410,9 +398,6 @@ class TrajtoGrid:
             fluid_vol = np.array(cell_lengths[self.start:self.end, 0]).astype(np.float32) * \
                         np.array(cell_lengths[self.start:self.end, 1]).astype(np.float32) * \
                         np.array(cell_lengths[self.start:self.end, 2]).astype(np.float32)
-
-            # Wave vectors in the z-direction
-            kz = 2. * np.pi * nz / Lz
 
         # REGIONS within the fluid------------------------------------------------
         #-------------------------------------------------------------------------
@@ -532,7 +517,6 @@ class TrajtoGrid:
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------
         dim = np.array([self.Nx, self.Ny, self.Nz])
-        dim_reciproc = np.array([kx, ky, kz], dtype=object)
 
         # Whole cell --------------------------------------------
         # The minimum position has to be added to have equal Number of solid atoms in each chunk
@@ -648,18 +632,7 @@ class TrajtoGrid:
         Wxy_ch = np.zeros_like(vx_ch)
         Wxz_ch = np.zeros_like(vx_ch)
         Wyz_ch = np.zeros_like(vx_ch)
-
         den_ch = np.zeros_like(vx_ch)
-
-        # rho_kx_ch = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        sf_x = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        sf_y = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
-        sf_x_solid = np.zeros([self.chunksize, len(kx)] , dtype=np.complex64)
-        sf_y_solid = np.zeros([self.chunksize, len(ky)] , dtype=np.complex64)
-        rho_k = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
-        sf = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
-        sf_solid = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
-
         jx_ch = np.zeros_like(vx_ch)
         mflowrate_ch = np.zeros_like(vx_ch)
         temp_ch = np.zeros_like(vx_ch)
@@ -707,50 +680,6 @@ class TrajtoGrid:
             fluid_vx_avg_lte = np.mean(np.transpose(peculiar_vx)*mask_lte, axis=0) #np.mean(fluid_vx*mask_lte, axis=0)
             fluid_vy_avg_lte = np.mean(np.transpose(peculiar_vy)*mask_lte, axis=0)
             fluid_vz_avg_lte = np.mean(np.transpose(peculiar_vz)*mask_lte, axis=0)
-
-            # Structure Factor calculation
-            maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
-            masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']
-            # maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 0, 10)['mask']       # Rigid walls
-            maskz_layer = utils.region(fluid_zcoords, fluid_zcoords, 14, 18)['mask']        # Vibrating walls
-
-            maskx_layer_solid = utils.region(solid_xcoords, solid_xcoords, 0, Lx)['mask']
-            masky_layer_solid = utils.region(solid_ycoords, solid_ycoords, 0, Ly)['mask']
-            # maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 7, 10)['mask']     # Rigid walls
-            maskz_layer_solid = utils.region(solid_zcoords, solid_zcoords, 11, 14)['mask']       # Vibrating walls
-
-            mask_xy_layer = np.logical_and(maskx_layer, masky_layer)
-            mask_layer = np.logical_and(mask_xy_layer, maskz_layer)
-
-            mask_xy_layer_solid = np.logical_and(maskx_layer_solid, masky_layer_solid)
-            mask_layer_solid = np.logical_and(mask_xy_layer_solid, maskz_layer_solid)
-
-            # Count particles in the fluid cell
-            N_layer_mask = np.sum(mask_layer, axis=1)
-            Nzero_stable = np.less(N_layer_mask, 1)
-            N_layer_mask[Nzero_stable] = 1
-
-            N_layer_mask_solid = np.sum(mask_layer_solid, axis=1)
-            Nzero_stable_solid = np.less(N_layer_mask_solid, 1)
-            N_layer_mask_solid[Nzero_stable_solid] = 1
-
-            # Structure factor
-            for i in range(len(kx)):
-                sf_x[:, i] = np.abs((np.sum(np.exp(1.j * kx[i] * fluid_xcoords_unavgd * mask_layer), axis=1)))**2 / N_layer_mask
-                sf_x_solid[:, i] = np.abs((np.sum(np.exp(1.j * kx[i] * solid_xcoords_unavgd * mask_layer_solid), axis=1)))**2 / N_layer_mask_solid
-            for k in range(len(ky)):
-                sf_y[:, k] = np.abs((np.sum(np.exp(1.j * ky[k] * fluid_ycoords_unavgd * mask_layer), axis=1)))**2 / N_layer_mask
-                sf_y_solid[:, k] = np.abs((np.sum(np.exp(1.j * ky[k] * solid_ycoords_unavgd * mask_layer_solid), axis=1)))**2 / N_layer_mask_solid
-
-            for i in range(len(kx)):
-                for k in range(len(ky)):
-                    # Fourier components of the density
-                    rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
-                                        ky[k]*fluid_ycoords_unavgd*mask_layer)) )
-                    sf[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i]*fluid_xcoords_unavgd*mask_layer +
-                                        ky[k]*fluid_ycoords_unavgd*mask_layer) ) , axis=1)))**2 / N_layer_mask
-                    sf_solid[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i]*solid_xcoords_unavgd*mask_layer_solid +
-                                        ky[k]*solid_ycoords_unavgd*mask_layer_solid) ) , axis=1)))**2 / N_layer_mask_solid
 
             for i in range(self.Nx):
                 for k in range(self.Nz):
@@ -891,7 +820,6 @@ class TrajtoGrid:
                     vx_R3[:, i, k] = np.sum(fluid_vx * mask_R3, axis=1) / (N_R3[:, i, k])
                     vx_R4[:, i, k] = np.sum(fluid_vx * mask_R4, axis=1) / (N_R4[:, i, k])
                     vx_R5[:, i, k] = np.sum(fluid_vx * mask_R5, axis=1) / (N_R5[:, i, k])
-
 
                     # Density (whole fluid) ----------------------------
                     den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_fluid[i, 0, k]
@@ -1051,9 +979,6 @@ class TrajtoGrid:
                     den_bulk_ch[:, i] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_cell[i, 0, k]
 
         return {'cell_lengths': cell_lengths_updated,
-                'kx': kx,
-                'ky': ky,
-                'kz': kz,
                 'gap_heights': gap_heights,
                 'bulkStartZ_time': bulkStartZ_time,
                 'bulkEndZ_time': bulkEndZ_time,
@@ -1076,13 +1001,6 @@ class TrajtoGrid:
                 'vx_R5': vx_R5,
                 'uCOMx': uCOMx,
                 'den_ch': den_ch,
-                'rho_k': rho_k,
-                'sf': sf,
-                'sf_solid': sf_solid,
-                'sf_x': sf_x,
-                'sf_x_solid': sf_x_solid,
-                'sf_y': sf_y,
-                'sf_y_solid': sf_y_solid,
                 'jx_ch' : jx_ch,
                 'mflowrate_ch': mflowrate_ch,
                 'je_x': je_x,
