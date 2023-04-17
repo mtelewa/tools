@@ -367,14 +367,14 @@ class ExtractFromTraj:
         # variation_density = (max_density-min_density)/max_density
         # variation_density < 0.15 or
 
-        # if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
-        #     print('Virial computed from the three components')
-        #     vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
-        #     vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-        # else:  # Compressible flow
-        #     print('Virial computed from the y-component')
-        vir_full_x = - Wyy_full_x
-        vir_full_z = - Wyy_full_z
+        if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
+            print('Virial computed from the three components')
+            vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+            vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+        else:  # Compressible flow
+            print('Virial computed from the y-component')
+            vir_full_x = - Wyy_full_x
+            vir_full_z = - Wyy_full_z
 
         vir_t = np.mean(vir_full_x, axis=(1,2))
 
@@ -808,16 +808,17 @@ class ExtractFromTraj:
             pgrad = self.virial()['pGrad']            # MPa/m
 
             # Shear rate at the walls
-            x=0
-            coeffs_fit_walls =  np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
-            rate_walls = (coeffs_fit_walls[0]* 2 * x - coeffs_fit_walls[0] * self.avg_gap_height) * 1e9
-            print(f"Interfacial Shear rate at z=0 is {rate_walls:e} s^-1")
-            print(f"Interfacial Viscosity z=0 is {sigxz_avg/rate_walls:.2f} mPa.s")
+            coeffs_fit_bulk = np.polyfit(self.height_array[vels!=0][40:-40], vels[vels!=0][40:-40], 2)
+            eta_bulk = pgrad/(2 * coeffs_fit_bulk[0])          # mPa.s
+            shear_rate_bulk = sigxz_avg / eta_bulk
+            # print(f"Interfacial Shear rate at z=0 is {rate_walls:e} s^-1")
+            # print(f"Interfacial Viscosity z=0 is {sigxz_avg/rate_walls:.2f} mPa.s")
 
             # Shear rate in the bulk
-            coeffs_fit = np.polyfit(self.height_array[vels!=0][40:-40], vels[vels!=0][40:-40], 2)
-            eta = pgrad/(2 * coeffs_fit[0])          # mPa.s
-            shear_rate = sigxz_avg / eta
+            coeffs_fit = np.polyfit(self.height_array[vels!=0][3:-3], vels[vels!=0][3:-3], 2)
+            x=0
+            shear_rate = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
+            eta = sigxz_avg / shear_rate        # mPa.s
 
             coeffs_fit_lo = np.polyfit(self.height_array[vels!=0][40:-40], sq.get_err(self.velocity()['vx_full_z'])['lo'][40:-40], 2)
             eta_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
@@ -907,8 +908,8 @@ class ExtractFromTraj:
         # Heat flow rate: slope of the energy with time
         qdot, _  = np.polyfit(self.time[self.skip:cut_ds], delta_energy[:cut_log], 1)  # (kcal/mol) / fs
         qdot *= 4184 / (sci.N_A * 1e-15)    # J/s
-        # qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
-        #       self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
+        qdot_continuum = self.viscosity_nemd()['eta'] * 1e-3 * \
+               self.viscosity_nemd()['shear_rate']**2 * 2 * self.wall_A * self.avg_gap_height * 1e-9
 
         # Heat flux
         j =  qdot / (2 * self.wall_A) # J/(m2.s)
@@ -917,7 +918,7 @@ class ExtractFromTraj:
         print(f'Tgrad = {temp_grad:e} K/m')
         conductivity_z = -j / temp_grad
 
-        return {'conductivity_z':conductivity_z, 'qdot':qdot}#, 'qdot_continuum':qdot_continuum}
+        return {'conductivity_z':conductivity_z, 'qdot':qdot, 'qdot_continuum':qdot_continuum}
 
 
     def conductivity_IK(self):
@@ -1043,8 +1044,6 @@ class ExtractFromTraj:
         return K
 
 
-    # Structural properties ---------------------------------------------------
-
     def surface_tension(self):
         """
         Computes the surface tension (γ) from an equilibrium Liquid/Vapor interface
@@ -1060,131 +1059,3 @@ class ExtractFromTraj:
             gamma = 0.5 * self.Lz * (virzz - (0.5*(virxx+viryy)) ) * 1e6 * 1e-9
 
         return {'gamma':gamma}
-
-
-    def sf(self):
-        """
-        Computes the longitudnal (skx) and transverse (sky) structure factors for the liquid and solid
-        """
-
-        # wavevectors
-        kx = np.array(self.data_x.variables["kx"])
-        ky = np.array(self.data_x.variables["ky"])
-
-        # For the fluid
-        sf_real = np.array(self.data_x.variables["sf"])[self.skip:]
-        sf_x_real = np.array(self.data_x.variables["sf_x"])[self.skip:]
-        sf_y_real = np.array(self.data_x.variables["sf_y"])[self.skip:]
-        # For the solid
-        sf_real_solid = np.array(self.data_x.variables["sf_solid"])[self.skip:]
-        sf_x_real_solid = np.array(self.data_x.variables["sf_x_solid"])[self.skip:]
-        sf_y_real_solid = np.array(self.data_x.variables["sf_y_solid"])[self.skip:]
-
-        # Structure factor averaged over time for each k
-        sf = np.mean(sf_real, axis=0)
-        sf_time = np.mean(sf_real, axis=(1,2))
-        sf_x = np.mean(sf_x_real, axis=0)
-        sf_y = np.mean(sf_y_real, axis=0)
-
-        sf_solid = np.mean(sf_real_solid, axis=0)
-        sf_x_solid = np.mean(sf_x_real_solid, axis=0)
-        sf_y_solid = np.mean(sf_y_real_solid, axis=0)
-
-        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time,
-                'sf_solid':sf_solid, 'sf_x_solid':sf_x_solid, 'sf_y_solid':sf_y_solid}
-
-    def ISF(self):
-        """
-        Computes the intermediate scattering function
-        TODO: Check that it works properly!
-        """
-
-        # Fourier components of the density
-        rho_k = np.array(self.data_x.variables["rho_k"])
-        ISF = sq.acf_conjugate(rho_k)['norm']
-
-        # a = np.mean(rho_k, axis=0)
-        # var = np.var(rho_k, axis=0)
-
-
-        # ISF = np.zeros([len(self.time),len(kx)])
-        # for i in range(len(kx)):
-        #     C = np.correlate(rho_kx[:,i]-a[i], rho_kx_conj[:,i]-b[i], mode="full")
-        #     C = C[C.size // 2:].real
-        #     ISF[:,i] = C #/ var[i]
-        # we get the same with manual acf
-        # ISFx = sq.acf(rho_kx)['non-norm'].real
-
-        # ISFx_mean = np.mean(ISFx, axis=0)
-
-        # Fourier transform of the ISF gives the Dynamical structure factor
-        # DSFx = np.fft.fft(ISFx[:,5]).real
-        # DSFx_mean = np.mean(DSFx.real, axis=1)
-
-        # Intermediate Scattering Function (ISF): ACF of Fourier components of density
-        # ISFx = sq.numpy_acf(rho_kx)#['non-norm']
-        # ISFx_mean = np.mean(ISFx, axis=0)
-
-        return {'ISF':ISF}
-
-
-    # Time-correlation functions ------------------------------------------------
-
-    def transverse_acf(self):
-        """
-        Computes the transverse Autocorrelation function
-        TODO: Check that it works properly!
-        """
-
-        density = np.array(self.data_z.variables["Density"])[self.skip:1000] * (self.mf/sci.N_A) / (ang_to_cm**3)
-
-        gridsize = np.array([self.Nx])
-        # axes to perform FFT over
-        fft_axes = np.where(gridsize > 1)[0] + 1
-
-        # permutation of FFT output axes
-        permutation = np.arange(3, dtype=int)
-        permutation[fft_axes] = fft_axes[::-1]
-
-        rho_tq = np.fft.fftn(density, axes=fft_axes).transpose(*permutation)
-
-        acf_rho = sq.acf_fft(rho_tq)
-
-        nmax = (min(gridsize[gridsize > 1]) - 1) // 2
-
-        acf_rho_nc = np.zeros([len(self.time)-34000, 1, nmax], dtype=np.float32)
-
-        for ax in fft_axes:
-            # mask positive wavevectors
-            pmask = list(np.ones(4, dtype=int) * 0)
-            pmask[0] = slice(len(self.time-34000))
-            pmask[ax] = slice(1, nmax + 1)
-            pmask = tuple(pmask)
-
-            # mask negative wavevectors
-            nmask = list(np.ones(4, dtype=int) * 0)
-            nmask[0] = slice(len(self.time-34000))
-            nmask[ax] = slice(-1, -nmax - 1, -1)
-            nmask = tuple(nmask)
-
-            # fill output buffers with average of pos. and neg. wavevectors
-            acf_rho_nc[:, ax-1, :] = (acf_rho[pmask] + acf_rho[nmask]) / 2
-
-        # Fourier transform of the ACF > Spectrum density
-        # spec_density = np.fft.fft(acf)
-        # Inverse DFT
-        # acf = np.fft.ifftn(spec_density,axes=(0,1))
-
-    def trans(self):
-        """
-        Computes the transverse Autocorrelation function ?!
-        TODO: Check that it works properly!
-        """
-
-        jx = np.array(self.data_x.variables["Jx"])[self.skip:10000]
-        # Fourier transform in the space dimensions
-        jx_tq = np.fft.fftn(jx, axes=(1,2))
-
-        acf = sq.acf(jx_tq)['norm']
-
-        return {'a':acf[:, 0, 0].real}
