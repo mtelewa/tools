@@ -22,12 +22,11 @@ for i in sys.modules.keys():
     if i.startswith('processor_nc'):
         version = re.split('(\d+)', i)[1]
 
-def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1, nx=1, ny=1, nz=1):
+def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end, Ny=1):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
     Nx, Nz = comm.bcast(Nx, root=0), comm.bcast(Nz, root=0)
-    nx, ny = comm.bcast(nx, root=0), comm.bcast(ny, root=0)
     slice_size = comm.bcast(slice_size, root=0)
 
     # Timesteps
@@ -80,19 +79,17 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
         init = pnc.TrajtoGrid(data, start, end, Nx, Nz, mf, A_per_molecule, fluid)
 
         # Get the data
-        cell_lengths, kx, ky, kz, \
-        gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi, mytotVi,\
+        cell_lengths, gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi, mytotVi,\
         fluid_vx_avg, fluid_vy_avg, fluid_vz_avg, \
         fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
         vx_ch, vx_ch_whole, vx_R1, vx_R2, vx_R3, vx_R4, vx_R5, \
-        uCOMx, den_ch, sf, sf_solid, rho_k, sf_x, sf_x_solid, sf_y, sf_y_solid, \
+        uCOMx, den_ch, \
         jx_ch, mflowrate_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
         temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
         surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
         den_bulk_ch, Nf, Nm, \
         fluid_vol = itemgetter('cell_lengths',
-                                  'kx', 'ky', 'kz',
                                   'gap_heights',
                                   'bulkStartZ_time',
                                   'bulkEndZ_time',
@@ -115,13 +112,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
                                   'vx_R5',
                                   'uCOMx',
                                   'den_ch',
-                                  'sf',
-                                  'sf_solid',
-                                  'rho_k',
-                                  'sf_x',
-                                  'sf_x_solid',
-                                  'sf_y',
-                                  'sf_y_solid',
                                   'jx_ch',
                                   'mflowrate_ch',
                                   'je_x',
@@ -144,17 +134,11 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
                                   'den_bulk_ch',
                                   'Nf', 'Nm',
                                   'fluid_vol')(init.get_chunks(stable_start,
-                                    stable_end, pump_start, pump_end, nx, ny, nz))
+                                    stable_end, pump_start, pump_end))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
-        sendcounts_chunk_fluid_layer_3d = np.array(comm.gather(sf.size, root=0))
-        sendcounts_chunk_fluid_layer_nx = np.array(comm.gather(sf_x.size, root=0))
-        sendcounts_chunk_fluid_layer_ny = np.array(comm.gather(sf_y.size, root=0))
-        sendcounts_chunk_solid_layer_3d = np.array(comm.gather(sf_solid.size, root=0))
-        sendcounts_chunk_solid_layer_nx = np.array(comm.gather(sf_x_solid.size, root=0))
-        sendcounts_chunk_solid_layer_ny = np.array(comm.gather(sf_y_solid.size, root=0))
         sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
         sendcounts_chunk_vib = np.array(comm.gather(temp_ch_solid.size, root=0))
         sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
@@ -196,12 +180,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             je_x_global = np.zeros_like(gap_height_global)
             je_y_global = np.zeros_like(gap_height_global)
             je_z_global = np.zeros_like(gap_height_global)
-
             # Voronoi vol
             totVi_global = np.zeros_like(gap_height_global)
             mytotVi_global = np.zeros_like(gap_height_global)
-
-
             fluid_vol_global = np.zeros_like(gap_height_global)
 
             # Dimensions: (time, Nx, Nz)
@@ -214,21 +195,9 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             vx_R3_global = np.zeros_like(vx_ch_global)
             vx_R4_global = np.zeros_like(vx_ch_global)
             vx_R5_global = np.zeros_like(vx_ch_global)
-
             uCOMx_global = np.zeros_like(vx_ch_global)
             # Density
             den_ch_global = np.zeros_like(vx_ch_global)
-            # Density Fourier coefficients
-            sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
-            sf_solid_global = np.zeros([time, nx, ny] , dtype=np.complex64)
-            rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
-            sf_x_global = np.zeros([time, nx] , dtype=np.complex64)
-            sf_y_global = np.zeros([time, ny] , dtype=np.complex64)
-            sf_x_solid_global = np.zeros([time, nx] , dtype=np.complex64)
-            sf_y_solid_global = np.zeros([time, ny] , dtype=np.complex64)
-
-            # rho_kx_im_ch_global = np.zeros([time, nmax] , dtype=np.float32)
-            # rho_ky_ch_global = np.zeros_like(rho_kx_ch_global)
             # Mass flux
             jx_ch_global = np.zeros_like(vx_ch_global)
             mflowrate_ch_global = np.zeros_like(vx_ch_global)
@@ -273,7 +242,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             fluid_vol_global = None
 
             vx_ch_global = None
-
             vx_ch_whole_global = None
             vx_R1_global = None
             vx_R2_global = None
@@ -337,11 +305,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
             comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
-            comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=sf_solid, recvbuf=(sf_solid_global, sendcounts_chunk_solid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=sf_x_solid, recvbuf=(sf_x_solid_global, sendcounts_chunk_fluid_layer_nx), root=0)
-            comm.Gatherv(sendbuf=sf_y_solid, recvbuf=(sf_y_solid_global, sendcounts_chunk_fluid_layer_ny), root=0)
 
             # If the virial was not computed, skip
             try:
@@ -400,8 +363,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             out.createDimension('x', Nx)
             out.createDimension('y', Ny)
             out.createDimension('z', Nz)
-            out.createDimension('nx', nx)
-            out.createDimension('ny', ny)
             out.createDimension('time', time)
             out.createDimension('Nf', Nf)
             out.createDimension('Nm', Nm)
@@ -415,7 +376,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
             vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
             vz_all_var = out.createVariable('Fluid_Vz', 'f4', ('Nf'))
-
             vx_lte_var = out.createVariable('Fluid_lte_Vx', 'f4', ('Nf'))
             vy_lte_var = out.createVariable('Fluid_lte_Vy', 'f4', ('Nf'))
             vz_lte_var = out.createVariable('Fluid_lte_Vz', 'f4', ('Nf'))
@@ -433,38 +393,21 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             mflowrate_stable = out.createVariable('mflow_rate_stable', 'f4', ('time'))
             voronoi_volumes = out.createVariable('Voronoi_volumes', 'f4', ('time'))
             voronoi_volumes_new = out.createVariable('Voronoi_volumes_new', 'f4', ('time'))
-
             fluid_vol_var = out.createVariable('Fluid_Vol', 'f4', ('time'))
 
             vx_var =  out.createVariable('Vx', 'f4', ('time', 'x', 'z'))
-
             vx_whole_var = out.createVariable('Vx_whole', 'f4', ('time', 'x', 'z'))
             vx_R1_var =  out.createVariable('Vx_R1', 'f4', ('time', 'x', 'z'))
             vx_R2_var =  out.createVariable('Vx_R2', 'f4', ('time', 'x', 'z'))
             vx_R3_var =  out.createVariable('Vx_R3', 'f4', ('time', 'x', 'z'))
             vx_R4_var =  out.createVariable('Vx_R4', 'f4', ('time', 'x', 'z'))
             vx_R5_var =  out.createVariable('Vx_R5', 'f4', ('time', 'x', 'z'))
-
             den_var = out.createVariable('Density', 'f4',  ('time', 'x', 'z'))
-
-            # Reciprocal lattice wave vectors
-            kx_var = out.createVariable('kx', 'f4', ('nx'))
-            ky_var = out.createVariable('ky', 'f4', ('ny'))
-            sf_var = out.createVariable('sf', 'f4', ('time', 'nx', 'ny'))
-            sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
-            sf_solid_var = out.createVariable('sf_solid', 'f4', ('time', 'nx', 'ny'))
-            rho_k_var = out.createVariable('rho_k', 'f4', ('time', 'nx', 'ny'))
-            sf_x_var = out.createVariable('sf_x', 'f4', ('time', 'nx'))
-            sf_y_var = out.createVariable('sf_y', 'f4', ('time', 'ny'))
-            sf_x_solid_var = out.createVariable('sf_x_solid', 'f4', ('time', 'nx'))
-            sf_y_solid_var = out.createVariable('sf_y_solid', 'f4', ('time', 'ny'))
-
             jx_var =  out.createVariable('Jx', 'f4', ('time', 'x', 'z'))
             mflowrate_var = out.createVariable('mdot', 'f4', ('time', 'x', 'z'))
             je_x_var =  out.createVariable('JeX', 'f4', ('time'))
             je_y_var =  out.createVariable('JeY', 'f4', ('time'))
             je_z_var =  out.createVariable('JeZ', 'f4', ('time'))
-
             vir_var = out.createVariable('Virial', 'f4', ('time', 'x', 'z'))
             Wxx_var = out.createVariable('Wxx', 'f4', ('time', 'x', 'z'))
             Wyy_var = out.createVariable('Wyy', 'f4', ('time', 'x', 'z'))
@@ -521,17 +464,6 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
             vx_R5_var[:] = vx_R5_global
 
             den_var[:] = den_ch_global
-
-            kx_var[:] = kx
-            ky_var[:] = ky
-            rho_k_var[:] = rho_k_global.real
-            sf_var[:] = sf_global.real
-            sf_x_var[:] = sf_x_global.real
-            sf_y_var[:] = sf_y_global.real
-            sf_solid_var[:] = sf_solid_global.real
-            sf_x_solid_var[:] = sf_x_solid_global.real
-            sf_y_solid_var[:] = sf_y_solid_global.real
-            sf_im[:] = sf_global.imag
 
             jx_var[:] = jx_ch_global
             mflowrate_var[:] = mflowrate_ch_global
