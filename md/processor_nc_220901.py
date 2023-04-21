@@ -605,6 +605,7 @@ class TrajtoGrid:
         # -------------------------------------------------------
         # initialize buffers to store the count 'N' and 'data_ch' of each chunk
         N_fluid_mask = np.zeros([self.chunksize, self.Nx, self.Nz], dtype=np.float32)
+        N_fluid_mask_non_zero = np.zeros_like(N_fluid_mask)
         N_stable_mask = np.zeros_like(N_fluid_mask)
         N_bulk_mask = np.zeros_like(N_fluid_mask)
         N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
@@ -693,8 +694,9 @@ class TrajtoGrid:
                     # Count particles in the fluid cell
                     N_fluid_mask[:, i, k] = np.sum(mask_fluid, axis=1)
                     # Avoid having zero particles in the cell
-                    Nzero_fluid = np.less(N_fluid_mask[:, i, k], 1)
-                    N_fluid_mask[Nzero_fluid, i, k] = 1
+                    N_fluid_mask_non_zero[:, i, k] = N_fluid_mask[:, i, k]
+                    Nzero_fluid = np.less(N_fluid_mask_non_zero[:, i, k], 1)
+                    N_fluid_mask_non_zero[Nzero_fluid, i, k] = 1
 
             # Stable --------------------------------------
                     maskx_stable = utils.region(fluid_xcoords, fluid_xcoords,
@@ -813,7 +815,7 @@ class TrajtoGrid:
                     # Velocities in the stable region
                     vx_ch[:, i, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, k]
                     # Velocities in the whole domain
-                    vx_ch_whole[:, i, k] = np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask[:, i, k]
+                    vx_ch_whole[:, i, k] = np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask_non_zero[:, i, k]
 
                     vx_R1[:, i, k] = np.sum(fluid_vx * mask_R1, axis=1) / (N_R1[:, i, k])
                     vx_R2[:, i, k] = np.sum(fluid_vx * mask_R2, axis=1) / (N_R2[:, i, k])
@@ -831,10 +833,10 @@ class TrajtoGrid:
                     mflowrate_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) * vx_ch_whole[:, i, k]
 
                     # Temperature ----------------------------
-                    # COM velocity in the bin
-                    uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
-                    uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask[:, i, k])
+                    # COM velocity in the bin, shape (time,)
+                    uCOMx = np.sum(fluid_vx_t * mask_fluid, axis=1) / (N_fluid_mask_non_zero[:, i, k])
+                    uCOMy = np.sum(fluid_vy_t * mask_fluid, axis=1) / (N_fluid_mask_non_zero[:, i, k])
+                    uCOMz = np.sum(fluid_vz_t * mask_fluid, axis=1) / (N_fluid_mask_non_zero[:, i, k])
 
                     # In the upper surface
                     uCOMx_surfU = np.sum(surfU_vx_t * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
@@ -851,34 +853,35 @@ class TrajtoGrid:
                     peculiar_vy_surfU = np.transpose(surfU_vy_t) #- uCOMy_surfU
                     peculiar_vz_surfU = np.transpose(surfU_vz_t) #- uCOMz_surfU
 
+                    # Fluid
                     peculiar_v = np.sqrt(peculiar_vx**2 + peculiar_vy**2 + peculiar_vz**2)
                     peculiar_v = np.transpose(peculiar_v) * mask_fluid / self.A_per_molecule
+                    # Solid
+                    peculiar_v_solid = np.sqrt(peculiar_vx_surfU**2 + peculiar_vy_surfU**2 + peculiar_vz_surfU**2)
+                    peculiar_v_solid = np.transpose(peculiar_v_solid) * maskxU_vib
 
                     peculiar_vxa =  np.transpose(peculiar_vx) * mask_fluid / self.A_per_molecule
                     tempx_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vxa**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (N_fluid_mask_non_zero[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     peculiar_vya =  np.transpose(peculiar_vy) * mask_fluid / self.A_per_molecule
                     tempy_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vya**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
+                                        (N_fluid_mask_non_zero[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     peculiar_vza =  np.transpose(peculiar_vz) * mask_fluid / self.A_per_molecule
                     tempz_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_vza**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
-
-                    peculiar_v_solid = np.sqrt(peculiar_vx_surfU**2 + peculiar_vy_surfU**2 + peculiar_vz_surfU**2)
-                    peculiar_v_solid = np.transpose(peculiar_v_solid) * maskxU_vib
+                                        (N_fluid_mask_non_zero[:, i, k] * sci.k /self.A_per_molecule )  # Kelvin
 
                     temp_ch[:, i, k] = ((self.mf * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
-                                        (3 * N_fluid_mask[:, i, k] * sci.k /self.A_per_molecule)  # Kelvin
+                                        ((3 * N_fluid_mask_non_zero[:, i, k] - 3) * sci.k /self.A_per_molecule)  # Kelvin
 
                     temp_ch_solid[:, i, k] = ((self.ms * sci.gram / sci.N_A) * \
                                         np.sum(peculiar_v_solid**2 , axis=1) * \
@@ -937,7 +940,7 @@ class TrajtoGrid:
                     N_fluid_mask[Nzero_fluid, i, k] = 1
 
                     # Velocities of the fluid atoms
-                    vx_ch[:, i, k] =  np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask[:, i, k]
+                    vx_ch[:, i, k] =  np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask_non_zero[:, i, k]
 
                     # Density (whole fluid) ----------------------------
                     den_ch[:, i, k] = (N_fluid_mask[:, i, k] / self.A_per_molecule) / vol_cell[i, 0, k]
@@ -956,7 +959,6 @@ class TrajtoGrid:
                                         np.sum(peculiar_v**2 , axis=1) * \
                                         A_per_fs_to_m_per_s**2)  / \
                                         (3 * sci.k * N_fluid_mask[:, i, k]/self.A_per_molecule)  # Kelvin
-
                     # Virial pressure--------------------------------------
                     try:
                         Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_fluid, axis=1) #/ vol_cell[i,0,k]
