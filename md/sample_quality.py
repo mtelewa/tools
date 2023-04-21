@@ -225,9 +225,10 @@ def get_err(f):
         # Discard chunks with zero time average (especially for the velocity profile)
         # Get the time average in each chunk
         blocks_mean = np.mean(blocks, axis=0)
-        blocks = np.transpose(blocks)
-        blocks = blocks[blocks_mean !=0]
-        blocks = np.transpose(blocks)
+        # blocks = np.transpose(blocks)
+        # blocks = blocks[blocks_mean !=0]
+        # blocks = np.transpose(blocks)
+
 
         avg = np.mean(blocks, axis=0)
         variance = np.var(blocks, axis=0, ddof=1) # Fluctuations
