@@ -4,7 +4,7 @@
 import argparse
 import sys, os
 import numpy as np
-from cavitation_size import CavitySize
+from cavity_size import CavitySize
 from progressbar import progressbar
 import netCDF4
 

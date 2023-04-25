@@ -18,10 +18,6 @@ size = comm.Get_size()
 # np.seterr(all='raise')
 
 # # Get the processor version
-# for i in sys.modules.keys():
-#     if i.startswith('processor_nc'):
-#         version = re.split('(\d+)', i)[1]
-
 version = 'reciprocal'
 
 def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start, fluid_end, solid_start, solid_end):

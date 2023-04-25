@@ -338,7 +338,6 @@ class TrajtoGrid:
         sf = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
         sf_solid = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
 
-
         # Mask the layer of interest for structure factor calculation
         maskx_layer = utils.region(fluid_xcoords, fluid_xcoords, 0, Lx)['mask']
         masky_layer = utils.region(fluid_ycoords, fluid_ycoords, 0, Ly)['mask']

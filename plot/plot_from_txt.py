@@ -4,11 +4,12 @@
 import numpy as np
 import os, logging
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from operator import itemgetter
 from plot_settings import Initialize, Modify
 from scipy.integrate import odeint
 import scipy.constants as sci
-import compute_thermo as ct
+import compute_thermo_3d as ct
 import yaml
 import funcs
 import netCDF4
@@ -22,7 +23,18 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Import golbal plot configuration
-plt.style.use('imtek')
+# plt.style.use('imtek')
+plt.style.use('thesis')
+# Specify the path to the font file
+font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
+# Register the font with Matplotlib
+fm.fontManager.addfont(font_path)
+# Set the font family for all text elements
+plt.rcParams['font.family'] = 'Linux Libertine'
+plt.rcParams['mathtext.fontset'] = 'custom'
+plt.rcParams['mathtext.rm'] = 'Linux Libertine'
+plt.rcParams['mathtext.it'] = 'Linux Libertine:italic'
+plt.rcParams['mathtext.bf'] = 'Linux Libertine:bold'
 
 kcalpermolA_to_N = 6.9477e-11
 
@@ -101,15 +113,18 @@ class PlotFromTxt:
                 if nrows>1: n+=1
             if 'fpump' in variables:
                 self.axes_array[0].set_xlabel('Time (ns)')
-                self.axes_array[0].set_ylabel('Force (pN)')
-                xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fpump')]*kcalpermolA_to_N*1e12 # ns, pN
+                self.axes_array[0].set_ylabel('Force (nN)')
+                npump = data[:,thermo_variables.index('v_nAtomsPump')]
+                xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fpump')]*kcalpermolA_to_N*npump*1e9       #kcalpermolA_to_N*1e12 # ns, pN
                 self.plot_data(self.axes_array[n], xdata, ydata)
+                self.axes_array[0].axhline(y=np.mean(ydata))
                 if nrows>1: n+=1
             if 'fw' in variables:
                 self.axes_array[0].set_xlabel('Time (ns)')
                 self.axes_array[0].set_ylabel('Force (nN)')
                 xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_fw')]*1e9 # ns, nN
                 self.plot_data(self.axes_array[n], xdata, ydata)
+                self.axes_array[0].axhline(y=np.mean(ydata))
                 if nrows>1: n+=1
             if 'fp' in variables:
                 self.axes_array[0].set_xlabel('Time (ns)')
@@ -131,7 +146,7 @@ class PlotFromTxt:
             if 'fmomnet' in variables:
                 self.axes_array[0].set_xlabel('Time (ns)')
                 self.axes_array[0].set_ylabel('Force (pN)')
-                xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_net_mom_flux')]*kcalpermolA_to_N*1e12 # ns, pN
+                xdata, ydata = data[:,0]*1e-6, data[:,thermo_variables.index('v_net_mom_flux')]*kcalpermolA_to_N*npump*1e9 #kcalpermolA_to_N*1e12 # ns, pN
                 self.plot_data(self.axes_array[n], xdata, ydata)
 
             os.system(f"rm {os.path.dirname(i)+'/thermo2.out'}")
@@ -197,9 +212,9 @@ class PlotFromTxt:
         temperature_exp = [313, 343, 373, 443, 483, 523, 543, 573]
         pressure_exp = [60.50, 86.80, 109.80, 160.10, 187.40, 213.00, 225.30, 243.90]
 
-        self.plot_data(self.axes_array[n], temperature1, np.array(pressure1)*0.101325)
-        self.plot_data(self.axes_array[n], temperature2, np.array(pressure2)*0.101325)
-        self.plot_data(self.axes_array[n], temperature3, np.array(pressure3)*0.101325)
+        if gromos_aa: self.plot_data(self.axes_array[n], temperature1, np.array(pressure1)*0.101325)
+        if gromos_ua: self.plot_data(self.axes_array[n], temperature2, np.array(pressure2)*0.101325)
+        if trappe_ua: self.plot_data(self.axes_array[n], temperature3, np.array(pressure3)*0.101325)
         self.plot_data(self.axes_array[n], temperature_exp, pressure_exp)
 
         try:
@@ -224,12 +239,100 @@ class PlotFromTxt:
             data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
 
             xdata = data[:,0]           # nm
-            if data[:,0][0]>10: #TODO : make md file start from zero
-                xdata = (data[:,0] - data[:,0][0]) * x_pre
+            if data[:,0][0]>1: #TODO : make md file start from zero
+                xdata = (data[:,0] - data[:,0][0]) #* x_pre
 
             ydata = data[:,1]           # MPa
 
             self.plot_data(self.axes_array[n], xdata, ydata)
+
+        try:
+            Modify(xdata, self.fig, self.axes_array, self.configfile)
+        except UnboundLocalError:
+            logging.error('No data on the x-axis, check the quanity to plot!')
+
+        return self.fig
+
+
+    def virial(self):
+        """
+        Extracts data from 'virial-chunkZ.txt' and plots it.
+        Uses the Modify class from 'plot_settings' module.
+        """
+        self.axes_array[0].set_xlabel('Length (nm)')
+        self.axes_array[0].set_ylabel('Pressure (MPa)')
+
+        # for idx, val in enumerate(self.txts):
+        n=0    # subplot
+        data = np.loadtxt(self.txts[0], skiprows=self.skip, dtype=float)
+
+        xdata = data[:,0]           # nm
+        ydata = data[:,1]           # MPa
+
+        self.plot_data(self.axes_array[n], xdata, ydata)
+
+        # for idx, val in enumerate(self.txts):
+        # data = np.loadtxt(self.txts[1], skiprows=self.skip, dtype=float)
+        #
+        # xdata = np.roll(data[:,0],64)           # nm
+        # ydata = data[:,1]           # MPa
+        #
+        # self.plot_data(self.axes_array[n], xdata, ydata)
+
+        try:
+            Modify(xdata, self.fig, self.axes_array, self.configfile)
+        except UnboundLocalError:
+            logging.error('No data on the x-axis, check the quanity to plot!')
+
+        return self.fig
+
+
+    def radii(self):
+        """
+        Extracts data from 'radius_cavity_full.txt' and plots it.
+        """
+        self.axes_array[0].set_xlabel('Time (ns)')
+        self.axes_array[0].set_ylabel(r'Radius $R \, \mathrm{(\AA)}$')
+
+        R0 = 0.1e-10
+        V0 = [5.0e3,8.5e3,15e3]
+        pl = [73.564e3,74.32e3,76.88e3]
+
+        for idx, val in enumerate(self.txts):
+            n=0    # subplot
+            data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+
+            xdata = data[:,0]           # nm
+            if data[:,0][0]>1: #TODO : make md file start from zero
+                xdata = (data[:,0] - data[:,0][0]) #* x_pre
+
+            ydata = data[:,1]
+
+            self.plot_data(self.axes_array[n], xdata * 1e-6, ydata)
+
+            time_s = xdata * 1e-15
+
+            # From RP
+            # material-specific (pentane)
+            pv = 73e3                       # Calculated from Pv from Liquid-vapor equilibrium interface simulations in Pa
+            temp = 300                     # K
+            rho = 600                      # From the density-length profile of the NEMD simulation in kg/m3
+            gamma = 0.0125                 # Planar surface tension from equilibrium MD at 300 K in N/m
+            m_molecular = 72.15 * 1e-3     # Moleuclar mass of n-pentane   (kg/mol)
+
+            BC = [R0, V0[idx]]                 # Bubble radius in Angstrom and interface velocity in m/s
+            sol = odeint(funcs.RP, BC, time_s, args=(rho, pv, pl[idx], gamma))
+
+            # radius_cont = np.roll(sol[:,0], start) * 1e10  # Angstrom
+            radius_cont = sol[:,0] * 1e10  # Angstrom
+
+            # Fill with zeros after bubble collapse
+            for idx,val in enumerate(radius_cont):
+                if val>=100 or val<0:
+                    radius_cont[idx]=0
+
+            self.plot_data(self.axes_array[0], xdata * 1e-6, radius_cont)
+
 
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
@@ -244,7 +347,8 @@ class PlotFromTxt:
         Extracts data from 'temp-height.txt' and plots it.
         Uses the Modify class from 'plot_settings' module.
         """
-        self.axes_array[0].set_xlabel('$h/h_0$')
+        # self.axes_array[0].set_xlabel('$h/h_0$')
+        self.axes_array[0].set_xlabel('Height (nm)')
         self.axes_array[0].set_ylabel('Temperature (K)')
 
         for idx, val in enumerate(self.txts):
@@ -253,10 +357,10 @@ class PlotFromTxt:
 
             xdata = data[:,0]           # dimensionless length
             ydata = data[:,1]           # K
-            yfit = data[:,2]
+            # yfit = data[:,2]
 
             self.plot_data(self.axes_array[n], xdata, ydata)
-            self.plot_data(self.axes_array[n], xdata, yfit)
+            # self.plot_data(self.axes_array[n], xdata, yfit)
 
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
@@ -266,82 +370,75 @@ class PlotFromTxt:
         return self.fig
 
 
-    def radius(self, R0, V0, pl, datasets_x, datasets_z, start, stop, dt, method):
+    def radius(self, R0, V0, pl, datasets, start, stop, dt, method):
         """
         Extracts data from 'radius.txt' plots it.
         Used to compare bubble radius from MD and compare with the Rayleigh-Plesset equation.
         Uses the Modify class from 'plot_settings' module.
         """
-        # surface curvature correction
-        tolman_length = 5e-10          # meter
-
-        # simualtion-specific
-        vol = 1.39269 * 1e6 * 1e-24    # From ovito surface mesh in cm3   #1.168 thin  #3.50801 thick
-        rho = 600                      # From the density-length profile of the NEMD simulation in kg/m3
-        temp = 300                     # K
-        tau_w = 0.1 * 1e-9             # s
-
-        # material-specific (pentane)
-        pv = 1e5                       # Calculated from Pv from Liquid-vapor equilibrium interface simulations in Pa
-        eta = 0.5e-3                   # From equilib MD at 300 K in Pa.s
-        gamma = 0.0125                 # From equilibrium MD at 300 K in N/m
-        m_molecular = 72.15 * 1e-3     # Moleuclar mass of n-pentane   (kg/mol)
-        m = m_molecular / sci.N_A      # Mass of one molecule (kg)
-
-        BC = [R0, V0]                 # Bubble radius in Angstrom and interface velocity in m/s
-        m3_to_cm3 = 1e6
-        n = rho * sci.N_A / (m_molecular * m3_to_cm3) # number density in cm^-3
-        n_m3 = rho * sci.N_A / m_molecular            # number density in m^-3
 
         self.axes_array[0].set_xlabel('Time (ns)')
-        self.axes_array[0].set_ylabel('R(t) ($\AA$)')
+        self.axes_array[0].set_ylabel(r'Radius $R \, \mathrm{(\AA)}$')
 
         for idx, val in enumerate(self.txts):
-            data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
-            # get = ct.ExtractFromTraj(self.skip, datasets_x[idx], datasets_z[idx], 1, 1)
-            # pl = get.virial()['vir_t'] * 1e6    # Virial pressure, also the applied external Pressure in Pa
-            # pl_avg = np.mean(pl)   # Time-averaged virial pressure in Pa
+            data = np.loadtxt(self.txts[idx], skiprows=0, dtype=float)
 
-            time_s = data[:, 0] * 1e-15         # s
-            time = data[:, 0] * 1e-6            # ns
-            time_fs = data[:, 0]                # fs
+            time_fs = data[:, 0]             # fs
+            time_s = time_fs * 1e-15         # s
+            time = time_fs * 1e-6            # ns
 
             if method=='static':        # Young-Laplace
-                nsteps = 3 # reduce noise by further sampling every nsteps
-                radius_sampled_every = np.int((data[:, 0][1] - data[:, 0][0]) / (1/nsteps*dt))
-                pl_sampled = np.mean(pl.reshape(-1, radius_sampled_every), axis=1)
-
-                time_cont = time[::nsteps]
-                time_cont = time_cont[:len(time_cont)-1]
-                radius_cont = 2*gamma/(pv-pl_sampled) * 1e10
-
+                # Get the radius from MD ------------------------------------------
                 time = time[:len(time)-1]
                 radius_MD = data[:,1][:len(time)] # Angstrom
-
-                # Get the radius after curvature correction
-                a = pv - pl_sampled
-                b = -2 * gamma
-                c = 4 * gamma * tolman_length
-                radius_cont_corrected = funcs.solve_quadratic(a,b,c)[1] * 1e10
-
-                # Fill with zeros if bubble radius is negative
-                for idx,val in enumerate(radius_cont):
-                    if val<0:
-                        radius_cont[idx]=0
-                for idx,val in enumerate(radius_cont_corrected):
-                    if val<0:
-                        radius_cont_corrected[idx]=0
-
-                self.plot_data(self.axes_array[0], time_cont[start:stop], radius_cont[start:stop])
-                self.plot_data(self.axes_array[0], time_cont[start:stop], radius_cont_corrected[start:stop])
                 self.plot_data(self.axes_array[0], time[start:stop], radius_MD[start:stop])
 
-            if method=='dynamic':       # Rayleigh-Plesset
-                radius_MD = data[:,1]        # Angstrom
-                sol = odeint(funcs.RP, BC, time_s, args=(rho, pv, pl))
-                # # sol = odeint(funcs.RP_full, BC, time_s, args=(rho, pv, pl, gamma, eta))
+                # Get the radius from Young-Laplace relation ----------------------
+                pv = 73e3                       # Calculated from Pv from Liquid-vapor equilibrium interface simulations in Pa
+                gamma = 0.0125                 # Planar surface tension from equilibrium MD at 300 K in N/m
 
-                radius_cont = np.roll(sol[:,0],start) * 1e10  # Angstrom
+                # Get the liquid pressure
+                get = ct.ExtractFromTraj(self.skip, datasets[idx], 1, 1)
+                # Average pressure away from bubble (varies according to simulation)
+                pl = get.virial()['data'][:,10:21,17:28,:] * 1e6        # Sphere
+                # pl = get.virial()['data'][:,35:42,:,:] * 1e6        # Cylinder
+                pl_avg = np.mean(pl, axis=(0,1,2,3))
+
+                radius_cont = 2*gamma/(pv-pl_avg) * 1e10
+                self.ax.axhline(y=radius_cont)
+
+                # # Get the radius after curvature correction ----------------------
+                a = pv - pl_avg
+                b = -2 * gamma
+                c = 4 * gamma * 5.02e-10    # Sphere
+                # c = 2 * gamma * 5.02e-10    # Cylinder
+                radius_cont_corrected = funcs.solve_quadratic(a,b,c)[1] * 1e10
+                self.ax.axhline(y=radius_cont_corrected)
+
+            elif method=='dynamic':       # Rayleigh-Plesset
+                m3_to_cm3 = 1e6
+
+                # From MD simualtions
+                radius_MD = data[:,1]        # Angstrom
+
+                # From RP
+                # material-specific (pentane)
+                pv = 73e3                       # Calculated from Pv from Liquid-vapor equilibrium interface simulations in Pa
+                temp = 300                     # K
+                rho = 600                      # From the density-length profile of the NEMD simulation in kg/m3
+                gamma = 0.0125                 # Planar surface tension from equilibrium MD at 300 K in N/m
+                m_molecular = 72.15 * 1e-3     # Moleuclar mass of n-pentane   (kg/mol)
+                # eta = 0.5e-3                   # From equilib MD at 300 K in Pa.s
+
+                n = rho * sci.N_A / (m_molecular * m3_to_cm3) # number density in cm^-3
+                n_m3 = rho * sci.N_A / m_molecular            # number density in m^-3
+                m = m_molecular / sci.N_A      # Mass of one molecule (kg)
+
+                BC = [R0, V0]                 # Bubble radius in Angstrom and interface velocity in m/s
+                sol = odeint(funcs.RP, BC, time_s, args=(rho, pv, pl))
+
+                # radius_cont = np.roll(sol[:,0], start) * 1e10  # Angstrom
+                radius_cont = sol[:,0] * 1e10  # Angstrom
 
                 # Fill with zeros after bubble collapse
                 for idx,val in enumerate(radius_cont[start:stop]):
@@ -351,29 +448,36 @@ class PlotFromTxt:
                 self.plot_data(self.axes_array[0], time[start:stop], radius_cont[start:stop])
                 self.plot_data(self.axes_array[0], time[start:stop], radius_MD[start:stop])
 
+                # Bubble velocity
+                if len(self.axes_array)>1:
+                    self.axes_array[0].set_xlabel(None)
+                    self.axes_array[1].set_xlabel('Time (ns)')
+                    self.axes_array[1].set_ylabel('Velocity $\dot{R}$ (m/s)')
+
+                    velocity_RP = np.gradient(radius_cont, time_fs)
+                    self.plot_data(self.axes_array[1], time[start:stop][1:-1], velocity_RP[start:stop][1:-1]*1e5)
+
+                    # velocity_MD = np.gradient(radius_MD, time_fs)
+                    # self.plot_data(self.axes_array[1], time[start:stop][1:-1], velocity_MD[start:stop][1:-1]*1e5)
+
                 # # Nucleation Rate (CNT)
                 prefac = n * np.sqrt(2 * gamma / (np.pi * m))
-                j_cnt = prefac * np.exp( -16 * np.pi * gamma**3 / (3 * sci.k * temp * (25e6 - pv)**2) )   # cm^3.s^-1
+                print(  np.exp( - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pv - pl)**2)))
+                j_cnt = prefac * np.exp( - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pv - pl)**2) )   # cm^3.s^-1
                 print(f'Nucleation rate CNT: {j_cnt:.2e} cm^-3.s^-1')
 
                 # Nucleation Rate (MD)
+                vol = 1.39269 * 1e6 * 1e-24    # From ovito surface mesh in cm3   #1.168 thin  #3.50801 thick
+                tau_w = 0.1 * 1e-9             # s
                 j_md = 1/(tau_w * vol)
                 print(f'Nucleation rate in MD: {j_md:.2e} cm^-3.s^-1')
 
                 # Hydrodynamic collapse time
-                tau = 0.91 * radius_cont[start:stop][0] * 1e-10 * np.sqrt(m * n_m3 / pl) * 1e9
-                print(f'Hydrodynamic Collapse time: {tau:.4f} ns')
+                # tau = 0.91 * radius_cont[start:stop][0] * 1e-10 * np.sqrt(rho / (pv-pl)) * 1e9
+                # print(f'Hydrodynamic Collapse time: {tau:.4f} ns')
 
-                if len(self.axes_array)>1:
-                    self.axes_array[0].set_xlabel(None)
-                    self.axes_array[1].set_xlabel('Time (ns)')
-                    self.axes_array[1].set_ylabel('$\dot{R}$(t) (m/s)')
-
-                    velocity_RP = np.gradient(radius_cont, time_fs)
-                    # velocity_MD = np.gradient(radius_MD, time_fs)
-
-                    self.plot_data(self.axes_array[1], time[start:stop][1:-1], velocity_RP[start:stop][1:-1]*1e5)
-                    # self.plot_data(self.axes_array[1], time[start:stop][1:-1], velocity_MD[start:stop][1:-1]*1e5)
+            else:
+                self.plot_data(self.axes_array[0], time, data[:,1])
 
         try:
             Modify(time, self.fig, self.axes_array, self.configfile)
@@ -390,15 +494,21 @@ class PlotFromTxt:
         from Green-Kubo relations.
         Uses the Modify class from 'plot_settings' module.
         """
-        self.axes_array[0].set_xlabel('Time $t*$ (ns)')
-        self.axes_array[0].set_ylabel('$\eta$ (mPa.s)')
+        self.axes_array[0].set_xlabel('Time $t$ (ns)')
+        self.axes_array[0].set_ylabel('Viscosity $\eta$ (mPa.s)')
+
+        data_0 = np.loadtxt(self.txts[0], skiprows=self.skip, dtype=float)[:,0]
+        ydata = np.zeros((len(self.txts),len(data_0)))
 
         for idx, val in enumerate(self.txts):
             data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
             xdata = data[:,0] * 1e-6
-            ydata = data[:,1] * 1
+            ydata[idx,:] = data[:,1] * 1 #* 1.5
 
-            self.plot_data(self.axes_array[0], xdata, ydata)
+            self.plot_data(self.axes_array[0], xdata, ydata[idx,:])
+
+        ydata_mean = np.mean(ydata, axis=0)
+        self.plot_data(self.axes_array[0], xdata, ydata_mean)
 
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
@@ -416,8 +526,8 @@ class PlotFromTxt:
         Uses the Modify class from 'plot_settings' module.
         """
         self.axes_array[0].set_xlabel('Pressure (MPa)')
-        if 'pvisco' in self.txts[0]: self.axes_array[0].set_ylabel('$\eta$ (mPa.s)')
-        if 'pconduct' in self.txts[0]: self.axes_array[0].set_ylabel('$\lambda$ (W/mK)')
+        if 'pvisco' in self.txts[0]: self.axes_array[0].set_ylabel('Viscosity $\eta/\eta_0$')
+        if 'pconduct' in self.txts[0]: self.axes_array[0].set_ylabel('Conductivity $\lambda$ (W/mK)')
 
         for idx, val in enumerate(self.txts):
             data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)

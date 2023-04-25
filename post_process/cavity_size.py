@@ -12,6 +12,7 @@ class CavitySize:
     Import the NetCDF trajectory and add the construct surfacr mesh modifier
 
     Parameters:
+    -----------
     traj: str, NetCDF trajectory file
     start, stop: Start from frame <start> and discard after frame <stop>
     every_nth: int, ovito will process every nth frame

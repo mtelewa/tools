@@ -10,7 +10,10 @@ where:
     -s   stable start
     -e   stable end
     -p   pump start
-    -x   pump end"
+    -x   pump end
+    -y   Ny
+    -t   tessellate
+    -T   TW interface"
 
 # Flags ----------------
 # This is a while loop that uses the getopts function and a so-called optstring
@@ -26,7 +29,7 @@ where:
 #This means all flags need a value. If, for example,
 #the d and f flags were not expected to have a value, u:dp:f would be the optstring.
 
-while getopts ":h:i:N:f:s:e:p:x:" option; do
+while getopts ":h:i:N:f:s:e:p:x:y:t:T:" option; do
   case "$option" in
     h) echo "$usage"
        exit
@@ -44,6 +47,12 @@ while getopts ":h:i:N:f:s:e:p:x:" option; do
     p) pump_start="$OPTARG"
     ;;
     x) pump_end="$OPTARG"
+    ;;
+    y) Ny="$OPTARG"
+    ;;
+    t) tessellate="$OPTARG"
+    ;;
+    T) TW_interface="$OPTARG"
     ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
@@ -64,8 +73,31 @@ echo "Flags: ${args[@]}" > flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
-mpirun -np 8 proc_nc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
-mpirun -np 8 proc_nc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+# Default value for Ny is 1
+if [ -n "$Ny" ]; then
+  Ny="$Ny"
+else
+  Ny=1
+fi
+
+# Default value for tessellate is 0
+if [ -n "$tessellate" ]; then
+  tessellate=1
+else
+  tessellate=0
+fi
+
+# Default value for TW_interface is 1
+if [ -n "$TW_interface" ]; then
+  TW_interface=0
+else
+  TW_interface=1
+fi
+
+mpirun -np 8 proc_walls.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
+          $pump_start $pump_end --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
+mpirun -np 8 proc_walls.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
+          $pump_start $pump_end --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
   mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc
@@ -74,4 +106,3 @@ else
   cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
   cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
 fi
-

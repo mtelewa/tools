@@ -38,13 +38,17 @@ plt.rcParams['mathtext.bf'] = 'Linux Libertine:bold'
 #           0             1                   2                    3
 labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density $\rho$ (g/${\mathrm{cm^3}}$)',
 #           4                                           5             6                    7
-        r'${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Velocity $u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
+        r'Mass flux ${\mathrm{j_x}}$ (g/${\mathrm{m^2}}$.ns)', 'Velocity $u$ (m/s)', 'Temperature (K)', 'Pressure (MPa)',
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
         r'${\mathrm{\dot{m}}} \times 10^{-20}}$ (g/ns)', r'${\mathrm{\dot{\gamma}} (s^{-1})}$',
 #           12
         r'${\mathrm{\eta}}$ (mPa.s)', r'$N_{\mathrm{\pump}}$', r'Energy (Kcal/mol)', '$R(t)$ (${\AA}$)')
+
+
+colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
+
 
 def colorFader(c1, c2, mix=0): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
     c1 = np.array(mpl.colors.to_rgb(c1))
@@ -55,9 +59,9 @@ def colorFader(c1, c2, mix=0): #fade (linear interpolate) from color c1 (at mix=
 c1 = 'tab:blue' #blue
 c2 = 'tab:red' #red
 n = 5
-colors = []
+colors_fader = []
 for x in range(n+1):
-    colors.append(colorFader(c1,c2,x/n))
+    colors_fader.append(colorFader(c1,c2,x/n))
 
 class PlotFromGrid:
 
@@ -84,7 +88,8 @@ class PlotFromGrid:
         self.time = first_dataset.time
         self.Ly = first_dataset.Ly
 
-        self.skipchunkszstart = 4
+        # For temperature calcualtion
+        self.skipchunkszstart = 0
         if self.skipchunkszstart == 0:
             self.skipchunkszend = None
         else:
@@ -97,7 +102,6 @@ class PlotFromGrid:
         if self.dimension=='L': ax.plot(x[1:-1], y[1:-1])
         if self.dimension=='H':
             ax.plot(x[self.skipchunkszstart:self.skipchunkszend], y[self.skipchunkszstart:self.skipchunkszend])
-            # ax.plot(x[y!=0][self.skipchunkszstart:self.skipchunkszend], y[y!=0][self.skipchunkszstart:self.skipchunkszend])
         if self.dimension=='T':
             ax.plot(x, y)
             if input('Plot time-average?') == 'y':
@@ -132,7 +136,7 @@ class PlotFromGrid:
         return inset_ax
 
 
-    def plot_uncertainty(self, ax, x, y, arr, color='tab:blue'):
+    def plot_uncertainty(self, ax, x, y, arr, color):
         """
         Plots the uncertainty of the data
         """
@@ -145,8 +149,10 @@ class PlotFromGrid:
                 markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err[1:-1],
                                             capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             if self.dimension=='H':
-                err = sq.get_err(arr)['uncertainty'][y!=0][2:-2]
-                markers, caps, bars= ax.errorbar(x[y!=0][2:-2], y[y!=0][2:-2], xerr=None, yerr=err[y!=0][2:-2],
+                err = sq.get_err(arr)['uncertainty'][self.skipchunkszstart:self.skipchunkszend]
+                markers, caps, bars= ax.errorbar(x[self.skipchunkszstart:self.skipchunkszend], \
+                                                 y[self.skipchunkszstart:self.skipchunkszend],
+                                            xerr=None, yerr=err[self.skipchunkszstart:self.skipchunkszend],
                                             capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
@@ -156,8 +162,9 @@ class PlotFromGrid:
                 lo, hi = sq.get_err(arr)['lo'][1:-1], sq.get_err(arr)['hi'][1:-1]
                 ax.fill_between(x[1:-1], lo, hi, alpha=0.4)
             if self.dimension=='H':
-                lo, hi = sq.get_err(arr)['lo'][y!=0][2:-2], sq.get_err(arr)['hi'][y!=0][2:-2]
-                ax.fill_between(x[y!=0][2:-2], lo, hi, alpha=0.4)
+                lo, hi = sq.get_err(arr)['lo'][self.skipchunkszstart:self.skipchunkszend], \
+                            sq.get_err(arr)['hi'][self.skipchunkszstart:self.skipchunkszend]
+                ax.fill_between(x[self.skipchunkszstart:self.skipchunkszend], lo, hi, alpha=0.4)
 
 
     def extract_plot(self, *arr_to_plot, **kwargs):
@@ -246,7 +253,7 @@ class PlotFromGrid:
             if any('jx' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[4])
                 if self.dimension=='L': arr, y = data.mflux()['jx_full_x'], data.mflux()['jx_X']
-                if self.dimension=='H': arr, y = data.mflux()['jx_full_z'], data.mflux()['jx_Z']
+                if self.dimension=='H': arr, y = data.mflux()['jx_fuVirialll_z'], data.mflux()['jx_Z']
                 if self.dimension=='T': arr, y = None, data.mflux()['jx_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
@@ -307,6 +314,14 @@ class PlotFromGrid:
                 if self.dimension=='T': arr, y = None, data.density()['den_t']
                 # self.axes_array[n].plot(np.roll(y[y!=0][1:-1],85), x[y!=0][1:-1], color=colors[i])
                 self.plot_data(self.axes_array[n], x, y)
+                # if self.config['err_fill']:
+                #     print('plotting uncertainty')
+                #     # self.plot_data(self.axes_array[n], x, y)
+                #     self.plot_uncertainty(self.axes_array[n], x, y,
+                #                                 data.density()['den_full_z'])
+                # if self.config['err_caps']:
+                #     self.plot_uncertainty(self.axes_array[n], x, y,
+                #                                 data.density()['den_full_z'])
                 if self.nrows>1: n+=1
 
             # Virial - xx component
@@ -435,12 +450,20 @@ class PlotFromGrid:
             # Fluid temperature - Scalar
             if any('temp' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['temp_full_x'], data.temp()['temp_X']
-                if self.dimension=='H': arr, y = data.temp()['temp_full_z'], data.temp()['temp_Z']
+                data = data.temp()
+                if self.dimension=='L': arr, y = data['temp_full_x'], data['temp_X']
+                if self.dimension=='H': arr, y = data['temp_full_z'], data['temp_Z']
                 if self.dimension=='T': arr, y = None, data.temp()['temp_t']
-                if self.config['broken_axis'] is None: self.plot_data(self.axes_array[n], x, y)
+                if self.config['broken_axis'] is None and self.config['err_caps'] is None: self.plot_data(self.axes_array[n], x, y)
                 # Fitting the data
                 if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y)
+                if self.config['err_fill']:
+                    # self.plot_data(self.axes_array[n], x, y)
+                    self.plot_uncertainty(self.axes_array[n], x, y,
+                                                data['temp_full_z'], color=plt.gca().lines[-1].get_color())
+                if self.config['err_caps']:
+                    self.plot_uncertainty(self.axes_array[n], x, y,
+                                                data['temp_full_z'], color=colors[n])
                 if self.nrows>1: n+=1
                 if self.config['broken_axis']:
                     try:
@@ -452,9 +475,13 @@ class PlotFromGrid:
                         while n<self.nrows-1: # plot the same data on all the axes except the last one
                             self.axes_array[n].plot(x, y[1:-1])
                             n+=1
+
+                # np.savetxt('temp-height.txt', np.c_[x, y],  delimiter=' ',\
+                #                 header='Length (nm)              Temperature (K))')
                 # fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
                 # np.savetxt('temp-height.txt', np.c_[x[y!=0][2:-2]/np.max(x[y!=0][2:-2]), y[y!=0][2:-2], fit_data],  delimiter=' ',\
                 #                 header='Height (nm)              Temperature (K)            Fit')
+
             # Solid temperature - Scalar
             if any('tempS' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[6])

@@ -4,3 +4,4 @@ __pycache__/
 # Scripts from others
 from
 matscipy
+pycdc

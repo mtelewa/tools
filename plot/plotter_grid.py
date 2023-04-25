@@ -105,9 +105,9 @@ if __name__ == "__main__":
     for k in datasets:
         for root, dirs, files in os.walk(k):
             for i in files:
-                if i.endswith(f'{args.nChunks}x1.nc'):
+                if i.endswith(f'_{args.nChunks}x1.nc'):
                     datasets_x.append(os.path.join(root, i))
-                if i.endswith(f'1x{args.nChunks}.nc'):
+                if i.endswith(f'_1x{args.nChunks}.nc'):
                     datasets_z.append(os.path.join(root, i))
 
     if not datasets_x:

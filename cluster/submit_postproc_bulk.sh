@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=20
-#SBATCH --time=4:00:00
+#SBATCH --time=1:00:00
 #SBATCH --partition=single
 #SBATCH --output=cluster.out
 #SBATCH --error=cluster.err
@@ -12,9 +12,7 @@
 export KMP_AFFINITY=compact,1,0
 
 module load devel/python/3.8.6_intel_19.1
-
 source $HOME/venv/bin/activate
-
 module load compiler/intel/19.1
 module load mpi/openmpi/4.0
 
@@ -29,7 +27,7 @@ if [ -n "${SCRIPT_FLAGS}" ] ; then
    fi
 fi
 
-while getopts ":h:i:N:f:s:e:p:x:" option; do
+while getopts ":h:i:N:f:y:t:" option; do
   case "$option" in
     h) echo "$usage"
        exit
@@ -40,13 +38,9 @@ while getopts ":h:i:N:f:s:e:p:x:" option; do
     ;;
     f) fluid="$OPTARG"
     ;;
-    s) stable_start="$OPTARG"
+    y) Ny="$OPTARG"
     ;;
-    e) stable_end="$OPTARG"
-    ;;
-    p) pump_start="$OPTARG"
-    ;;
-    x) pump_end="$OPTARG"
+    t) tessellate="$OPTARG"
     ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
@@ -66,10 +60,24 @@ echo ${args[@]} > $(pwd)/flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
+# Default value for Ny is 1
+if [ -n "$Ny" ]; then
+  Ny="$Ny"
+else
+  Ny=1
+fi
+
+# Default value for tessellate is 0
+if [ -n "$tessellate" ]; then
+  tessellate=1
+else
+  tessellate=0
+fi
+
 cd $(pwd)
 
-mpirun --bind-to core --map-by core -report-bindings proc_nc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end $pump_start $pump_end
-mpirun --bind-to core --map-by core -report-bindings proc_nc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun --bind-to core --map-by core -report-bindings proc_bulk.py $infile.nc $Nchunks 1 1000 $fluid --Ny $Ny --tessellate $tessellate
+mpirun --bind-to core --map-by core -report-bindings proc_bulk.py $infile.nc 1 $Nchunks 1000 $fluid --Ny $Ny --tessellate $tessellate
 
 if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
   mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc
@@ -78,4 +86,3 @@ else
   cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
   cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
 fi
-

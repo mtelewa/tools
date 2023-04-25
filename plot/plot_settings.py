@@ -43,7 +43,7 @@ class Initialize:
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True)#, figsize=(7,8))
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,7))
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -177,7 +177,7 @@ class Modify:
         elif self.config['legend_elements']=='h':
             if self.config['legend_loc'] == 1:
                 # axis.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.12), ncol=4)
-                axis.legend(frameon=False, loc='upper left')
+                axis.legend(frameon=False, loc='upper right')
             else:
                 axis.legend(frameon=False)
 

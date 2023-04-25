@@ -90,8 +90,7 @@ if __name__ == "__main__":
 
     ptxt = plot_from_txt.PlotFromTxt(args.skip, args.filename, txts, args.config)
 
-
-    datasets_x, datasets_z = [], []
+    datasets_list, datasets_x, datasets_z = [], [], []
     for g in datasets:
         for root, dirs, files in os.walk(g):
             for i in files:
@@ -99,6 +98,8 @@ if __name__ == "__main__":
                     datasets_x.append(os.path.join(root, i))
                 if i.endswith(f'1x144.nc'):
                     datasets_z.append(os.path.join(root, i))
+                if i.endswith(f'50x50x1.nc'):
+                    datasets_list.append(os.path.join(root, i))
 
     trajactories = []
     for k in datasets:
@@ -109,28 +110,42 @@ if __name__ == "__main__":
 
     if 'log' in args.filename and 'eos' not in args.variables: ptxt.extract_plot(args.variables)
     if 'log' in args.filename and 'nvt_eos' in args.variables: ptxt.nvt_eos()
-    # if 'eta' in args.filename: ptxt.GK()
-    if 'pvisco' or 'pconduct' in args.filename: ptxt.transport_press()
-    if 'press-profile' in args.filename: ptxt.press_md_cont()
+    if 'eta' in args.filename: ptxt.GK()
+    if 'pvisco' in args.filename or 'pconduct' in args.filename: ptxt.transport_press()
+    if 'press-profile' in args.filename and 'press' in args.variables: ptxt.press_md_cont()
+    if 'press-profile' in args.filename and 'virial' in args.variables: ptxt.virial()
+    if 'virialChunkX' in args.filename and 'virial' in args.variables: ptxt.virial()
     if 'temp' in args.filename: ptxt.temp()
+    if 'radii' in args.variables: ptxt.radii()
     if 'radius' in args.variables:
-        # iter-12-thick:
-        # r0, v0, pl, start, stop, method = 33.6e-10, 0, -, 100, 180, 'dynamic'    35e-10, 405, 455, 'dynamic'
-        # iter-12-thin:
-        # r0, v0, pl, start, stop, method = 16e-10, 0, -, 115, 138, 'dynamic'
-        # iter-16:
-        # r0, v0, pl, start, stop, method = 19.8e-10, 0, 1.1e5, 651, 702, 'dynamic' # (collapse one cavity)
-        r0, v0, pl, start, stop, method = 0.1e-10, 5e3, 1.01e5, 0, 702, 'dynamic' #(nucleation and collapse one cavity)
+        method = 'static'
         if method == 'static':
             data = netCDF4.Dataset(trajactories[0])
             Time = data.variables["time"]
             time_arr = np.array(Time).astype(np.float32)
             # Time between output dumps
             dt = np.int32(time_arr[-1] - time_arr[-2])
+            r0, v0, pl, start, stop = None, None, None, 0, None
+
+            ptxt.radius(r0, v0, pl, datasets_list, start, stop, dt, method)
+
+        elif method == 'dynamic':
+            # iter-12-thick:
+            # r0, v0, pl, start, stop = 33.6e-10, 0, -, 100, 180    35e-10, 405, 455, 'dynamic'
+            # iter-12-thin:
+            # r0, v0, pl, start, stop = 16e-10, 0, -, 115, 138
+            # iter-16:
+            if args.filename == 'radius_cavity_collapse':
+                r0, v0, pl, start, stop = 19.8e-10, 0, 73.564e3, 0, None #651, 702 # cavity collapse
+            if args.filename == 'radius_cavity_full':
+                r0, v0, pl, start, stop = 0.1e-10, 5.0e3, 73.579e3, 0, None # cavity nucleation and collapse    73.579e3        73.564e3
+            dt = None
+            ptxt.radius(r0, v0, pl, datasets, start, stop, dt, method)
         else:
+            r0, v0, pl, start, stop = None, None, None, None, None # cavity radius in whole trajectory
             dt = None
 
-        ptxt.radius(r0, v0, pl, datasets_x, datasets_z, start, stop, dt, method)
+            ptxt.radius(r0, v0, pl, datasets, start, stop, dt, method)
 
     if args.format is not None:
         if args.format == 'eps':

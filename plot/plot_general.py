@@ -49,9 +49,9 @@ labels=('Height (nm)','Length (nm)', 'Time (ns)', r'Density $\rho$ (g/${\mathrm{
 #           8                                   9
         r'abs${\mathrm{(Force)}}$ (pN)', r'${\mathrm{dP / dx}}$ (MPa/nm)',
 #           10                                          11
-        r'${\mathrm{\dot{m}}} \times 10^{-18}}$ (g/ns)', r'${\mathrm{\dot{\gamma}} (s^{-1})}$',
+        r'${\mathrm{\dot{m}}} \times 10^{-18}}$ (g/ns)', r'Shear rate ${\mathrm{\dot{\gamma}} (s^{-1})}$',
 #           12
-        r'${\mathrm{\eta}}$ (mPa.s)', r'$N_{\mathrm{\pump}}$', r'Energy (Kcal/mol)', '$R(t)$ (${\AA}$)')
+        r'Viscosity ${\mathrm{\eta}}$ (mPa.s)', r'$N_{\mathrm{\pump}}$', r'Energy (Kcal/mol)', '$R(t)$ (${\AA}$)')
 
 colors = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd',
             u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf', 'seagreen','darkslategrey']
@@ -108,7 +108,7 @@ class PlotGeneral:
         """
         ax = self.axes_array[0]
         ax.set_xlabel('Velocity (m/s)')
-        ax.set_ylabel('$f(v)$')
+        # ax.set_ylabel('Probability $f(v)$')
 
         first_dataset = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
         T =  np.mean(first_dataset.temp()['temp_t'])
@@ -229,7 +229,7 @@ class PlotGeneral:
         To compare with the Hagen-Poiseuille equation
         """
         ax = self.axes_array[0]
-        mpl.rcParams.update({'lines.markersize': 10})
+        # mpl.rcParams.update({'lines.markersize': 10})
         ax.set_xlabel(labels[9])
         ax.set_ylabel(labels[10])
         ax.ticklabel_format(axis='y', style='sci', useOffset=False)
@@ -563,7 +563,6 @@ class PlotGeneral:
             #     shear_rate_nh.append(data.viscosity_nemd()['shear_rate'])
             #     qdot_nh.append(np.mean(cond['qdot'])*1e6)
 
-
         ax.plot(shear_rate, qdot)
         if shear_rate_beskok: ax.plot(shear_rate_beskok, qdot_beskok)
         ax.plot(shear_rate, qdot_continuum)
@@ -659,14 +658,14 @@ class PlotGeneral:
             self.axes_array[1].set_xscale('log', base=10)
             self.axes_array[1].set_yscale('log', base=10)
             self.axes_array[1].xaxis.set_minor_formatter(ScalarFormatter())
-            self.fig.supylabel('$P/P_{o}$')
-            self.fig.text(0.3, 0.04, r'$\rho/\rho_{o}$', ha='center', size=14)
-            self.fig.text(0.72, 0.04, '$T/T_{o}$', ha='center', size=14)
+            self.fig.supylabel('Pressure $P/P_{o}$')
+            self.fig.text(0.3, 0.04, r'Density $\rho/\rho_{o}$', ha='center')
+            self.fig.text(0.72, 0.04, 'Temperature $T/T_{o}$', ha='center')
         else:
             if len(self.axes_array)>1:
-                self.fig.supylabel('$P/P_{o}$')
-                self.fig.text(0.3, 0.04, r'$\rho/\rho_{o}$', ha='center', size=14)
-                self.fig.text(0.72, 0.04, '$T/T_{o}$', ha='center', size=14)
+                self.fig.supylabel('Pressure $P/P_{o}$')
+                self.fig.text(0.3, 0.04, r'Density $\rho/\rho_{o}$', ha='center')
+                self.fig.text(0.72, 0.04, 'Temperature $T/T_{o}$', ha='center')
             else:
                 self.axes_array[0].set_xlabel(labels[3])
                 self.axes_array[0].set_ylabel(labels[7])
@@ -750,16 +749,16 @@ class PlotGeneral:
 
             self.axes_array[0].plot(den_isotherms, press_isotherms)
 
-            # Fit to cubic EOS
-            coeffs_den_cubic = curve_fit(funcs.cubic, den_isotherms*1000, press_isotherms*1e6, maxfev=8000)
-            print(f'Coefficients of the cubic EOS for n-pentane are {coeffs_den_cubic[0][0], coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]}')
-            self.axes_array[0].plot(den_isotherms, funcs.cubic(den_isotherms, coeffs_den_cubic[0][0],
-             coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]))
-
-            # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
-            exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
-            exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
-            self.axes_array[0].plot(exp_density, exp_press)
+            # # Fit to cubic EOS
+            # coeffs_den_cubic = curve_fit(funcs.cubic, den_isotherms*1000, press_isotherms*1e6, maxfev=8000)
+            # print(f'Coefficients of the cubic EOS for n-pentane are {coeffs_den_cubic[0][0], coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]}')
+            # self.axes_array[0].plot(den_isotherms, funcs.cubic(den_isotherms, coeffs_den_cubic[0][0],
+            #  coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]))
+            #
+            # # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
+            # exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+            # exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            # self.axes_array[0].plot(exp_density, exp_press)
 
             if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den_isotherms, press_isotherms, maxfev=8000)

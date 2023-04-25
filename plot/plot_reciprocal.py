@@ -158,7 +158,7 @@ class PlotGeneral:
             Kx, Ky = np.meshgrid(kx, ky)
 
             plt.imshow(sf.T, cmap='viridis', interpolation='lanczos',
-                extent=[kx.min(), kx.max(), ky.min(), ky.max()], aspect='auto', origin='lower')
+                extent=[kx.min(), kx.max(), ky.min(), ky.max()], aspect='equal', origin='lower')
             # plt.colorbar()
 
         elif self.config['3d']:

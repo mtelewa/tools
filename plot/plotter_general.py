@@ -56,11 +56,7 @@ if __name__ == "__main__":
     if args.fluid=='propane': mf = 44.09
     if args.fluid=='pentane': mf = 72.15
     if args.fluid=='heptane': mf = 100.21
-
-    # Dimension to plot against
-    if '_length' in args.variables[0]: dim='L'
-    if '_height' in args.variables[0]: dim='H'
-    if '_time' in args.variables[0]: dim='T'
+    if args.fluid=='squalane': mf = 422.83
 
     # Get the pump size to calculate the pressure gradient
     if not args.pumpsize:
@@ -132,12 +128,7 @@ if __name__ == "__main__":
     # if 'pt_ratio' in args.variables[0]: pg.pt_ratio()
     if 'eos' in args.variables: pg.eos()
     if 'lambda' in args.variables: pg.thermal_conduct()
-    # ACFs
-    if 'acf' in args.variables: pg.acf()
-    if 'transverse' in args.variables: pg.transverse()
-    if 'sk_solid' in args.variables: pg.struc_factor(fluid=0)
-    if 'sk' in args.variables: pg.struc_factor(fluid=1)
-    if 'isf' in args.variables: pg.isf()
+
     # Coexistence curves
     if 'coexist' in args.variables: pg.coexistence_curve()
     if 'rc_gamma' in args.variables: pg.rc_gamma()

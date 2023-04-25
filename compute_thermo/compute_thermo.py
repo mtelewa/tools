@@ -81,55 +81,53 @@ class ExtractFromTraj:
         self.Lx = dim["Lx"] / 10      # nm
         self.Ly = dim["Ly"] / 10      # nm
         self.Lz = dim["Lz"] / 10      # nm
-        # Old simulations have no Lz dimension (Only gap height)
-        # try:
-        # except KeyError:
-        #     pass
 
         # Number of chunks
         self.Nx = self.data_x.dimensions['x'].size
         self.Nz = self.data_z.dimensions['z'].size
 
-        # Chunk length
-        dx = self.Lx/ self.Nx
-        # Chunk and whole wall area (in m^2)
-        self.chunk_A = dx * self.Ly* 1e-18
-        self.wall_A = self.Lx * self.Ly * 1e-18
-
-        # Gap height (in each timestep)
-        self.h = np.array(self.data_x.variables["Height"])[self.skip:] / 10      # nm
-        self.h_conv = np.array(self.data_x.variables["Height_conv"])[self.skip:] / 10
-        self.h_div = np.array(self.data_x.variables["Height_div"])[self.skip:] / 10
-
-        # if len(self.h)==0:
-        #     print('Reduce the number of skipped steps!')
-        #     exit()
-        if len(self.h)!=0:
+        try:    # Simulation with walls
+            # Gap heights (time,) in nm
+            self.h = np.array(self.data_x.variables["Height"])[self.skip:] / 10
+            if len(self.h) == 0:
+                raise ValueError('The array is empty! Reduce the skipped timesteps.')
+            # Average gap height
             self.avg_gap_height = np.mean(self.h)
-        else:
-            self.avg_gap_height = 0
-        # COM (in each timestep)
-        com = np.array(self.data_x.variables["COM"])[self.skip:] / 10      # nm
+            self.h_conv = np.array(self.data_x.variables["Height_conv"])[self.skip:] / 10
+            self.h_div = np.array(self.data_x.variables["Height_div"])[self.skip:] / 10
+            # Bulk height (time,)
+            bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10
+            bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10
+            # Time-average
+            avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
+            # Center of Mass (time,)
+            com = np.array(self.data_x.variables["COM"])[self.skip:] / 10
 
-        # The length and height arrays for plotting
-        self.length_array = np.arange(dx/2.0, self.Lx, dx)   #nm
+            # The length array
+            dx = self.Lx/ self.Nx
+            self.length_array = np.arange(dx/2.0, self.Lx, dx)   #nm
 
-        if self.avg_gap_height > 0:    # Simulation with walls
+            # Chunk and whole wall areas (in m^2)
+            self.chunk_A = dx * self.Ly * 1e-18
+            self.wall_A = self.Lx * self.Ly * 1e-18
+
+            # The total gap height array
             dz = self.avg_gap_height / self.Nz
-            self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)     #nm
-            self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm3
-            try:
-                bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10 #
-                bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10 #
-                avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
-                self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)     #nm
-            except KeyError:
-                pass
+            self.height_array = np.arange(dz/2.0, self.avg_gap_height, dz)
 
-        if self.avg_gap_height == 0:       # Bulk simulation
+            # The bulk region gap height array
+            self.bulk_height_array = np.linspace(avg_bulkStart, avg_bulkEnd , self.Nz)
+
+            self.vol = self.Lx * self.Ly * self.avg_gap_height      # nm^3
+
+        except KeyError:    # Bulk simulation
+            self.avg_gap_height = 0
+            dx = self.Lx/ self.Nx
+            self.length_array = np.arange(dx/2.0, self.Lx, dx)
+
             dz = self.Lz / self.Nz
-            self.height_array = np.arange(dz/2.0, self.Lz, dz)     #nm
-            self.vol = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * 1e-3 # nm3
+            self.height_array = np.arange(dz/2.0, self.Lz, dz)
+            self.vol = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * 1e-3      # nm^3
 
 
     # Thermodynamic properties-----------------------------------------------
@@ -278,7 +276,7 @@ class ExtractFromTraj:
         density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:] * (self.mf/sci.N_A) / (ang_to_cm**3)    # g/cm^3
         den_X = np.mean(density_Bulk, axis=0)    # g/cm^3
 
-        if np.mean(self.h) == 0: # Bulk simulation
+        if np.mean(self.avg_gap_height) == 0: # Bulk simulation
             Nm = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
             mass = Nm * (self.mf/sci.N_A)
             den_t = mass / (self.vol * nm_to_cm**3)    # g/cm3
@@ -286,8 +284,11 @@ class ExtractFromTraj:
             den_t = np.mean(density_Bulk, axis=1)
 
         # Fluid Density ---------------------
-        den_full_z = np.array(self.data_z.variables["Density"])[self.skip:] * (self.mf/sci.N_A) / (ang_to_cm**3)
+        den_full_z = np.array(self.data_z.variables["Density"])[self.skip:] / (sci.N_A * ang_to_cm**3)
+        den_full_z = ma.masked_where(den_full_z == 0, den_full_z)
         den_Z = np.mean(den_full_z, axis=(0,1))     # g/cm^3
+        # print(den_Z)
+
 
         return {'den_X': den_X, 'den_Z': den_Z, 'den_t': den_t,
                 'den_full_x':density_Bulk, 'den_full_z':den_full_z}
@@ -534,6 +535,11 @@ class ExtractFromTraj:
         temp_full_x = np.array(self.data_x.variables["Temperature"])[self.skip:]
         temp_full_z = np.array(self.data_z.variables["Temperature"])[self.skip:]
         temp_full_z = ma.masked_where(temp_full_z == 0, temp_full_z)
+        print(np.isnan(temp_full_z).any())
+        temp_full_z = np.ma.masked_invalid(temp_full_z)
+        print(np.mean(temp_full_z[:,0,3]))
+        # print(len(temp_full_z[:,0,3]))
+
 
         tempX = np.mean(temp_full_x,axis=(0,2))
         tempZ = np.mean(temp_full_z,axis=(0,1))
