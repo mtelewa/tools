@@ -12,7 +12,7 @@ from scipy.optimize import curve_fit
 import yaml
 import funcs
 import sample_quality as sq
-from compute_thermo import ExtractFromTraj as dataset
+from compute_real import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
 from matplotlib.ticker import ScalarFormatter
 import numpy.ma as ma
@@ -115,19 +115,19 @@ class PlotGeneral:
         # vx = np.array(first_dataset.vel_distrib()['vx_values_thermal'])
         # vy = np.array(first_dataset.vel_distrib()['vy_values_thermal'])
         # vz = np.array(first_dataset.vel_distrib()['vz_values_thermal'])
-        v = np.array(first_dataset.vel_distrib()['fluid_v_thermal'])
+        v = np.array(first_dataset.vel_distrib()['fluid_v'])
         v = ma.masked_where(v == 0, v)
 
         for i in range(len(self.datasets_x)):
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-            vx_values = data.vel_distrib()['vx_values_thermal']
-            vx_prob = data.vel_distrib()['vx_prob_thermal']
+            vx_values = data.vel_distrib()['vx_values']
+            vx_prob = data.vel_distrib()['vx_prob']
 
-            vy_values = data.vel_distrib()['vy_values_thermal']
-            vy_prob = data.vel_distrib()['vy_prob_thermal']
+            vy_values = data.vel_distrib()['vy_values']
+            vy_prob = data.vel_distrib()['vy_prob']
 
-            vz_values = data.vel_distrib()['vz_values_thermal']
-            vz_prob = data.vel_distrib()['vz_prob_thermal']
+            vz_values = data.vel_distrib()['vz_values']
+            vz_prob = data.vel_distrib()['vz_prob']
 
             ax.plot(vx_values, vx_prob)
             ax.plot(vy_values, vy_prob)

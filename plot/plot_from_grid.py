@@ -10,7 +10,7 @@ import yaml
 import funcs
 import matplotlib as mpl
 import sample_quality as sq
-from compute_thermo import ExtractFromTraj as dataset
+from compute_real import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
 from scipy.integrate import trapezoid
 

@@ -94,9 +94,9 @@ fi
 
 cd ${MOAB_SUBMITDIR}
 
-mpirun --bind-to core --map-by core -report-bindings proc_nc.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
+mpirun --bind-to core --map-by core -report-bindings proc_walls.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
       $pump_start $pump_end --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
-mpirun --bind-to core --map-by core -report-bindings proc_nc.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
+mpirun --bind-to core --map-by core -report-bindings proc_walls.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
       $pump_start $pump_end --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then

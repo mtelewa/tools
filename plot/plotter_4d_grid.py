@@ -3,7 +3,7 @@
 
 import os, logging
 import argparse
-import plot_from_3d_grid
+import plot_from_4d_grid
 
 # Logger Settings
 logging.basicConfig(level=logging.INFO)

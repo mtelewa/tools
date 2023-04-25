@@ -661,24 +661,20 @@ class TrajtoGrid:
                 #     print(np.sum(peculiar_v**2 , axis=1))
                 #     print(3 * N_fluid_mask_non_zero[:, i, k] / self.A_per_molecule - 3)
 
-                # Virial off-diagonal components (atm.Å^3)
+                # Virial off-diagonal components (atm)
                 try:
                     Wxy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 3] * mask_fluid, axis=1) / vol_fluid[i,0,k]
                     Wxz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 4] * mask_fluid, axis=1) / vol_fluid[i,0,k]
                     Wyz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 5] * mask_fluid, axis=1) / vol_fluid[i,0,k]
-
-                except (IndexError, UnboundLocalError) as e:
+                except IndexError:
                     pass
 
                 # Bulk ---------------------------------------------------------
-                # Virial diagonal components (atm.Å^3)
-                try:
-                    Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
-                    Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
-                    Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
-                    vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
-                except UnboundLocalError:
-                    pass
+                # Virial diagonal components (atm)
+                Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,0,k]
+                vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
 
                 # Density (g/(mol.Å^3))
                 den_bulk_ch[:, i] = np.sum(mass_fluid * mask_bulk, axis=1) / vol_bulk_cell[i, 0, k]
