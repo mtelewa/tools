@@ -204,17 +204,6 @@ class TrajtoGrid:
                                                       coords[:, solid_start:, 1], \
                                                       coords[:, solid_start:, 2]
 
-        # Unaveraged positions
-        coords_unavgd = np.array(coords_data_unavgd[self.start:self.end]).astype(np.float32)
-
-        fluid_xcoords_unavgd, fluid_ycoords_unavgd, fluid_zcoords_unavgd = coords_unavgd[:, fluid_idx, 0], \
-                                                                           coords_unavgd[:, fluid_idx, 1], \
-                                                                           coords_unavgd[:, fluid_idx, 2]
-
-        solid_xcoords_unavgd, solid_ycoords_unavgd, solid_zcoords_unavgd = coords_unavgd[:, solid_start:, 0], \
-                                                                           coords_unavgd[:, solid_start:, 1], \
-                                                                           coords_unavgd[:, solid_start:, 2]
-
         # Define fluid region,  shape: (time,)
         fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
                                  utils.extrema(fluid_zcoords)['local_max']
@@ -318,7 +307,6 @@ class TrajtoGrid:
                      (avg_surfL_end_div + avg_fluid_begin_div) /2.]
         # Fluid domain dimensions
         fluid_lengths = [Lx, Ly, avg_gap_height_div]
-
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)

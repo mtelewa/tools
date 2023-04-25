@@ -78,77 +78,49 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
 
         # Get the data
         cell_lengths, kx, ky, kz, \
-        gap_heights, com, \
-        sf, sf_solid, rho_k, sf_x, sf_x_solid, sf_y, sf_y_solid, \
-        Nf, Nm, fluid_vol = itemgetter('cell_lengths',
-                                  'kx', 'ky', 'kz',
-                                  'gap_heights',
-                                  'com',
-                                  'sf',
-                                  'sf_solid',
-                                  'rho_k',
-                                  'sf_x',
-                                  'sf_x_solid',
-                                  'sf_y',
-                                  'sf_y_solid',
-                                  'Nf', 'Nm',
-                                  'fluid_vol')(init.get_chunks(fluid_start, fluid_end, solid_start, solid_end))
+        gap_heights, com, sf, sf_solid, rho_k, Nf, Nm = itemgetter('cell_lengths',
+                                                                  'kx', 'ky', 'kz',
+                                                                  'gap_heights',
+                                                                  'com',
+                                                                  'sf',
+                                                                  'sf_solid',
+                                                                  'rho_k',
+                                                                  'Nf', 'Nm',
+                                                                  'fluid_vol')(init.get_chunks(fluid_start,
+                                                                   fluid_end, solid_start, solid_end))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid_layer_3d = np.array(comm.gather(sf.size, root=0))
-        sendcounts_chunk_fluid_layer_nx = np.array(comm.gather(sf_x.size, root=0))
-        sendcounts_chunk_fluid_layer_ny = np.array(comm.gather(sf_y.size, root=0))
         sendcounts_chunk_solid_layer_3d = np.array(comm.gather(sf_solid.size, root=0))
-        sendcounts_chunk_solid_layer_nx = np.array(comm.gather(sf_x_solid.size, root=0))
-        sendcounts_chunk_solid_layer_ny = np.array(comm.gather(sf_y_solid.size, root=0))
 
         if rank == 0:
 
             print('Sampled time: {} {}'.format(np.int(time_array[-1]), Time.units))
 
-            # Dimensions: (time)
+            # Dimensions: (time,)
             # Gap Heights
             gap_height_global = np.zeros(time, dtype=np.float32)
             gap_height_conv_global = np.zeros_like(gap_height_global)
             gap_height_div_global = np.zeros_like(gap_height_global)
-            bulkStartZ_time_global = np.zeros_like(gap_height_global)
-            bulkEndZ_time_global = np.zeros_like(gap_height_global)
             # Center of Mass
             com_global = np.zeros_like(gap_height_global)
-            # Voronoi vol
-            fluid_vol_global = np.zeros_like(gap_height_global)
 
             # Dimensions: (time, nx, ny)
             # Density Fourier coefficients
+            rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
+            # Structure factor
             sf_global = np.zeros([time, nx, ny] , dtype=np.complex64)
             sf_solid_global = np.zeros([time, nx, ny] , dtype=np.complex64)
-            rho_k_global = np.zeros([time, nx, ny] , dtype=np.complex64)
-            sf_x_global = np.zeros([time, nx] , dtype=np.complex64)
-            sf_y_global = np.zeros([time, ny] , dtype=np.complex64)
-            sf_x_solid_global = np.zeros([time, nx] , dtype=np.complex64)
-            sf_y_solid_global = np.zeros([time, ny] , dtype=np.complex64)
-
-            # rho_kx_im_ch_global = np.zeros([time, nmax] , dtype=np.float32)
-            # rho_ky_ch_global = np.zeros_like(rho_kx_ch_global)
 
         else:
             gap_height_global = None
             gap_height_conv_global = None
             gap_height_div_global = None
             com_global = None
-            fluid_vol_global = None
-
-            # rho_kx_ch_global = None
             sf_global = None
             sf_solid_global = None
             rho_k_global = None
-            sf_x_global = None
-            sf_y_global = None
-            sf_x_solid_global = None
-            sf_y_solid_global = None
-            # sf_ch_y_global = None
-            # rho_ky_ch_global = None
 
         if gap_heights != None:     # If there are walls
             comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
@@ -158,8 +130,6 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
             comm.Gatherv(sendbuf=sf_solid, recvbuf=(sf_solid_global, sendcounts_chunk_solid_layer_3d), root=0)
             comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=sf_x_solid, recvbuf=(sf_x_solid_global, sendcounts_chunk_fluid_layer_nx), root=0)
-            comm.Gatherv(sendbuf=sf_y_solid, recvbuf=(sf_y_solid_global, sendcounts_chunk_fluid_layer_ny), root=0)
 
         if rank == 0:
 
@@ -167,6 +137,8 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             outfile = f"{infile.split('.')[0]}_{nx}x{ny}_{slice:0>3}.nc"
             out = netCDF4.Dataset(outfile, 'w', format='NETCDF3_64BIT_OFFSET')
 
+            out.setncattr("Version", version)
+            # Reciprocal lattice
             out.createDimension('nx', nx)
             out.createDimension('ny', ny)
             out.createDimension('time', time)
@@ -175,14 +147,12 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             out.setncattr("Lx", cell_lengths[0])
             out.setncattr("Ly", cell_lengths[1])
             out.setncattr("Lz", cell_lengths[2])
-            out.setncattr("Version", version)
 
             time_var = out.createVariable('Time', 'f4', ('time'))
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
             gap_height_conv_var =  out.createVariable('Height_conv', 'f4', ('time'))
             gap_height_div_var =  out.createVariable('Height_div', 'f4', ('time'))
             com_var =  out.createVariable('COM', 'f4', ('time'))
-            fluid_vol_var = out.createVariable('Fluid_Vol', 'f4', ('time'))
 
             # Reciprocal lattice wave vectors
             kx_var = out.createVariable('kx', 'f4', ('nx'))
@@ -191,10 +161,6 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             sf_im = out.createVariable('sf_im', 'f4', ('time', 'nx', 'ny'))
             sf_solid_var = out.createVariable('sf_solid', 'f4', ('time', 'nx', 'ny'))
             rho_k_var = out.createVariable('rho_k', 'f4', ('time', 'nx', 'ny'))
-            sf_x_var = out.createVariable('sf_x', 'f4', ('time', 'nx'))
-            sf_y_var = out.createVariable('sf_y', 'f4', ('time', 'ny'))
-            sf_x_solid_var = out.createVariable('sf_x_solid', 'f4', ('time', 'nx'))
-            sf_y_solid_var = out.createVariable('sf_y_solid', 'f4', ('time', 'ny'))
 
             # Fill the arrays with data
             time_var[:] = time_array
@@ -203,18 +169,13 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             gap_height_div_var[:] = gap_height_div_global
             com_var[:] = com_global
 
-            fluid_vol_var[:] = fluid_vol_global
-
             kx_var[:] = kx
             ky_var[:] = ky
+
             rho_k_var[:] = rho_k_global.real
             sf_var[:] = sf_global.real
-            sf_x_var[:] = sf_x_global.real
-            sf_y_var[:] = sf_y_global.real
-            sf_solid_var[:] = sf_solid_global.real
-            sf_x_solid_var[:] = sf_x_solid_global.real
-            sf_y_solid_var[:] = sf_y_solid_global.real
             sf_im[:] = sf_global.imag
+            sf_solid_var[:] = sf_solid_global.real
 
             out.close()
             print('Dataset is closed!')

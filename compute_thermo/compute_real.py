@@ -757,7 +757,7 @@ class ExtractFromTraj:
 
         # Remove the first and last chunk along the gap height (high uncertainty)
         height = self.height_array[1:-1]
-        vels = self.velocity()['vx_Z'][1:-1]
+        velocity = self.velocity()['vx_Z'][1:-1]
         velocity_full = self.velocity()['vx_full_z'][:,:,1:-1]
 
         # sd
@@ -781,29 +781,23 @@ class ExtractFromTraj:
             sigxz_avg = np.mean(self.sigwall()['sigxz_t']) * 1e9      # mPa
             pgrad = self.virial()['pGrad']            # MPa/m
 
-            # Shear rate in the bulk
-            coeffs_fit_bulk = np.polyfit(self.height_array[40:-40], vels[40:-40], 2)
-            eta_bulk = pgrad/(2 * coeffs_fit_bulk[0])          # mPa.s
-            shear_rate_bulk = sigxz_avg / eta_bulk
-
             # Shear rate at the walls
             x=0
-            coeffs_fit = np.polyfit(self.height_array[3:-3], vels[3:-3], 2)
+            coeffs_fit = np.polyfit(height, velocity, 2)
             shear_rate = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
-            eta = sigxz_avg / shear_rate        # mPa.s
+            eta = sigxz_avg / shear_rate                # mPa.s
 
-            coeffs_fit_lo = np.polyfit(self.height_array[40:-40], sq.get_err(self.velocity()['vx_full_z'])['lo'][40:-40], 2)
-            eta_lo = pgrad/(2 * coeffs_fit_lo[0])          # mPa.s
-            shear_rate_lo = sigxz_avg / eta_lo
+            coeffs_fit_lo = np.polyfit(height, sq.get_err(velocity_full)['lo'], 2)
+            shear_rate_lo = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
+            eta_lo = sigxz_avg / shear_rate_lo          # mPa.s
 
-            coeffs_fit_hi = np.polyfit(self.height_array[40:-40], sq.get_err(self.velocity()['vx_full_z'])['hi'][40:-40], 2)
-            eta_hi = pgrad/(2 * coeffs_fit_hi[0])          # mPa.s
-            shear_rate_hi = sigxz_avg / eta_hi
+            coeffs_fit_hi = np.polyfit(height, sq.get_err(velocity_full)['hi'], 2)
+            shear_rate_hi = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
+            eta_hi = sigxz_avg / shear_rate_hi          # mPa.s
 
         return {'shear_rate': shear_rate, 'eta': eta,
                 'shear_rate_lo': shear_rate_lo, 'eta_lo': eta_lo,
                 'shear_rate_hi': shear_rate_hi, 'eta_hi': eta_hi}
-
 
 
     def conductivity_gk_log(self, logfile, tcorr):
@@ -931,22 +925,25 @@ class ExtractFromTraj:
         Units: nm and m/s for length and velocity, respectively
         """
 
-        vels = self.velocity()['vx_Z']
+        # Remove the first and last chunk along the gap height (high uncertainty)
+        height = self.height_array[1:-1]
+        velocity = self.velocity()['vx_Z'][1:-1]
+        velocity_full = self.velocity()['vx_full_z'][:,:,1:-1]
 
         if self.pumpsize==0:
-            fit_data = funcs.fit(self.height_array[2:-2], vels[2:-2], 1)['fit_data']
+            fit_data = funcs.fit(height, velocity, 1)['fit_data']
         else:
-            fit_data = funcs.fit(self.height_array[2:-2], vels[2:-2], 2)['fit_data']
+            fit_data = funcs.fit(height, velocity, 2)['fit_data']
 
-        npoints = len(self.height_array[vels!=0])
+        npoints = len(self.height_array[velocity!=0])
         # Positions to inter/extrapolate
-        xdata_left = np.linspace(-1, self.height_array[2:-2][0], npoints)
-        xdata_right = np.linspace(self.height_array[2:-2][-1], 12 , npoints)
+        xdata_left = np.linspace(-1, height[0], npoints)
+        xdata_right = np.linspace(height[-1], 12 , npoints)
 
         # spline order: 1 linear, 2 quadratic, 3 cubic ...
         order = 1
         # do inter/extrapolation
-        extrapolate = InterpolatedUnivariateSpline(self.height_array[2:-2], fit_data, k=order)
+        extrapolate = InterpolatedUnivariateSpline(height, fit_data, k=order)
         coeffs_extrapolate_left = np.polyfit(xdata_left, extrapolate(xdata_left), 1)
         coeffs_extrapolate_right = np.polyfit(xdata_right, extrapolate(xdata_right), 1)
 
@@ -960,7 +957,7 @@ class ExtractFromTraj:
         # Slip length is the extrapolated length from the velocity profile fit
         b = np.abs(root_left)
         # Slip velocity
-        Vs = vels[vels!=0][2]
+        Vs = velocity[1]
         # # Slip velocity according to Navier boundary
         # Vs = b * sci.nano * self.viscosity_nemd()['shear_rate']        # m/s
 

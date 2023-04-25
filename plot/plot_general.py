@@ -73,7 +73,6 @@ class PlotGeneral:
         init = Initialize(os.path.abspath(configfile))
         self.fig, self.ax, self.axes_array = itemgetter('fig','ax','axes_array')(init.create_fig())
 
-        # try:
         first_dataset = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
         self.Nx = len(first_dataset.length_array)
         self.Nz = len(first_dataset.height_array)

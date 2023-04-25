@@ -1,7 +1,7 @@
 #!/bin/bash
 #MSUB -l nodes=4:ppn=20
 #MSUB -q
-#MSUB -l walltime=4:00:00
+#MSUB -l walltime=1:00:00
 #MSUB -v MPIRUN_OPTIONS="--bind-to core --map-by core -report-bindings"
 #MSUB -o
 #MSUB -l pmem=6GB
@@ -28,7 +28,7 @@ if [ -n "${SCRIPT_FLAGS}" ] ; then
    fi
 fi
 
-while getopts ":h:i:X:Y:f:s:e:p:x:" option; do
+while getopts ":h:i:X:Y:f:s:e:p:x:z:T:" option; do
   case "$option" in
     h) echo "$usage"
        exit
@@ -49,6 +49,10 @@ while getopts ":h:i:X:Y:f:s:e:p:x:" option; do
     ;;
     x) pump_end="$OPTARG"
     ;;
+    z) nz="$OPTARG"
+    ;;
+    T) TW_interface="$OPTARG"
+    ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
        exit 1
@@ -67,10 +71,24 @@ echo ${args[@]} > ${MOAB_SUBMITDIR}/flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
+# Default value for Ny is 1
+if [ -n "$nz" ]; then
+  nz="$nz"
+else
+  nz=1
+fi
+
+# Default value for TW_interface is 1
+if [ -n "$TW_interface" ]; then
+  TW_interface=0
+else
+  TW_interface=1
+fi
 
 cd ${MOAB_SUBMITDIR}
 
-mpirun --bind-to core --map-by core -report-bindings proc_reciprocal.py $infile.nc $longWaveVectors ${transWaveVectors} 1000 $fluid $fluid_start $fluid_end $solid_start $solid_end
+mpirun --bind-to core --map-by core -report-bindings proc_reciprocal.py $infile.nc $longWaveVectors ${transWaveVectors} 1000 \
+        $fluid $fluid_start $fluid_end $solid_start $solid_end --nz $nz --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${longWaveVectors}x${transWaveVectors}_001.nc ]; then
   mv ${infile}_${longWaveVectors}x${transWaveVectors}_000.nc ${infile}_${longWaveVectors}x${transWaveVectors}.nc
