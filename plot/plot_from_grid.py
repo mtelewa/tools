@@ -81,27 +81,17 @@ class PlotFromGrid:
         init = Initialize(os.path.abspath(configfile))
         self.fig, self.ax, self.axes_array = itemgetter('fig','ax','axes_array')(init.create_fig())
 
-        # try:
         first_dataset = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
         self.Nx = len(first_dataset.length_array)
         self.Nz = len(first_dataset.height_array)
         self.time = first_dataset.time
         self.Ly = first_dataset.Ly
 
-        # For temperature calcualtion
-        self.skipchunkszstart = 0
-        if self.skipchunkszstart == 0:
-            self.skipchunkszend = None
-        else:
-            self.skipchunkszend = -self.skipchunkszstart
-
     def plot_data(self, ax, x, y):
         """
         Plots the raw data
         """
-        if self.dimension=='L': ax.plot(x[1:-1], y[1:-1])
-        if self.dimension=='H':
-            ax.plot(x[self.skipchunkszstart:self.skipchunkszend], y[self.skipchunkszstart:self.skipchunkszend])
+        if self.dimension=='L' or self.dimension=='H': ax.plot(x, y)
         if self.dimension=='T':
             ax.plot(x, y)
             if input('Plot time-average?') == 'y':
@@ -111,15 +101,8 @@ class PlotFromGrid:
         """
         Plots the data fit
         """
-        if self.dimension=='L':
-            fit_data = funcs.fit(x[1:-1] ,y[1:-1], self.config[f'fit'])['fit_data']
-            ax.plot(x[1:-1], fit_data, lw=1.5)
-        if self.dimension=='H':
-            fit_data = funcs.fit(x[self.skipchunkszstart:self.skipchunkszend] ,y[self.skipchunkszstart:self.skipchunkszend], self.config[f'fit'])['fit_data']
-            ax.plot(x[self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
-            # fit_data = funcs.fit(x[y!=0][self.skipchunkszstart:self.skipchunkszend] ,y[y!=0][self.skipchunkszstart:self.skipchunkszend], self.config[f'fit'])['fit_data']
-            # ax.plot(x[y!=0][self.skipchunkszstart:self.skipchunkszend], fit_data, lw=1.5)
-
+        fit_data = funcs.fit(x ,y, self.config[f'fit'])['fit_data']
+        ax.plot(x, fit_data, lw=1.5)
 
     def plot_inset(self, xdata, xpos=0.64, ypos=0.23, w=0.23, h=0.17):
         """
@@ -135,7 +118,6 @@ class PlotFromGrid:
 
         return inset_ax
 
-
     def plot_uncertainty(self, ax, x, y, arr, color):
         """
         Plots the uncertainty of the data
@@ -146,25 +128,18 @@ class PlotFromGrid:
                     err = sq.get_err(arr)['uncertainty']
                 else:
                     err = arr
-                markers, caps, bars= ax.errorbar(x[1:-1], y[1:-1], xerr=None, yerr=err[1:-1],
+                markers, caps, bars= ax.errorbar(x, y, xerr=None, yerr=err,
                                             capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             if self.dimension=='H':
-                err = sq.get_err(arr)['uncertainty'][self.skipchunkszstart:self.skipchunkszend]
-                markers, caps, bars= ax.errorbar(x[self.skipchunkszstart:self.skipchunkszend], \
-                                                 y[self.skipchunkszstart:self.skipchunkszend],
-                                            xerr=None, yerr=err[self.skipchunkszstart:self.skipchunkszend],
+                err = sq.get_err(arr)['uncertainty']
+                markers, caps, bars= ax.errorbar(x, y, xerr=None, yerr=err,
                                             capsize=3.5, markersize=4, lw=2, alpha=0.8, color=color)
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
         if self.config['err_fill']:
-            if self.dimension=='L':
-                lo, hi = sq.get_err(arr)['lo'][1:-1], sq.get_err(arr)['hi'][1:-1]
-                ax.fill_between(x[1:-1], lo, hi, alpha=0.4)
-            if self.dimension=='H':
-                lo, hi = sq.get_err(arr)['lo'][self.skipchunkszstart:self.skipchunkszend], \
-                            sq.get_err(arr)['hi'][self.skipchunkszstart:self.skipchunkszend]
-                ax.fill_between(x[self.skipchunkszstart:self.skipchunkszend], lo, hi, alpha=0.4)
+            lo, hi = sq.get_err(arr)['lo'], sq.get_err(arr)['hi']
+            ax.fill_between(x, lo, hi, alpha=0.4)
 
 
     def extract_plot(self, *arr_to_plot, **kwargs):
@@ -199,22 +174,24 @@ class PlotFromGrid:
 
             # Velocity - x component
             if any('vx' in var for var in variables):
+                velocity = data.velocity()
                 self.axes_array[n].set_ylabel(labels[5])
-                if self.dimension=='L': arr, y = data.velocity()['vx_full_x'], data.velocity()['vx_X']
-                if self.dimension=='H': arr, y = data.velocity()['vx_full_z'], data.velocity()['vx_Z']
-                if self.dimension=='T': arr, y = None, data.velocity()['vx_t']
+                if self.dimension=='L': arr, y = velocity['vx_full_x'], velocity['vx_X']
+                if self.dimension=='H': arr, y = velocity['vx_full_z'], velocity['vx_Z']
+                if self.dimension=='T': arr, y = None, velocity['vx_t']
                 self.plot_data(self.axes_array[n], x, y)
                 # Fitting the data
                 if self.config[f'fit']:
                     self.plot_fit(self.axes_array[n], x, y)
                 if self.config['extrapolate']:
-                    x_extrapolate = data.slip_length()['xdata_left']
-                    y_extrapolate = data.slip_length()['extrapolate_left']
-                    x_extrapolateR = data.slip_length()['xdata_right']
-                    y_extrapolateR = data.slip_length()['extrapolate_right']
+                    slip_length = data.slip_length()
+                    x_extrapolate = slip_length['xdata_left']
+                    y_extrapolate = slip_length['extrapolate_left']
+                    x_extrapolateR = slip_length['xdata_right']
+                    y_extrapolateR = slip_length['extrapolate_right']
                     self.axes_array[n].plot(x_extrapolate, y_extrapolate, marker=' ', ls='--', color='k')
                     # self.axes_array[n].plot(x_extrapolateR, y_extrapolateR, marker=' ', ls='--', color='k')
-                    # ax.set_xlim([data.slip_length()['root_left'], 0.5*np.max(x)])
+                    # ax.set_xlim([slip_length['root_left'], 0.5*np.max(x)])
                     # ax.set_ylim([0, 1.1*np.max(y)])
                 if self.nrows>1: n+=1
                 if self.config['broken_axis'] and self.config['plot_on_all']:
@@ -275,9 +252,10 @@ class PlotFromGrid:
 
             # Virial Pressure - Scalar
             if any('virial' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
                 if self.dimension=='L':
-                    arr, y = data.virial()['vir_full_x'], data.virial()['vir_X']
+                    arr, y = virial['vir_full_x'], virial['vir_X']
                     # Save the pressure data to a txt file (to compare with the continuum)
                     ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
                     # Include the part before the pump
@@ -291,16 +269,14 @@ class PlotFromGrid:
                         x = data.bulk_height_array  # simulation with walls
                     except AttributeError:
                         x = data.height_array       # bulk simulations
-                    arr, y = data.virial()['vir_full_z'], data.virial()['vir_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['vir_t']
+                    arr, y = virial['vir_full_z'], virial['vir_Z']
+                if self.dimension=='T': arr, y = None, virial['vir_t']
 
                 if self.config['err_fill']:
                     self.plot_data(self.axes_array[n], x, y)
-                    self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data.virial()['vir_full_x'])
+                    self.plot_uncertainty(self.axes_array[n], x, y, virial['vir_full_x'])
                 if self.config['err_caps']:
-                    self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data.virial()['vir_full_x'])
+                    self.plot_uncertainty(self.axes_array[n], x, y, virial['vir_full_x'])
                 else:
                     self.plot_data(self.axes_array[n], x, y)
 
@@ -308,73 +284,72 @@ class PlotFromGrid:
 
             # Mass density
             if any('den' in var for var in variables):
+                density = data.density()
                 self.axes_array[n].set_ylabel(labels[3])
-                if self.dimension=='L': arr, y = data.density()['den_full_x'], data.density()['den_X']
-                if self.dimension=='H': arr, y = data.density()['den_full_z'], data.density()['den_Z']
-                if self.dimension=='T': arr, y = None, data.density()['den_t']
+                if self.dimension=='L': arr, y = density['den_full_x'], density['den_X']
+                if self.dimension=='H': arr, y = density['den_full_z'], density['den_Z']
+                if self.dimension=='T': arr, y = None, densty['den_t']
                 # self.axes_array[n].plot(np.roll(y[y!=0][1:-1],85), x[y!=0][1:-1], color=colors[i])
                 self.plot_data(self.axes_array[n], x, y)
-                # if self.config['err_fill']:
-                #     print('plotting uncertainty')
-                #     # self.plot_data(self.axes_array[n], x, y)
-                #     self.plot_uncertainty(self.axes_array[n], x, y,
-                #                                 data.density()['den_full_z'])
-                # if self.config['err_caps']:
-                #     self.plot_uncertainty(self.axes_array[n], x, y,
-                #                                 data.density()['den_full_z'])
                 if self.nrows>1: n+=1
 
             # Virial - xx component
             if any('virxx' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxx_full_x'], data.virial()['Wxx_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxx_full_z'], data.virial()['Wxx_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxx_t']
+                if self.dimension=='L': arr, y = virial['Wxx_full_x'], virial['Wxx_X']
+                if self.dimension=='H': arr, y = virial['Wxx_full_z'], virial['Wxx_Z']
+                if self.dimension=='T': arr, y = None, virial['Wxx_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
             # Virial - xy component
             if any('virxy' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxy_full_x'], data.virial()['Wxy_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxy_full_z'], data.virial()['Wxy_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxy_t']
+                if self.dimension=='L': arr, y = virial['Wxy_full_x'], virial['Wxy_X']
+                if self.dimension=='H': arr, y = virial['Wxy_full_z'], virial['Wxy_Z']
+                if self.dimension=='T': arr, y = None, virial['Wxy_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
             # Virial - xz component
             if any('virxz' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wxz_full_x'], data.virial()['Wxz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wxz_full_z'], data.virial()['Wxz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wxz_t']
+                if self.dimension=='L': arr, y = virial['Wxz_full_x'], virial['Wxz_X']
+                if self.dimension=='H': arr, y = virial['Wxz_full_z'], virial['Wxz_Z']
+                if self.dimension=='T': arr, y = None, virial['Wxz_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
             # Virial - yy component
             if any('viryy' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wyy_full_x'], data.virial()['Wyy_X']
-                if self.dimension=='H': arr, y = data.virial()['Wyy_full_z'], data.virial()['Wyy_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wyy_t']
+                if self.dimension=='L': arr, y = virial['Wyy_full_x'], virial['Wyy_X']
+                if self.dimension=='H': arr, y = virial['Wyy_full_z'], virial['Wyy_Z']
+                if self.dimension=='T': arr, y = None, virial['Wyy_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
             # Virial - yz component
             if any('viryz' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wyz_full_x'], data.virial()['Wyz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wyz_full_z'], data.virial()['Wyz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wyz_t']
+                if self.dimension=='L': arr, y = virial['Wyz_full_x'], virial['Wyz_X']
+                if self.dimension=='H': arr, y = virial['Wyz_full_z'], virial['Wyz_Z']
+                if self.dimension=='T': arr, y = None, virial['Wyz_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
             # Virial - zz component
             if any('virzz' in var for var in variables):
+                virial = data.virial()
                 self.axes_array[n].set_ylabel(labels[7])
-                if self.dimension=='L': arr, y = data.virial()['Wzz_full_x'], data.virial()['Wzz_X']
-                if self.dimension=='H': arr, y = data.virial()['Wzz_full_z'], data.virial()['Wzz_Z']
-                if self.dimension=='T': arr, y = None, data.virial()['Wzz_t']
+                if self.dimension=='L': arr, y = virial['Wzz_full_x'], virial['Wzz_X']
+                if self.dimension=='H': arr, y = virial['Wzz_full_z'], virial['Wzz_Z']
+                if self.dimension=='T': arr, y = None, virial['Wzz_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
@@ -425,55 +400,58 @@ class PlotFromGrid:
 
             # Fluid temperature - x component
             if any('tempX' in var for var in variables):
+                temp = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempX_full_x'], data.temp()['tempX_len']
-                if self.dimension=='H': arr, y = data.temp()['tempX_full_z'], data.temp()['tempX_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempX_t']
+                if self.dimension=='L': arr, y = temp['tempX_full_x'], temp['tempX_len']
+                if self.dimension=='H': arr, y = temp['tempX_full_z'], temp['tempX_height']
+                if self.dimension=='T': arr, y = None, temp['tempX_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - y component
             if any('tempY' in var for var in variables):
+                temp = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempY_full_x'], data.temp()['tempY_len']
-                if self.dimension=='H': arr, y = data.temp()['tempY_full_z'], data.temp()['tempY_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempY_t']
+                if self.dimension=='L': arr, y = temp['tempY_full_x'], temp['tempY_len']
+                if self.dimension=='H': arr, y = temp['tempY_full_z'], temp['tempY_height']
+                if self.dimension=='T': arr, y = None, temp['tempY_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - z component
             if any('tempZ' in var for var in variables):
+                temp = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = data.temp()['tempZ_full_x'], data.temp()['tempZ_len']
-                if self.dimension=='H': arr, y = data.temp()['tempZ_full_z'], data.temp()['tempZ_height']
-                if self.dimension=='T': arr, y = None, data.temp()['tempZ_t']
+                if self.dimension=='L': arr, y = temp['tempZ_full_x'], temp['tempZ_len']
+                if self.dimension=='H': arr, y = temp['tempZ_full_z'], temp['tempZ_height']
+                if self.dimension=='T': arr, y = None, temp['tempZ_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - Scalar
             if any('temp' in var for var in variables):
+                temp = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                data = data.temp()
-                if self.dimension=='L': arr, y = data['temp_full_x'], data['temp_X']
-                if self.dimension=='H': arr, y = data['temp_full_z'], data['temp_Z']
-                if self.dimension=='T': arr, y = None, data.temp()['temp_t']
+                if self.dimension=='L': arr, y = temp['temp_full_x'], temp['temp_X']
+                if self.dimension=='H': arr, y = temp['temp_full_z'], temp['temp_Z']
+                if self.dimension=='T': arr, y = None, temp['temp_t']
                 if self.config['broken_axis'] is None and self.config['err_caps'] is None: self.plot_data(self.axes_array[n], x, y)
                 # Fitting the data
                 if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y)
                 if self.config['err_fill']:
                     # self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data['temp_full_z'], color=plt.gca().lines[-1].get_color())
+                                                temp['temp_full_z'], color=plt.gca().lines[-1].get_color())
                 if self.config['err_caps']:
                     self.plot_uncertainty(self.axes_array[n], x, y,
-                                                data['temp_full_z'], color=colors[n])
+                                                temp['temp_full_z'], color=self.config[f'color_{n}'])
                 if self.nrows>1: n+=1
                 if self.config['broken_axis']:
                     try:
                         if self.config['plot_on_all']:
                             for n in range(self.nrows): # plot the same data on all the axes except the last one
-                                self.axes_array[n].plot(x, y[1:-1])
+                                self.axes_array[n].plot(x, y)
                                 n+=1
                     except KeyError:
                         while n<self.nrows-1: # plot the same data on all the axes except the last one
-                            self.axes_array[n].plot(x, y[1:-1])
+                            self.axes_array[n].plot(x, y)
                             n+=1
 
                 # np.savetxt('temp-height.txt', np.c_[x, y],  delimiter=' ',\
@@ -484,14 +462,15 @@ class PlotFromGrid:
 
             # Solid temperature - Scalar
             if any('tempS' in var for var in variables):
+                temp = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
                 try:
-                    if self.dimension=='L': arr, y = data.temp()['temp_full_x_solid'], data.temp()['tempS_len']
-                    if self.dimension=='H': arr, y = data.temp()['temp_full_z_solid'], data.temp()['tempS_height']
-                    if self.dimension=='T': arr, y = None, data.temp()['tempS_t']
+                    if self.dimension=='L': arr, y = temp['temp_full_x_solid'], temp['tempS_len']
+                    if self.dimension=='H': arr, y = temp['temp_full_z_solid'], temp['tempS_height']
+                    if self.dimension=='T': arr, y = None, temp['tempS_t']
                 except KeyError:
                     pass
-                if np.mean(data.temp()['tempS_len'])>1:     # Don't plot data where the solid temp. is zero (for example TF system)
+                if np.mean(temp['tempS_len'])>1:     # Don't plot data where the solid temp. is zero (for example TF system)
                     self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
