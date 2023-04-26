@@ -133,6 +133,35 @@ class ExtractFromTraj:
     # Thermodynamic properties-----------------------------------------------
     # -----------------------------------------------------------------------
 
+    def mask_invalid_zeros(self, array):
+        """
+        Mask zeros and nans generated from post-processing script in bins with no atoms on fine grids
+        Parameters:
+        -----------
+        array of shape (time,Nx,Nz)
+        Returns:
+        --------
+        array of same shape with zeros and nans masked
+        """
+        mask_invalid = np.ma.masked_invalid(array)
+        masked_array = ma.masked_where(mask_invalid == 0, mask_invalid)
+
+        return masked_array
+
+    def remove_first_last(self, array):
+        """
+        Remove the first and last spatial bins
+        """
+
+        if np.ma.count_masked(array)!=0:
+            first_non_masked = np.ma.flatnotmasked_edges(array)[0]
+            last_non_masked = np.ma.flatnotmasked_edges(array)[1]
+            array[first_non_masked], array[last_non_masked] = np.nan, np.nan
+        else:
+            array[0], array[-1] = np.nan, np.nan
+
+        return array
+
     def velocity(self):
         """
         Computes the center of mass (streaming or x-component) velocity of the fluid
@@ -148,28 +177,28 @@ class ExtractFromTraj:
 
         # Velocity of the whole fluid along the stream
         try:    # Simulation with walls
-            vx_full_x = np.array(self.data_x.variables["Vx_whole"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+            vx_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Vx_whole"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
         except KeyError: # Bulk simulation
-            vx_full_x = np.array(self.data_x.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+            vx_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Vx"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
         # Measured away from the pump (Stable region)
-        vx_full_z = np.array(self.data_z.variables["Vx"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+        vx_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
 
-        vx_chunkX = np.mean(vx_full_x, axis=(0,2))
-        vx_chunkZ = np.mean(vx_full_z, axis=(0,1))
+        vx_chunkX = self.remove_first_last(np.mean(vx_full_x, axis=(0,2)))
+        vx_chunkZ = self.remove_first_last(np.mean(vx_full_z, axis=(0,1)))
         vx_t = np.mean(vx_full_x, axis=(1,2))
 
         try: # For the 5-regions grid
-            vx_R1_z = np.array(self.data_z.variables["Vx_R1"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-            vx_R2_z = np.array(self.data_z.variables["Vx_R2"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-            vx_R3_z = np.array(self.data_z.variables["Vx_R3"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-            vx_R4_z = np.array(self.data_z.variables["Vx_R4"])[self.skip:] * Angstromperfs_to_mpers  # m/s
-            vx_R5_z = np.array(self.data_z.variables["Vx_R5"])[self.skip:] * Angstromperfs_to_mpers  # m/s
+            vx_R1_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R1"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
+            vx_R2_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R2"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
+            vx_R3_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R3"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
+            vx_R4_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R4"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
+            vx_R5_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R5"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
 
-            vx_R1 = np.mean(vx_R1_z, axis=(0,1))
-            vx_R2 = np.mean(vx_R2_z, axis=(0,1))
-            vx_R3 = np.mean(vx_R3_z, axis=(0,1))
-            vx_R4 = np.mean(vx_R4_z, axis=(0,1))
-            vx_R5 = np.mean(vx_R5_z, axis=(0,1))
+            vx_R1 = self.remove_first_last(np.mean(vx_R1_z, axis=(0,1)))
+            vx_R2 = self.remove_first_last(np.mean(vx_R2_z, axis=(0,1)))
+            vx_R3 = self.remove_first_last(np.mean(vx_R3_z, axis=(0,1)))
+            vx_R4 = self.remove_first_last(np.mean(vx_R4_z, axis=(0,1)))
+            vx_R5 = self.remove_first_last(np.mean(vx_R5_z, axis=(0,1)))
 
         except KeyError:
             vx_R1, vx_R2, vx_R3, vx_R4, vx_R5 = 0, 0, 0, 0, 0
@@ -192,21 +221,23 @@ class ExtractFromTraj:
         """
 
         # Bulk Density ---------------------
-        try:
-            density_Bulk = np.array(self.data_x.variables["Density_Bulk"])[self.skip:] / (sci.N_A * ang_to_cm**3)
-        except KeyError:
-            density_Bulk = np.array(self.data_x.variables["Density"])[self.skip:] / (sci.N_A * ang_to_cm**3)
-        den_X = np.mean(density_Bulk, axis=0)    # g/cm^3
-        # Fluid Density ---------------------
-        den_full_z = np.array(self.data_z.variables["Density"])[self.skip:] / (sci.N_A * ang_to_cm**3)
-        den_Z = np.mean(den_full_z, axis=(0,1))     # g/cm^3
+        if self.avg_gap_height !=0:
+            density_Bulk = self.mask_invalid_zeros(np.array(self.data_x.variables["Density_Bulk"])[self.skip:]) / (sci.N_A * ang_to_cm**3)
+            den_X = self.remove_first_last(np.mean(density_Bulk, axis=0))
+        else:
+            density_Bulk = self.mask_invalid_zeros(np.array(self.data_x.variables["Density"])[self.skip:]) / (sci.N_A * ang_to_cm**3)
+            den_X = self.remove_first_last(np.mean(density_Bulk, axis=(0,2)))
 
-        if np.mean(self.avg_gap_height) == 0: # Bulk simulation
+        # Fluid Density ---------------------
+        den_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Density"])[self.skip:]) / (sci.N_A * ang_to_cm**3)
+        den_Z = np.mean(den_full_z, axis=(0,1))
+
+        if np.mean(self.avg_gap_height) != 0: # Walls simulation
+            den_t = np.mean(density_Bulk, axis=1)
+        else:   # Bulk
             Nm = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
             mass = Nm * (self.mf/sci.N_A)
-            den_t = mass / (self.vol * nm_to_cm**3)    # g/cm3
-        else:
-            den_t = np.mean(density_Bulk, axis=1)
+            den_t = mass / (self.vol * nm_to_cm**3)
 
         return {'den_X': den_X, 'den_Z': den_Z, 'den_t': den_t,
                 'den_full_x':density_Bulk, 'den_full_z':den_full_z}
@@ -239,20 +270,20 @@ class ExtractFromTraj:
         mflowrate_pump = np.array(self.data_x.variables["mflow_rate_pump"])[self.skip:]
 
         # Measure the mass flux in the full simulation domain
-        jx_full_x = np.array(self.data_x.variables["Jx"])[self.skip:]
-        jx_chunkX = np.mean(jx_full_x, axis=(0,2)) / (sci.N_A * fs_to_ns * sci.angstrom**2)
+        jx_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Jx"])[self.skip:])
+        jx_chunkX = self.remove_first_last(np.mean(jx_full_x, axis=(0,2))) / (sci.N_A * fs_to_ns * sci.angstrom**2)
 
-        jx_full_z = np.array(self.data_z.variables["Jx"])[self.skip:]
-        jx_chunkZ = np.mean(jx_full_z, axis=(0,1)) / (sci.N_A * fs_to_ns * sci.angstrom**2)
+        jx_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Jx"])[self.skip:])
+        jx_chunkZ = self.remove_first_last(np.mean(jx_full_z, axis=(0,1))) / (sci.N_A * fs_to_ns * sci.angstrom**2)
 
         jx_t = np.sum(jx_full_x, axis=(1,2)) / (sci.N_A * fs_to_ns * sci.angstrom**2)
 
         # Mass flow rate in the fluid domain
-        mflowrate_full_x = np.array(self.data_x.variables["mdot"])[self.skip:]
-        mflowrate_chunkX = np.mean(mflowrate_full_x, axis=(0,2)) / (sci.N_A * fs_to_ns)
+        mflowrate_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["mdot"])[self.skip:])
+        mflowrate_chunkX = self.remove_first_last(np.mean(mflowrate_full_x, axis=(0,2))) / (sci.N_A * fs_to_ns)
 
-        mflowrate_full_z = np.array(self.data_z.variables["mdot"])[self.skip:]
-        mflowrate_chunkZ = np.mean(mflowrate_full_x, axis=(0,2)) / (sci.N_A * fs_to_ns)
+        mflowrate_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["mdot"])[self.skip:])
+        mflowrate_chunkZ = self.remove_first_last(np.mean(mflowrate_full_x, axis=(0,2))) / (sci.N_A * fs_to_ns)
 
         # Time-averaged mass flow rate in the whole domain
         mflowrate_t = np.sum(mflowrate_full_x, axis=(1,2)) / (sci.N_A * fs_to_ns)
@@ -309,34 +340,34 @@ class ExtractFromTraj:
         """
 
         # Diagonal components (bulk)
-        Wxx_full_x = np.array(self.data_x.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wyy_full_x = np.array(self.data_x.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wzz_full_x = np.array(self.data_x.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wxx_full_z = np.array(self.data_z.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wyy_full_z = np.array(self.data_z.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wzz_full_z = np.array(self.data_z.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxx_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxx"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wyy_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wyy"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wzz_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wzz"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wxx_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wxx"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wyy_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wyy"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wzz_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wzz"])[self.skip:]) * sci.atm * pa_to_Mpa
         # Off-Diagonal components (Whole fluid)
-        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wxy_full_z = np.array(self.data_z.variables["Wxy"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wxz_full_z = np.array(self.data_z.variables["Wxz"])[self.skip:] * sci.atm * pa_to_Mpa
-        Wyz_full_z = np.array(self.data_z.variables["Wyz"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wxy_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxy"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wxz_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxz"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wyz_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wyz"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wxy_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wxy"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wxz_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wxz"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wyz_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wyz"])[self.skip:]) * sci.atm * pa_to_Mpa
 
         # Averaging along time and height
-        Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
-        Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
-        Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
-        Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
-        Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
-        Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
+        Wxx_chunkX = self.remove_first_last(np.mean(Wxx_full_x, axis=(0,2)))
+        Wyy_chunkX = self.remove_first_last(np.mean(Wyy_full_x, axis=(0,2)))
+        Wzz_chunkX = self.remove_first_last(np.mean(Wzz_full_x, axis=(0,2)))
+        Wxy_chunkX = self.remove_first_last(np.mean(Wxy_full_x, axis=(0,2)))
+        Wxz_chunkX = self.remove_first_last(np.mean(Wxz_full_x, axis=(0,2)))
+        Wyz_chunkX = self.remove_first_last(np.mean(Wyz_full_x, axis=(0,2)))
         # Averaging along time and length
-        Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
-        Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
-        Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
-        Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
-        Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
-        Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
+        Wxx_chunkZ = self.remove_first_last(np.mean(Wxx_full_z, axis=(0,1)))
+        Wyy_chunkZ = self.remove_first_last(np.mean(Wyy_full_z, axis=(0,1)))
+        Wzz_chunkZ = self.remove_first_last(np.mean(Wzz_full_z, axis=(0,1)))
+        Wxy_chunkZ = self.remove_first_last(np.mean(Wxy_full_z, axis=(0,1)))
+        Wxz_chunkZ = self.remove_first_last(np.mean(Wxz_full_z, axis=(0,1)))
+        Wyz_chunkZ = self.remove_first_last(np.mean(Wyz_full_z, axis=(0,1)))
         # Averaging along length and height
         Wxx_t = np.mean(Wxx_full_z, axis=(1,2))
         Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
@@ -360,16 +391,16 @@ class ExtractFromTraj:
         vir_t = np.mean(vir_full_x, axis=(1,2))
 
         if self.avg_gap_height == 0:
-            vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-            vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            vir_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Virial"])[self.skip:]) * sci.atm * pa_to_Mpa
+            vir_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Virial"])[self.skip:]) * sci.atm * pa_to_Mpa
             vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
 
             Wxx_t = np.sum(Wxx_full_z, axis=(1,2)) / (self.vol*1e3)
             Wyy_t = np.sum(Wyy_full_z, axis=(1,2)) / (self.vol*1e3)
             Wzz_t = np.sum(Wzz_full_z, axis=(1,2)) / (self.vol*1e3)
 
-        vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-        vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+        vir_chunkX = self.remove_first_last(np.mean(vir_full_x, axis=(0,2)))
+        vir_chunkZ = self.remove_first_last(np.mean(vir_full_z, axis=(0,1)))
         vir_fluctuations = sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
@@ -451,6 +482,13 @@ class ExtractFromTraj:
         # Error calculation for the time series
         fxL, fxU = np.sum(fx_Lower,axis=1) , np.sum(fx_Upper,axis=1)
         fzL, fzU = np.sum(fz_Lower,axis=1) , np.sum(fz_Upper,axis=1)
+
+        # Calculation of stress in the chunks
+        sigxz_chunkX = self.remove_first_last(np.mean(fx_wall,axis=0)) * pa_to_Mpa / self.chunk_A
+        sigyz_chunkX = self.remove_first_last(np.mean(fy_wall,axis=0)) * pa_to_Mpa / self.chunk_A
+        sigzz_chunkX = self.remove_first_last(np.mean(fz_wall,axis=0)) * pa_to_Mpa / self.chunk_A
+
+        # Error calculation for each chunk
         sigxz_err_t = sq.prop_uncertainty(fxL, fxU)['err'] * pa_to_Mpa / self.wall_A
         sigxz_lo_t = sq.prop_uncertainty(fxL, fxU)['lo'] * pa_to_Mpa / self.wall_A
         sigxz_hi_t = sq.prop_uncertainty(fxL, fxU)['hi'] * pa_to_Mpa / self.wall_A
@@ -459,12 +497,6 @@ class ExtractFromTraj:
         sigzz_lo_t = sq.prop_uncertainty(fzL, fzU)['lo'] * pa_to_Mpa / self.wall_A
         sigzz_hi_t = sq.prop_uncertainty(fzL, fzU)['hi'] * pa_to_Mpa / self.wall_A
 
-        # Calculation of stress in the chunks
-        sigxz_chunkX = np.mean(fx_wall,axis=0) * pa_to_Mpa / self.chunk_A
-        sigyz_chunkX = np.mean(fy_wall,axis=0) * pa_to_Mpa / self.chunk_A
-        sigzz_chunkX = np.mean(fz_wall,axis=0) * pa_to_Mpa / self.chunk_A
-
-        # Error calculation for each chunk
         sigxz_err = sq.prop_uncertainty(fx_Lower, fx_Upper)['err'] * pa_to_Mpa / self.chunk_A
         sigxz_lo = sq.prop_uncertainty(fx_Lower, fx_Upper)['lo'] * pa_to_Mpa / self.chunk_A
         sigxz_hi = sq.prop_uncertainty(fx_Lower, fx_Upper)['hi'] * pa_to_Mpa / self.chunk_A
@@ -512,64 +544,48 @@ class ExtractFromTraj:
         tempX, tempY, tempZ : temperature x,y,z components from the correspondng velocity components
         """
 
-        temp_full_x = np.array(self.data_x.variables["Temperature"])[self.skip:]
-        tempX = np.mean(temp_full_x, axis=(0,2))
+        temp_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Temperature"])[self.skip:])
+        tempX = self.remove_first_last(np.mean(temp_full_x, axis=(0,2)))
 
-        temp_full_z = np.array(self.data_z.variables["Temperature"])[self.skip:]
-        tempZ = np.mean(temp_full_z, axis=(0,1))
+        temp_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Temperature"])[self.skip:])
+        tempZ = self.remove_first_last(np.mean(temp_full_z, axis=(0,1)))
+        # print(np.isnan(temp_full_z).any())
 
         temp_t = np.mean(temp_full_x, axis=(1,2))
 
-        # temp_full_z = ma.masked_where(temp_full_z == 0, temp_full_z)
-        # temp_full_z = np.ma.masked_invalid(temp_full_z)
-        # print(np.isnan(temp_full_z).any())
-        # print(np.mean(temp_full_z[:,0,3]))
-        # print(len(temp_full_z[:,0,3]))
-
-        # Inlet and outlet of the pump region
-        temp_bulk = np.max(tempZ)
-        temp_walls = 300 # K #TODO: should be computed
-        temp_ratio = temp_walls / temp_bulk
-        # print(f'Temp. at the walls {temp_walls} and in the bulk {temp_bulk}')
-        # pd_length = self.Lx - self.pumpsize * self.Lx      # nm
-        # pump_length = self.pumpsize * self.Lx      # nm
-
         try:
             # Temp in X-direction
-            tempX_full_x = np.array(self.data_x.variables["TemperatureX"])[self.skip:]  # Along length
-            tempX_len = np.mean(tempX_full_x,axis=(0,2))
-
-            tempX_full_z = np.array(self.data_z.variables["TemperatureX"])[self.skip:]  # Along height
-            tempX_height = np.mean(tempX_full_z,axis=(0,1))
-
+            tempX_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["TemperatureX"])[self.skip:])  # Along length
+            tempX_len = self.remove_first_last(np.mean(tempX_full_x,axis=(0,2)))
+            tempX_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["TemperatureX"])[self.skip:])  # Along height
+            tempX_height = self.remove_first_last(np.mean(tempX_full_z,axis=(0,1)))
             tempX_t = np.mean(tempX_full_x,axis=(1,2))
 
             # Temp in Y-direction
-            tempY_full_x = np.array(self.data_x.variables["TemperatureY"])[self.skip:]
-            tempY_len = np.mean(tempY_full_x,axis=(0,2))
-
-            tempY_full_z = np.array(self.data_z.variables["TemperatureY"])[self.skip:]
-            tempY_height = np.mean(tempY_full_z,axis=(0,1))
-
+            tempY_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["TemperatureY"])[self.skip:])
+            tempY_len = self.remove_first_last(np.mean(tempY_full_x,axis=(0,2)))
+            tempY_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["TemperatureY"])[self.skip:])
+            tempY_height = self.remove_first_last(np.mean(tempY_full_z,axis=(0,1)))
             tempY_t = np.mean(tempY_full_x,axis=(1,2))
 
             # Temp in Y-direction
-            tempZ_full_x = np.array(self.data_x.variables["TemperatureZ"])[self.skip:]
-            tempZ_len = np.mean(tempZ_full_x,axis=(0,2))
-
-            tempZ_full_z = np.array(self.data_z.variables["TemperatureZ"])[self.skip:]
-            tempZ_height = np.mean(tempZ_full_z,axis=(0,1))
-
+            tempZ_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["TemperatureZ"])[self.skip:])
+            tempZ_len = self.remove_first_last(np.mean(tempZ_full_x,axis=(0,2)))
+            tempZ_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["TemperatureZ"])[self.skip:])
+            tempZ_height = self.remove_first_last(np.mean(tempZ_full_z,axis=(0,1)))
             tempZ_t = np.mean(tempZ_full_x,axis=(1,2))
 
             # Temperature in the solid
-            temp_full_x_solid = np.array(self.data_x.variables["Temperature_solid"])[self.skip:]
-            tempS_len = np.mean(temp_full_x_solid, axis=(0,2))
-
-            temp_full_z_solid = np.array(self.data_z.variables["Temperature_solid"])[self.skip:]
-            tempS_height = np.mean(temp_full_z_solid, axis=(0,1))
-
+            temp_full_x_solid = self.mask_invalid_zeros(np.array(self.data_x.variables["Temperature_solid"])[self.skip:])
+            tempS_len = self.remove_first_last(np.mean(temp_full_x_solid, axis=(0,2)))
+            temp_full_z_solid = self.mask_invalid_zeros(np.array(self.data_z.variables["Temperature_solid"])[self.skip:])
+            tempS_height = self.remove_first_last(np.mean(temp_full_z_solid, axis=(0,1)))
             tempS_t = np.mean(temp_full_x_solid, axis=(1,2))
+
+            # Inlet and outlet of the pump region
+            temp_bulk = np.mean(tempZ[40:-40])
+            temp_walls = np.mean(tempS_t)
+
             temp_grad = (temp_walls - temp_bulk) / (0.5 * self.avg_gap_height * 1e-9)    # K/m
 
         except KeyError:
@@ -579,7 +595,7 @@ class ExtractFromTraj:
             temp_full_x_solid, temp_full_z_solid, tempS_t, tempS_len, tempS_height = 0,0,0,0,0
             temp_grad = 1
 
-        return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t, 'temp_ratio':temp_ratio,
+        return {'temp_X':tempX, 'temp_Z':tempZ, 'temp_t':temp_t,
                 'temp_full_x': temp_full_x, 'temp_full_z': temp_full_z,
                 'temp_full_x_solid':temp_full_x_solid, 'temp_full_z_solid':temp_full_z_solid,
                 'tempS_len':tempS_len, 'tempS_height':tempS_height,
@@ -732,9 +748,9 @@ class ExtractFromTraj:
         temp = np.mean(self.temp()['temp_t'])         # K
         prefac = sci.atm**2 * 1e3 * np.mean(self.vol) * 1e-27 * thermo_out * 1e-15 / (sci.k * temp)
 
-        Wxy_full_x = np.array(self.data_x.variables["Wxy"])[self.skip:]  # atm * A3
-        Wxz_full_x = np.array(self.data_x.variables["Wxz"])[self.skip:]
-        Wyz_full_x = np.array(self.data_x.variables["Wyz"])[self.skip:]
+        Wxy_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxy"])[self.skip:])  # atm * A3
+        Wxz_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxz"])[self.skip:])
+        Wyz_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wyz"])[self.skip:])
 
         # Virial off-diagonal components
         Wxy_t = np.sum(Wxy_full_x, axis=(1,2), dtype=np.float64) / (np.mean(self.vol)*1e3)     # atm
@@ -847,9 +863,9 @@ class ExtractFromTraj:
         conv_to_Jmpers = (4184*1e-10)/(sci.N_A*1e-15)
 
         # Heat flux vector
-        je_x = np.array(self.data_x.variables["JeX"])[self.skip:] * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
-        je_y = np.array(self.data_x.variables["JeY"])[self.skip:] * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
-        je_z = np.array(self.data_x.variables["JeZ"])[self.skip:] * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
+        je_x = self.mask_invalid_zeros(np.array(self.data_x.variables["JeX"])[self.skip:]) * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
+        je_y = self.mask_invalid_zeros(np.array(self.data_x.variables["JeY"])[self.skip:]) * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
+        je_z = self.mask_invalid_zeros(np.array(self.data_x.variables["JeZ"])[self.skip:]) * conv_to_Jmpers / np.mean(self.vol* 1e-27)  # J/m2.s
 
         return {'je_x':je_x, 'je_y':je_y, 'je_z':je_z}
 
