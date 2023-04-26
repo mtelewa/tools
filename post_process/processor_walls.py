@@ -452,14 +452,17 @@ class TrajtoGrid:
         # A cube in the center of the fluid (5x5x5 Å^3) ------------------------
         # To measure velocity distribution and test for Local thermodynamic equilibrium (LTE)
         xcom, ycom, zcom = cell_lengths_updated[0]/2, cell_lengths_updated[1]/2, cell_lengths_updated[2]/2
-        maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-2.5, xcom+2.5)['mask']
-        masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-2.5, ycom+2.5)['mask']
-        maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, zcom-2.5, zcom+2.5)['mask']
+        maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-5, xcom+5)['mask']
+        masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-5, ycom+5)['mask']
+        maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, zcom-5, zcom+5)['mask']
         mask_xy_lte = np.logical_and(maskx_lte, masky_lte)
         mask_lte = np.logical_and(mask_xy_lte, maskz_lte)
 
         # Shape: (time,)
         N_lte = np.sum(mask_lte, axis=1)    # No. of fluid atoms in the cube
+        Nzero_lte = np.less(N_lte, 1)
+        N_lte[Nzero_lte] = 1
+
         uCOM_lte = np.sum(fluid_vx_t * mask_lte, axis=1) / N_lte   # COM velocity in the cube
         vCOM_lte = np.sum(fluid_vy_t * mask_lte, axis=1) / N_lte
         wCOM_lte = np.sum(fluid_vz_t * mask_lte, axis=1) / N_lte
