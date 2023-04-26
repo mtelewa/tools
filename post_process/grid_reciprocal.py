@@ -20,7 +20,7 @@ size = comm.Get_size()
 # # Get the processor version
 version = 'reciprocal'
 
-def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start, fluid_end, solid_start, solid_end):
+def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_start, fluid_end, solid_start, solid_end, TW_interface):
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
@@ -74,7 +74,7 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
         chunksize = end - start
 
         # Postproc class construct
-        init = pnc.TrajtoGrid(data, start, end, nx, ny, mf, A_per_molecule, fluid)
+        init = pnc.TrajtoGrid(data, start, end, nx, ny, nz, mf, A_per_molecule, fluid, TW_interface)
 
         # Get the data
         cell_lengths, kx, ky, kz, \
@@ -85,8 +85,7 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
                                                                   'sf',
                                                                   'sf_solid',
                                                                   'rho_k',
-                                                                  'Nf', 'Nm',
-                                                                  'fluid_vol')(init.get_chunks(fluid_start,
+                                                                  'Nf', 'Nm')(init.get_chunks(fluid_start,
                                                                    fluid_end, solid_start, solid_end))
 
         # Number of elements in the send buffer
@@ -122,14 +121,13 @@ def make_grid(infile, nx, ny, slice_size, mf, A_per_molecule, fluid, fluid_start
             sf_solid_global = None
             rho_k_global = None
 
-        if gap_heights != None:     # If there are walls
-            comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=sf_solid, recvbuf=(sf_solid_global, sendcounts_chunk_solid_layer_3d), root=0)
-            comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
+        comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
+        comm.Gatherv(sendbuf=sf_solid, recvbuf=(sf_solid_global, sendcounts_chunk_solid_layer_3d), root=0)
+        comm.Gatherv(sendbuf=rho_k, recvbuf=(rho_k_global, sendcounts_chunk_fluid_layer_3d), root=0)
 
         if rank == 0:
 

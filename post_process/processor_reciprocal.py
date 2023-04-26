@@ -161,9 +161,9 @@ class TrajtoGrid:
         # Cartesian Coordinates ---------------------------------------------
         coords = np.array(coords_data_unavgd[self.start:self.end]).astype(np.float32)
         # Shape: (time, Nf)
-        fluid_xcoords, fluid_ycoord, fluid_zcoords = coords[:, fluid_idx, 0], \
-                                                     coords[:, fluid_idx, 1], \
-                                                     coords[:, fluid_idx, 2]
+        fluid_xcoords, fluid_ycoords, fluid_zcoords = coords[:, fluid_idx, 0], \
+                                                      coords[:, fluid_idx, 1], \
+                                                      coords[:, fluid_idx, 2]
         # Shape: (time, Ns)
         solid_xcoords, solid_ycoords, solid_zcoords = coords[:, solid_start:, 0], \
                                                       coords[:, solid_start:, 1], \
@@ -186,6 +186,7 @@ class TrajtoGrid:
 
         # Shape: int
         avg_fluid_begin_div = np.mean(comm.allgather(np.mean(fluid_begin_div)))
+        avg_fluid_end_div = np.mean(comm.allgather(np.mean(fluid_end_div)))
 
         # Define the upper surface and lower surface regions
         # To avoid problems with logical-and later
@@ -224,6 +225,8 @@ class TrajtoGrid:
         surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
         surfU_begin_div = utils.cnonzero_min(surfU_zcoords_div)['local_min']
 
+        avg_surfU_begin_div = np.mean(comm.allgather(np.mean(surfU_begin_div)))
+
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
@@ -238,9 +241,6 @@ class TrajtoGrid:
         # Positions
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
-
-        # Atomic mass of the upper vibrating region, Shape: (time, NsurfU_vib)
-        mass_surfU_vib = mass[:, surfU_vib_indices]
 
         surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
         surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
@@ -270,8 +270,12 @@ class TrajtoGrid:
         fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
                      utils.extrema(fluid_ycoords)['global_min'],
                      (avg_surfL_end_div + avg_fluid_begin_div) /2.]
+
+        fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
+                     utils.extrema(fluid_ycoords)['global_max'],
+                     (avg_surfU_begin_div + avg_fluid_end_div) /2.]
         # Fluid domain dimensions
-        fluid_lengths = [Lx, Ly, avg_gap_height_div]
+        fluid_lengths = [fluid_max[0]- fluid_min[0], fluid_max[1]- fluid_min[1], avg_gap_height_div]
 
         # Wave vectors in the z-direction
         kz = 2. * np.pi * nz / avg_gap_height_div
@@ -307,6 +311,7 @@ class TrajtoGrid:
 
         # Structure factor
         for i in range(len(kx)):
+            if rank==0: print(i)
             for k in range(len(ky)):
                 # Fourier components of the density
                 rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i] * fluid_xcoords * mask_layer +

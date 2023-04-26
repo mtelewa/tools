@@ -236,9 +236,7 @@ class TrajtoGrid:
                      utils.extrema(fluid_zcoords)['global_max']]
 
         # Fluid domain dimensions
-        fluid_lengths = [utils.extrema(fluid_xcoords)['global_max'] - utils.extrema(fluid_xcoords)['global_min'],
-                         utils.extrema(fluid_ycoords)['global_max'] - utils.extrema(fluid_ycoords)['global_min'],
-                         utils.extrema(fluid_zcoords)['global_max'] - utils.extrema(fluid_zcoords)['global_min']]
+        fluid_lengths = [fluid_max[0]- fluid_min[0], fluid_max[1]- fluid_min[1], fluid_max[2]- fluid_min[2]]
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
