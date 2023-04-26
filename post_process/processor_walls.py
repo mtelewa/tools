@@ -221,6 +221,7 @@ class TrajtoGrid:
 
         # Shape: int
         avg_fluid_begin_div = np.mean(comm.allgather(np.mean(fluid_begin_div)))
+        avg_fluid_end_div = np.mean(comm.allgather(np.mean(fluid_end_div)))
 
         # Define the upper surface and lower surface regions
         # To avoid problems with logical-and later
@@ -258,6 +259,8 @@ class TrajtoGrid:
         surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
         surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
         surfU_begin_div = utils.cnonzero_min(surfU_zcoords_div)['local_min']
+
+        avg_surfU_begin_div = np.mean(comm.allgather(np.mean(surfU_begin_div)))
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
@@ -306,8 +309,12 @@ class TrajtoGrid:
         fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
                      utils.extrema(fluid_ycoords)['global_min'],
                      (avg_surfL_end_div + avg_fluid_begin_div) /2.]
+
+        fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
+                     utils.extrema(fluid_ycoords)['global_max'],
+                     (avg_surfU_begin_div + avg_fluid_end_div) /2.]
         # Fluid domain dimensions
-        fluid_lengths = [Lx, Ly, avg_gap_height_div]
+        fluid_lengths = np.asarray(fluid_max) - np.asarray(fluid_min) #[Lx, Ly, avg_gap_height_div]
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
@@ -610,7 +617,7 @@ class TrajtoGrid:
                 vx_ch_whole[:, i, k] = np.sum(fluid_vx * mask_fluid, axis=1) / N_fluid_mask_non_zero[:, i, k]
 
                 # Density in the whole fluid (g/(mol.Å^3))
-                den_ch[:, i, k] = np.sum(mass_fluid * mask_fluid, axis=1) / vol_fluid[i, 0, k]
+                den_ch[:, i, k] = np.sum(mass_fluid * mask_fluid, axis=1) / vol_fluid[i,0,k]
 
                 # Mass flux in the whole fluid (g/(mol.Å^2.fs))
                 jx_ch[:, i, k] = vx_ch_whole[:, i, k] * den_ch[:, i, k]
