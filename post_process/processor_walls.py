@@ -275,7 +275,8 @@ class TrajtoGrid:
         solid_zcoords[:,surfU_vib_indices]
 
         # Atomic mass of the upper vibrating region, Shape: (time, NsurfU_vib)
-        mass_surfU_vib = mass[:, surfU_vib_indices]
+        mass_solid = mass[:, solid_start:]
+        mass_surfU_vib = mass_solid[:, surfU_vib_indices]
 
         surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
         surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
@@ -696,7 +697,6 @@ class TrajtoGrid:
                 temp_ch_solid[:, i, k] =  np.sum(mass_surfU_vib * sci.gram / sci.N_A * \
                                         peculiar_v_surfU_vib**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
                                         ((3 * N_Upper_vib_mask[:, i, k] - 3) * sci.k)  # Kelvin
-
 
         return {'cell_lengths': cell_lengths_updated,
                 'gap_heights': gap_heights,
