@@ -41,13 +41,13 @@ while getopts ":h:i:X:Y:f:s:e:p:x:z:T:" option; do
     ;;
     f) fluid="$OPTARG"
     ;;
-    s) stable_start="$OPTARG"
+    s) fluid_start="$OPTARG"
     ;;
-    e) stable_end="$OPTARG"
+    e) fluid_end="$OPTARG"
     ;;
-    p) pump_start="$OPTARG"
+    p) solid_start="$OPTARG"
     ;;
-    x) pump_end="$OPTARG"
+    x) solid_end="$OPTARG"
     ;;
     z) nz="$OPTARG"
     ;;
