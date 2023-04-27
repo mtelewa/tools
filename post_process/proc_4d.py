@@ -12,7 +12,7 @@ Time slices are then merged with `cdo mergetime` or `cdo merge` commands.
 """
 import sys
 import argparse
-import grid_3d
+import grid_4d as grid
 
 
 def get_parser():
@@ -62,5 +62,5 @@ if __name__ == "__main__":
     if args.fluid=='heptane': mf, A_per_molecule = 100.21, 7
     if args.fluid=='squalane': mf, A_per_molecule = 422.83, 30
 
-    grid_3d.make_grid(args.infile, args.Nx, args.Ny, args.Nz, args.slice_size, mf, A_per_molecule, args.fluid,
+    grid.make_grid(args.infile, args.Nx, args.Ny, args.Nz, args.slice_size, mf, A_per_molecule, args.fluid,
                     args.stable_start, args.stable_end, args.pump_start, args.pump_end, args.tessellate, args.TW_interface)

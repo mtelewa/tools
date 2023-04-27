@@ -10,7 +10,7 @@ import yaml
 import funcs
 import matplotlib as mpl
 import sample_quality as sq
-from compute_thermo_3d import ExtractFromTraj as dataset
+from compute_thermo_4d import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
 from scipy.integrate import trapezoid
 
@@ -196,49 +196,6 @@ class PlotFromGrid:
             #     self.axes_array[n].set_ylabel(labels[10])
             #     if self.dimension=='L': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_X']*1e20
             #     if self.dimension=='T': arr, y = data.mflux()['mflowrate_full_x'], data.mflux()['mflowrate_t']*1e20
-            #
-            # if any('sigzz' in var for var in variables):
-            #     self.axes_array[n].set_ylabel(labels[7])
-            #     if self.dimension=='L':
-            #         arr, y = None, data.sigwall()['sigzz_X']
-            #
-            #     if self.dimension=='T':
-            #         arr, y = None, data.sigwall()['sigzz_t']
-            #
-            #     if self.config['err_caps']:
-            #         y = data.sigwall()['sigzz_X']
-            #         err =  data.sigwall()['sigzz_err']
-            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
-            #     if self.config['err_fill']:
-            #         lo =  data.sigwall()['sigzz_lo'][1:-1]
-            #         hi =  data.sigwall()['sigzz_hi'][1:-1]
-            #
-            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
-            #
-            # if any('sigxz' in var for var in variables):
-            #     self.axes_array[n].set_ylabel('Wall $\sigma_{xz}$ (MPa)')
-            #     if self.dimension=='L':
-            #         arr, y = None, data.sigwall()['sigxz_X']
-            #
-            #     if self.dimension=='T':
-            #         arr, y = None, data.sigwall()['sigxz_t']
-            #
-            #     if self.config['err_caps']:
-            #         # if self.dimension=='L': # Error in eachchunk
-            #         y = data.sigwall()['sigxz_X']
-            #         err =  data.sigwall()['sigxz_err']
-            #         # else:
-            #         #     err =  data.sigwall()['sigxz_err_t']
-            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
-            #     if self.config['err_fill']:
-            #         # if self.dimension=='L': # Error in eachchunk
-            #         lo =  data.sigwall()['sigxz_lo'][1:-1]
-            #         hi =  data.sigwall()['sigxz_hi'][1:-1]
-            #         # else:   # Error in timeseries
-            #         #     lo =  data.sigwall()['sigxz_lo_t']
-            #         #     hi =  data.sigwall()['sigxz_hi_t']
-            #
-            #         self.plot_uncertainty(self.axes_array[n], x, y, err)
             #
             # # Solid temperature - Scalar
             # if any('tempS' in var for var in variables):

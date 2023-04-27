@@ -73,6 +73,19 @@ echo ${args[@]} > ${MOAB_SUBMITDIR}/flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
+# Default value for tessellate is 0
+if [ -n "$tessellate" ]; then
+  tessellate=1
+else
+  tessellate=0
+fi
+
+# Default value for TW_interface is 1
+if [ -n "$TW_interface" ]; then
+  TW_interface=0
+else
+  TW_interface=1
+fi
 
 cd ${MOAB_SUBMITDIR}
 

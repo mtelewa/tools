@@ -76,7 +76,21 @@ echo "Flags: ${args[@]}" > flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
-mpirun -np 8 proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid \
+# Default value for tessellate is 0
+if [ -n "$tessellate" ]; then
+  tessellate=1
+else
+  tessellate=0
+fi
+
+# Default value for TW_interface is 1
+if [ -n "$TW_interface" ]; then
+  TW_interface=0
+else
+  TW_interface=1
+fi
+
+mpirun -np 8 proc_4d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid \
                     $stable_start $stable_end $pump_start $pump_end --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_001.nc ]; then

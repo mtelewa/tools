@@ -83,7 +83,7 @@ class TrajtoGrid:
         """
 
         type = self.data.variables["type"]
-        type = np.array(type[0, :]).astype(np.float32)
+        types = np.array(type[0, :]).astype(np.float32)
 
         fluid_idx, solid_idx = [],[]
 
@@ -275,8 +275,8 @@ class TrajtoGrid:
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
         # Positions
-        surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
-        solid_zcoords[:,surfU_vib_indices]
+        surfU_vib_xcoords, surfU_vib_ycoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
+                    solid_ycoords[:,surfU_vib_indices], solid_zcoords[:,surfU_vib_indices]
 
         # Atomic mass of the upper vibrating region, Shape: (time, NsurfU_vib)
         mass_solid = mass[:, solid_start:]
@@ -350,14 +350,6 @@ class TrajtoGrid:
             (utils.region(fluid_xcoords, fluid_xcoords, pumpStartX, pumpEndX,
                                     ylength=Ly, length=avg_gap_height_conv))
 
-        # Mass flux (g/m2.ns) and flow rate (g/ns) in the pump region
-        vels_pump = fluid_vx * pump_region / self.A_per_molecule        # (time, Nf)
-        # Shape: (time,)
-        mflux_pump = (np.sum(vels_pump, axis=1) * (sci.angstrom/fs_to_ns) * \
-                     (self.mf/sci.N_A)) / (pump_vol * (sci.angstrom)**3)
-        mflowrate_pump = (np.sum(vels_pump, axis=1) * (sci.angstrom/fs_to_ns) * \
-                        (self.mf/sci.N_A)) / (pump_length * sci.angstrom)
-
         # Bulk -----------------------------------------------------------------
         bulkStartZ, bulkEndZ = (0.4 * Lz) + 1, (0.6 * Lz) + 1     # Boffset is 1 Angstrom
         # Shapes: float, Boolean (time, Nf), (time, Nf), (time,), (time,)
@@ -404,68 +396,6 @@ class TrajtoGrid:
             (utils.region(fluid_xcoords, fluid_xcoords, stableStartX, stableEndX,
                                             ylength=Ly, length=avg_gap_height_div))
 
-        # Mass flux (g/m2.ns) and flow rate (g/ns) in the stable region
-        vels_stable = fluid_vx * stable_region / self.A_per_molecule
-        # Shape: (time,)
-        mflux_stable = (np.sum(vels_stable, axis=1) * (sci.angstrom/fs_to_ns) * \
-                       (self.mf/sci.N_A))/ (stable_vol * (sci.angstrom)**3)      # g/m2.ns
-        mflowrate_stable = (np.sum(vels_stable, axis=1) * (sci.angstrom/fs_to_ns) * \
-                        (self.mf/sci.N_A)) / (stable_length * sci.angstrom)       # g/ns
-
-        fluxes = [mflux_pump, mflowrate_pump, mflux_stable, mflowrate_stable]
-
-        # Heat flux from ev: total energy * velocity and sv: energy from virial * velocity (Kcal/mol . Å/fs)
-        try:
-            ev_data = self.data.variables["f_ev"]       # (time, Natoms, 3)
-            centroid_vir_data = self.data.variables["f_sv"]     # (time, Natoms, 3)
-            ev = np.array(ev_data[self.start:self.end]).astype(np.float32)
-            centroid_vir = np.array(centroid_vir_data[self.start:self.end]).astype(np.float32)
-
-            fluid_evx, fluid_evy, fluid_evz = ev[:, fluid_idx, 0], \
-                                              ev[:, fluid_idx, 1], \
-                                              ev[:, fluid_idx, 2]
-
-            fluid_svx, fluid_svy, fluid_svz = centroid_vir[:, fluid_idx, 0] ,\
-                                              centroid_vir[:, fluid_idx, 1] ,\
-                                              centroid_vir[:, fluid_idx, 2]
-
-            je_x = np.sum((fluid_evx + fluid_svx) * stable_region, axis=1)    # (time,)
-            je_y = np.sum((fluid_evy + fluid_svy) * stable_region, axis=1)
-            je_z = np.sum((fluid_evz + fluid_svz) * stable_region, axis=1)
-        except KeyError:
-            je_x, je_y, je_z = np.zeros([self.chunksize], dtype=np.float32),\
-                               np.zeros([self.chunksize], dtype=np.float32),\
-                               np.zeros([self.chunksize], dtype=np.float32)
-
-        # A cube in the center of the fluid (5x5x5 Å^3) ------------------------
-        # To measure velocity distribution and test for Local thermodynamic equilibrium (LTE)
-        xcom, ycom, zcom = cell_lengths_updated[0]/2, cell_lengths_updated[1]/2, cell_lengths_updated[2]/2
-        maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-5, xcom+5)['mask']
-        masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-5, ycom+5)['mask']
-        maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, zcom-5, zcom+5)['mask']
-        mask_xy_lte = np.logical_and(maskx_lte, masky_lte)
-        mask_lte = np.logical_and(mask_xy_lte, maskz_lte)
-
-        # Shape: (time,)
-        N_lte = np.sum(mask_lte, axis=1)    # No. of fluid atoms in the cube
-        Nzero_lte = np.less(N_lte, 1)
-        N_lte[Nzero_lte] = 1
-
-        uCOM_lte = np.sum(fluid_vx_t * mask_lte, axis=1) / N_lte   # COM velocity in the cube
-        vCOM_lte = np.sum(fluid_vy_t * mask_lte, axis=1) / N_lte
-        wCOM_lte = np.sum(fluid_vz_t * mask_lte, axis=1) / N_lte
-
-        # Remove the streaming velocity from the lab frame velocity to get the thermal/peculiar velocity
-        # Shape: (Nf, time)
-        peculiar_vx = np.transpose(fluid_vx_t) - uCOM_lte
-        peculiar_vy = np.transpose(fluid_vy_t) - vCOM_lte
-        peculiar_vz = np.transpose(fluid_vz_t) - wCOM_lte
-
-        # Shape: (Nf,)
-        fluid_vx_avg_lte = np.mean(np.transpose(peculiar_vx) * mask_lte, axis=0)
-        fluid_vy_avg_lte = np.mean(np.transpose(peculiar_vy) * mask_lte, axis=0)
-        fluid_vz_avg_lte = np.mean(np.transpose(peculiar_vz) * mask_lte, axis=0)
-
         # ----------------------------------------------------------------------
         # The Grid -------------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -500,6 +430,7 @@ class TrajtoGrid:
         # ----------------------------------------------------------------------
         # initialize buffers to store the count 'N' and 'data_ch' of each chunk
         N_fluid_mask = np.zeros([self.chunksize, self.Nx, self.Ny, self.Nz], dtype=np.float32)
+        N_fluid_mask_non_zero = np.zeros_like(N_fluid_mask)
         N_stable_mask = np.zeros_like(N_fluid_mask)
         N_bulk_mask = np.zeros_like(N_fluid_mask)
         N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
@@ -571,11 +502,6 @@ class TrajtoGrid:
                     Nzero_stable = np.less(N_stable_mask[:, i, j, k], 1)
                     N_stable_mask[Nzero_stable, i, j, k] = 1
 
-            # SurfU partition-----------------------------------
-                    maskxU = utils.region(surfU_xcoords, surfU_xcoords,
-                                            xx[i, 0, 0], xx[i+1, 0, 0])['mask']
-                    N_Upper_mask[:, i] = np.sum(maskxU, axis=1)
-
             # Vibrating atoms
                     maskxU_vib = utils.region(surfU_vib_xcoords, surfU_vib_xcoords,
                                             xx[i, j, k], xx[i+1, j, k])['mask']
@@ -590,11 +516,6 @@ class TrajtoGrid:
                     # To avoid warning with flat rigid walls
                     Nzero_vib = np.less(N_Upper_vib_mask[:, i, j, k], 1)
                     N_Upper_vib_mask[Nzero_vib, i, j, k] = 1
-
-            # SurfL -----------------------------------
-                    maskxL = utils.region(surfL_xcoords, surfL_xcoords,
-                                            xx[i, 0, 0], xx[i+1, 0, 0])['mask']
-                    N_Lower_mask[:, i] = np.sum(maskxL, axis=1)
 
         # -----------------------------------------------------
         # Thermodynamic properties ----------------------------
@@ -634,16 +555,16 @@ class TrajtoGrid:
                     peculiar_vz =  np.transpose(peculiar_vz) * mask_fluid
                     peculiar_v = np.transpose(peculiar_v) * mask_fluid
 
-                    tempx_ch[:, i, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vx**2 * A_per_fs_to_m_per_s**2, axis=1) / \
+                    tempx_ch[:, i, j, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vx**2 * A_per_fs_to_m_per_s**2, axis=1) / \
                                         ((N_fluid_mask[:, i, j, k] - 1) * sci.k)
 
-                    tempy_ch[:, i, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vy**2 * A_per_fs_to_m_per_s**2, axis=1) / \
+                    tempy_ch[:, i, j, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vy**2 * A_per_fs_to_m_per_s**2, axis=1) / \
                                         ((N_fluid_mask[:, i, j, k] - 1) * sci.k)
 
-                    tempz_ch[:, i, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vz**2 * A_per_fs_to_m_per_s**2, axis=1) / \
+                    tempz_ch[:, i, j, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_vz**2 * A_per_fs_to_m_per_s**2, axis=1) / \
                                         ((N_fluid_mask[:, i, j, k] - 1) * sci.k)
 
-                    temp_ch[:, i, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_v**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
+                    temp_ch[:, i, j, k] = np.sum(mass_fluid * sci.gram / sci.N_A * peculiar_v**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
                                         ((3 * N_fluid_mask[:, i, j, k] - 3) * sci.k)
 
                     # Virial off-diagonal components (atm)
@@ -656,10 +577,10 @@ class TrajtoGrid:
 
                     # Bulk ---------------------------------------------------------
                     # Virial diagonal components (atm)
-                    Wxx_ch[:, i, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
-                    Wyy_ch[:, i, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
-                    Wzz_ch[:, i, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
-                    vir_ch[:, i, k] = -(Wxx_ch[:, i, k] + Wyy_ch[:, i, k] + Wzz_ch[:, i, k]) / 3.
+                    Wxx_ch[:, i, j, k] = np.sum(virial[:, fluid_idx, 0] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
+                    Wyy_ch[:, i, j, k] = np.sum(virial[:, fluid_idx, 1] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
+                    Wzz_ch[:, i, j, k] = np.sum(virial[:, fluid_idx, 2] * mask_bulk, axis=1) / vol_bulk_cell[i,j,k]
+                    vir_ch[:, i, j, k] = -(Wxx_ch[:, i, j, k] + Wyy_ch[:, i, j, k] + Wzz_ch[:, i, j, k]) / 3.
 
                     # Velocities in the stable region (Å/fs)
                     vx_ch[:, i, j, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, j, k]
@@ -692,13 +613,6 @@ class TrajtoGrid:
                 'Nm': Nm,
                 'totVi': totVi,
                 'del_totVi': del_totVi,
-                'je_x': je_x,
-                'je_y': je_y,
-                'je_z': je_z,
-                'fluxes': fluxes,
-                'fluid_vx_avg_lte': fluid_vx_avg_lte,
-                'fluid_vy_avg_lte': fluid_vy_avg_lte,
-                'fluid_vz_avg_lte': fluid_vz_avg_lte,
                 'vx_ch_whole':vx_ch_whole,
                 'den_ch': den_ch,
                 'jx_ch' : jx_ch,
