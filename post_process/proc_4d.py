@@ -42,6 +42,11 @@ def get_parser():
                     help='Multiple of Lx, where the pump region (pertrubation field) starts')
     parser.add_argument('pump_end', metavar='pump_end', action='store', type=float,
                     help='Multiple of Lx, where the pump region (pertrubation field) ends')
+    parser.add_argument('--tessellate', metavar='tessellate', action='store', type=int,
+                    help='Perform Delaunay tessellation, default is 0')
+    parser.add_argument('--TW_interface', metavar='TW_interface', action='store', type=int,
+                    help='Define the location of vibrating atoms in the upper wall \
+                        Default = 1: thermostat applied on the wall layers in contact with the fluid')
 
     return parser
 
@@ -51,18 +56,11 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    if args.fluid=='lj':
-        mf, A_per_molecule = 39.948, 1
-    if args.fluid=='propane':
-        mf, A_per_molecule = 44.09, 3
-    if args.fluid=='pentane':
-        mf, A_per_molecule = 72.15, 5
-    if args.fluid=='heptane':
-        mf, A_per_molecule = 100.21, 7
-    if args.fluid=='triacontane':
-        mf, A_per_molecule = 422.83, 30
-    if args.fluid=='squalane':
-        mf, A_per_molecule = 422.83, 30
+    if args.fluid=='lj': mf, A_per_molecule = 39.948, 1
+    if args.fluid=='propane': mf, A_per_molecule = 44.09, 3
+    if args.fluid=='pentane': mf, A_per_molecule = 72.15, 5
+    if args.fluid=='heptane': mf, A_per_molecule = 100.21, 7
+    if args.fluid=='squalane': mf, A_per_molecule = 422.83, 30
 
     grid_3d.make_grid(args.infile, args.Nx, args.Ny, args.Nz, args.slice_size, mf, A_per_molecule, args.fluid,
-                    args.stable_start, args.stable_end, args.pump_start, args.pump_end)
+                    args.stable_start, args.stable_end, args.pump_start, args.pump_end, args.tessellate, args.TW_interface)

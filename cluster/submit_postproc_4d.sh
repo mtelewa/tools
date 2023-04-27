@@ -29,7 +29,7 @@ if [ -n "${SCRIPT_FLAGS}" ] ; then
    fi
 fi
 
-while getopts ":h:i:X:Y:Z:f:s:e:p:x:" option; do
+while getopts ":h:i:X:Y:Z:f:s:e:p:x:t:T:" option; do
   case "$option" in
     h) echo "$usage"
        exit
@@ -52,6 +52,10 @@ while getopts ":h:i:X:Y:Z:f:s:e:p:x:" option; do
     ;;
     x) pump_end="$OPTARG"
     ;;
+    t) tessellate="$OPTARG"
+    ;;
+    T) TW_interface="$OPTARG"
+    ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
        exit 1
@@ -72,7 +76,8 @@ shift $((OPTIND - 1))
 
 cd $(pwd)
 
-mpirun --bind-to core --map-by core -report-bindings proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun --bind-to core --map-by core -report-bindings proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 \
+              $fluid $stable_start $stable_end $pump_start $pump_end --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${NchunksX}x1_001.nc ]; then
   mv ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_000.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc

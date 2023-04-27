@@ -22,14 +22,38 @@ size = comm.Get_size()
 #     if i.startswith('processor_nc'):
 #         version = re.split('(\d+)', i)[1]
 
-version = '3D'
+version = '4D'
 
-def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_start, stable_end, pump_start, pump_end):
+def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_start,
+                        stable_end, pump_start, pump_end, tessellate, TW_interface):
+    """
+    Parameters:
+    -----------
+    data: str, NetCDF trajectory file
+    Nx, Ny, Nz: int, Number of chunks in the x-, y- and z-direcions
+    slice_size: int, Number of frames to sample in the sliced trajectory
+    mf: float, molecular mass of fluid (g/mol)
+    A_per_molecule: int, no. of atoms per molecule
+    fluid: str, fluid material name
+    stable_start, stable_end, pump_start, pump_end: floats,
+            regions boundaries in the streamwise (x-direction)
+    tessellate: int, boolean to perform Delaunay tessellation
+    TW_interface: int, Define the location of vibrating atoms in the upper wall
+            Default = 1: thermostat is applied on the wall layers in contact with the fluid
+            if TW_interface = 0: thermostat is applied on the wall layers 1/3 wall
+            thickness (in z-direction) away
+    """
 
     infile = comm.bcast(infile, root=0)
     data = netCDF4.Dataset(infile)
     Nx, Ny, Nz = comm.bcast(Nx, root=0), comm.bcast(Ny, root=0), comm.bcast(Nz, root=0)
     slice_size = comm.bcast(slice_size, root=0)
+    mf, A_per_molecule = comm.bcast(mf, root=0), comm.bcast(A_per_molecule, root=0)
+    fluid = comm.bcast(fluid, root=0)
+    stable_start, stable_end = comm.bcast(stable_start, root=0), comm.bcast(stable_end, root=0)
+    pump_start, pump_end = comm.bcast(pump_start, root=0), comm.bcast(pump_end, root=0)
+    tessellate = comm.bcast(tessellate, root=0)
+    TW_interface = comm.bcast(TW_interface, root=0)
 
     # Timesteps
     Time = data.variables["time"]
@@ -50,7 +74,7 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
     slice1, slice2 = 1, slice_size+1
 
     if rank == 0:
-        print('Total simualtion time: {} {}'.format(np.int(total_sim_time), Time.units))
+        print('Total simulation time: {} {}'.format(np.int(total_sim_time), Time.units))
         print('======> The dataset will be sliced to %g slices!! <======' %Nslices)
 
     t0 = timer.time()
@@ -78,71 +102,54 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         chunksize = end - start
 
         # Postproc class construct
-        init = pnc.TrajtoGrid(data, start, end, Nx, Ny, Nz, mf, A_per_molecule, fluid)
+        init = pnc.TrajtoGrid(data, start, end, Nx, Ny, Nz, mf, A_per_molecule, fluid, tessellate, TW_interface)
 
         # Get the data
-        cell_lengths, gap_heights, bulkStartZ_time, bulkEndZ_time, com, fluxes, totVi, mytotVi,\
-        fluid_vx_avg, fluid_vy_avg, fluid_vz_avg, \
-        fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
-        vx_ch, vx_ch_whole, \
-        uCOMx, den_ch, \
-        jx_ch, mflowrate_ch, je_x, je_y, je_z, vir_ch, Wxx_ch, Wyy_ch, Wzz_ch, Wxy_ch, Wxz_ch, Wyz_ch,\
-        temp_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch_solid,\
-        surfU_fx_ch, surfU_fy_ch, surfU_fz_ch,\
-        surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
-        den_bulk_ch, Nf, Nm, \
-        fluid_vol = itemgetter('cell_lengths',
+        cell_lengths, gap_heights, bulkStartZ_time, bulkEndZ_time, com, Nf, Nm, totVi, del_totVi, \
+        je_x, je_y, je_z, fluxes, fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
+        vx_ch_whole, den_ch, jx_ch, mflowrate_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch, \
+        Wxy_ch, Wxz_ch, Wyz_ch, Wxx_ch, Wyy_ch, Wzz_ch, vir_ch, den_bulk_ch, vx_ch,
+        temp_ch_solid = itemgetter('cell_lengths',
                                   'gap_heights',
                                   'bulkStartZ_time',
                                   'bulkEndZ_time',
                                   'com',
-                                  'fluxes',
+                                  'Nf', 'Nm',
                                   'totVi',
-                                  'mytotVi',
-                                  'fluid_vx_avg',
-                                  'fluid_vy_avg',
-                                  'fluid_vz_avg',
-                                  'fluid_vx_avg_lte',
-                                  'fluid_vy_avg_lte',
-                                  'fluid_vz_avg_lte',
-                                  'vx_ch',
-                                  'vx_ch_whole',
-                                  'uCOMx',
-                                  'den_ch',
-                                  'jx_ch',
-                                  'mflowrate_ch',
+                                  'del_totVi',
                                   'je_x',
                                   'je_y',
                                   'je_z',
-                                  'vir_ch',
-                                  'Wxx_ch',
-                                  'Wyy_ch',
-                                  'Wzz_ch',
-                                  'Wxy_ch',
-                                  'Wxz_ch',
-                                  'Wyz_ch',
-                                  'temp_ch',
+                                  'fluxes',
+                                  'fluid_vx_avg_lte',
+                                  'fluid_vy_avg_lte',
+                                  'fluid_vz_avg_lte',
+                                  'vx_ch_whole',
+                                  'den_ch',
+                                  'jx_ch',
+                                  'mflowrate_ch',
                                   'tempx_ch',
                                   'tempy_ch',
                                   'tempz_ch',
-                                  'temp_ch_solid',
-                                  'surfU_fx_ch', 'surfU_fy_ch', 'surfU_fz_ch',
-                                  'surfL_fx_ch', 'surfL_fy_ch', 'surfL_fz_ch',
+                                  'temp_ch',
+                                  'Wxy_ch',
+                                  'Wxz_ch',
+                                  'Wyz_ch',
+                                  'Wxx_ch',
+                                  'Wyy_ch',
+                                  'Wzz_ch',
+                                  'vir_ch',
                                   'den_bulk_ch',
-                                  'Nf', 'Nm',
-                                  'fluid_vol')(init.get_chunks(stable_start,
+                                  'vx_ch',
+                                  'temp_ch_solid')(init.get_chunks(stable_start,
                                     stable_end, pump_start, pump_end))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
-        sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
         sendcounts_chunk_vib = np.array(comm.gather(temp_ch_solid.size, root=0))
         sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
-        fluid_vx_avg = np.array(comm.gather(fluid_vx_avg, root=0))
-        fluid_vy_avg = np.array(comm.gather(fluid_vy_avg, root=0))
-        fluid_vz_avg = np.array(comm.gather(fluid_vz_avg, root=0))
         fluid_vx_avg_lte = np.array(comm.gather(fluid_vx_avg_lte, root=0))
         fluid_vy_avg_lte = np.array(comm.gather(fluid_vy_avg_lte, root=0))
         fluid_vz_avg_lte = np.array(comm.gather(fluid_vz_avg_lte, root=0))
@@ -150,17 +157,17 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         if rank == 0:
 
             print('Sampled time: {} {}'.format(np.int(time_array[-1]), Time.units))
-            # Dimensions: (Nf)
-            # Average velocity of each atom over all the tsteps in the slice
-            vx_global_avg = np.mean(fluid_vx_avg, axis=0)
-            vy_global_avg = np.mean(fluid_vy_avg, axis=0)
-            vz_global_avg = np.mean(fluid_vz_avg, axis=0)
-
+            # Dimensions: (Nf,) ------------------------------------------------
+            # Average velocity of each atom in the LTE region over all the tsteps
             vx_global_avg_lte = np.mean(fluid_vx_avg_lte, axis=0)
             vy_global_avg_lte = np.mean(fluid_vy_avg_lte, axis=0)
             vz_global_avg_lte = np.mean(fluid_vz_avg_lte, axis=0)
 
-            # Dimensions: (time)
+            # ------------------------------------------------------------------
+            # Initialize arrays ------------------------------------------------
+            # ------------------------------------------------------------------
+
+            # Dimensions: (time,)  ---------------------------------------------
             # Gap Heights
             gap_height_global = np.zeros(time, dtype=np.float32)
             gap_height_conv_global = np.zeros_like(gap_height_global)
@@ -169,56 +176,47 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             bulkEndZ_time_global = np.zeros_like(gap_height_global)
             # Center of Mass
             com_global = np.zeros_like(gap_height_global)
-            # Flow Rate and Mass flux
+            # Mass flow rate and flux
             mflux_pump_global = np.zeros_like(gap_height_global)
             mflowrate_pump_global = np.zeros_like(gap_height_global)
             mflux_stable_global = np.zeros_like(gap_height_global)
             mflowrate_stable_global = np.zeros_like(gap_height_global)
+            # Heat flux
             je_x_global = np.zeros_like(gap_height_global)
             je_y_global = np.zeros_like(gap_height_global)
             je_z_global = np.zeros_like(gap_height_global)
-
-            # Voronoi vol
+            # Fluid vol
             totVi_global = np.zeros_like(gap_height_global)
-            mytotVi_global = np.zeros_like(gap_height_global)
+            del_totVi_global = np.zeros_like(gap_height_global)
 
-
-            fluid_vol_global = np.zeros_like(gap_height_global)
-
-            # Dimensions: (time, Nx, Ny, Nz)
-            # Velocity (chunked in stable region)
-            vx_ch_global = np.zeros([time, Nx, Ny, Nz], dtype=np.float32)
-            vx_ch_whole_global = np.zeros_like(vx_ch_global)
-            uCOMx_global = np.zeros_like(vx_ch_global)
-            # Density
-            den_ch_global = np.zeros_like(vx_ch_global)
-            den_bulk_ch_global = np.zeros_like(vx_ch_global)
-            # Mass flux
-            jx_ch_global = np.zeros_like(vx_ch_global)
-            mflowrate_ch_global = np.zeros_like(vx_ch_global)
-            # Virial
-            vir_ch_global = np.zeros_like(vx_ch_global)
-            Wxx_ch_global = np.zeros_like(vx_ch_global)
-            Wyy_ch_global = np.zeros_like(vx_ch_global)
-            Wzz_ch_global = np.zeros_like(vx_ch_global)
-            Wxy_ch_global = np.zeros_like(vx_ch_global)
-            Wxz_ch_global = np.zeros_like(vx_ch_global)
-            Wyz_ch_global = np.zeros_like(vx_ch_global)
-            # Temperature
-            temp_global = np.zeros_like(vx_ch_global)
-            tempx_global = np.zeros_like(vx_ch_global)
-            tempy_global = np.zeros_like(vx_ch_global)
-            tempz_global = np.zeros_like(vx_ch_global)
-            temp_solid_global = np.zeros_like(vx_ch_global)
-
-            # Dimensions: (time, Nx)
-            # Surface Forces
-            surfU_fx_ch_global = np.zeros([time, Nx], dtype=np.float32)
-            surfU_fy_ch_global = np.zeros_like(surfU_fx_ch_global)
-            surfU_fz_ch_global = np.zeros_like(surfU_fx_ch_global)
-            surfL_fx_ch_global = np.zeros_like(surfU_fx_ch_global)
-            surfL_fy_ch_global = np.zeros_like(surfU_fx_ch_global)
-            surfL_fz_ch_global = np.zeros_like(surfU_fx_ch_global)
+            # Dimensions: (time, Nx, Nz) ---------------------------------------
+            # Velocity  -- fluid
+            vx_ch_whole_global = np.zeros([time, Nx, Ny, Nz], dtype=np.float32)
+            # Density  -- fluid
+            den_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Density -- bulk
+            den_bulk_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Mass flux and flow rate  -- fluid
+            jx_ch_global = np.zeros_like(vx_ch_whole_global)
+            mflowrate_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Temperature -- fluid
+            tempx_global = np.zeros_like(vx_ch_whole_global)
+            tempy_global = np.zeros_like(vx_ch_whole_global)
+            tempz_global = np.zeros_like(vx_ch_whole_global)
+            temp_global = np.zeros_like(vx_ch_whole_global)
+            # Virial pressure tensor -- fluid
+            Wxy_ch_global = np.zeros_like(vx_ch_whole_global)
+            Wxz_ch_global = np.zeros_like(vx_ch_whole_global)
+            Wyz_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Virial pressure tensor -- bulk
+            vir_ch_global = np.zeros_like(vx_ch_whole_global)
+            Wxx_ch_global = np.zeros_like(vx_ch_whole_global)
+            Wyy_ch_global = np.zeros_like(vx_ch_whole_global)
+            Wzz_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Velocity  -- stable
+            vx_ch_global = np.zeros_like(vx_ch_whole_global)
+            # Temperature -- solid
+            temp_solid_global = np.zeros_like(vx_ch_whole_global)
 
         else:
             gap_height_global = None
@@ -227,107 +225,77 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             bulkStartZ_time_global = None
             bulkEndZ_time_global = None
             com_global = None
-            mflowrate_stable_global = None
-            mflux_stable_global = None
             mflux_pump_global = None
             mflowrate_pump_global = None
-            totVi_global = None
-            mytotVi_global = None
-            fluid_vol_global = None
-
-            vx_ch_global = None
-
-            vx_ch_whole_global = None
-
-            uCOMx_global = None
-            den_ch_global = None
-            jx_ch_global = None
-            mflowrate_ch_global = None
+            mflowrate_stable_global = None
+            mflux_stable_global = None
             je_x_global = None
             je_y_global = None
             je_z_global = None
+            totVi_global = None
+            del_totVi_global = None
+
+            vx_ch_whole_global = None
+            den_ch_global = None
+            den_bulk_ch_global = None
+            jx_ch_global = None
+            mflowrate_ch_global = None
+            tempx_global = None
+            tempy_global = None
+            tempz_global = None
+            temp_global = None
+            Wxy_ch_global = None
+            Wxz_ch_global = None
+            Wyz_ch_global = None
             vir_ch_global = None
             Wxx_ch_global = None
             Wyy_ch_global = None
             Wzz_ch_global = None
-            Wxy_ch_global = None
-            Wxz_ch_global = None
-            Wyz_ch_global = None
-            temp_global = None
-            tempx_global = None
-            tempy_global = None
-            tempz_global = None
+            vx_ch_global = None
             temp_solid_global = None
 
-            surfU_fx_ch_global = None
-            surfU_fy_ch_global = None
-            surfU_fz_ch_global = None
-            surfL_fx_ch_global = None
-            surfL_fy_ch_global = None
-            surfL_fz_ch_global = None
-            den_bulk_ch_global = None
+        # ----------------------------------------------------------------------
+        # Collective Communication ---------------------------------------------
+        # ----------------------------------------------------------------------
 
-        if gap_heights != None:     # If there are walls
-            comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=bulkStartZ_time, recvbuf=(bulkStartZ_time_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=bulkEndZ_time, recvbuf=(bulkEndZ_time_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=fluxes[0], recvbuf=(mflux_pump_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=surfU_fy_ch, recvbuf=(surfU_fy_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=surfU_fz_ch, recvbuf=(surfU_fz_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
-            comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
+        comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=bulkStartZ_time, recvbuf=(bulkStartZ_time_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=bulkEndZ_time, recvbuf=(bulkEndZ_time_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=fluxes[0], recvbuf=(mflux_pump_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=fluxes[1], recvbuf=(mflowrate_pump_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=fluxes[2], recvbuf=(mflux_stable_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=fluxes[3], recvbuf=(mflowrate_stable_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=je_x, recvbuf=(je_x_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=je_y, recvbuf=(je_y_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=je_z, recvbuf=(je_z_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=del_totVi, recvbuf=(del_totVi_global, sendcounts_time), root=0)
 
-            # If the virial was not computed, skip
-            try:
-                comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
-                comm.Gatherv(sendbuf=mytotVi, recvbuf=(mytotVi_global, sendcounts_time), root=0)
-            except TypeError:
-                pass
-        else:   # If only bulk
-            comm.Gatherv(sendbuf=fluid_vol, recvbuf=(fluid_vol_global, sendcounts_time), root=0)
-            try:
-                comm.Gatherv(sendbuf=totVi, recvbuf=(totVi_global, sendcounts_time), root=0)
-            except TypeError:
-                pass
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(vx_ch_whole), recvbuf=(vx_ch_whole_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(den_ch), recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(den_bulk_ch), recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(jx_ch), recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(mflowrate_ch), recvbuf=(mflowrate_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(tempx_ch), recvbuf=(tempx_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(tempy_ch), recvbuf=(tempy_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(tempz_ch), recvbuf=(tempz_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(temp_ch), recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wxy_ch), recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wxz_ch), recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wyz_ch), recvbuf=(Wyz_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(vir_ch), recvbuf=(vir_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wxx_ch), recvbuf=(Wxx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wyy_ch), recvbuf=(Wyy_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(Wzz_ch), recvbuf=(Wzz_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(vx_ch), recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(temp_ch_solid), recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
 
-        # For both walls and bulk simulations ------
-
-        # If the heat flux was not computed, skip
-        try:
-            comm.Gatherv(sendbuf=je_x, recvbuf=(je_x_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=je_y, recvbuf=(je_y_global, sendcounts_time), root=0)
-            comm.Gatherv(sendbuf=je_z, recvbuf=(je_z_global, sendcounts_time), root=0)
-        except TypeError:
-            pass
-        comm.Gatherv(sendbuf=vx_ch, recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
-
-        comm.Gatherv(sendbuf=vx_ch_whole, recvbuf=(vx_ch_whole_global, sendcounts_chunk_fluid), root=0)
-
-        comm.Gatherv(sendbuf=uCOMx, recvbuf=(uCOMx_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=den_ch, recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=jx_ch, recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=mflowrate_ch, recvbuf=(mflowrate_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=temp_ch, recvbuf=(temp_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=tempx_ch, recvbuf=(tempx_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=tempy_ch, recvbuf=(tempy_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=tempz_ch, recvbuf=(tempz_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=vir_ch, recvbuf=(vir_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wxx_ch, recvbuf=(Wxx_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wyy_ch, recvbuf=(Wyy_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wzz_ch, recvbuf=(Wzz_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wxy_ch, recvbuf=(Wxy_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wxz_ch, recvbuf=(Wxz_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=Wyz_ch, recvbuf=(Wyz_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
+        # ----------------------------------------------------------------------
+        # Write to netCDF file -------------------------------------------------
+        # ----------------------------------------------------------------------
 
         if rank == 0:
 
@@ -341,16 +309,12 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             out.createDimension('time', time)
             out.createDimension('Nf', Nf)
             out.createDimension('Nm', Nm)
+            out.setncattr("Version", version)
 
             # Real lattice
             out.setncattr("Lx", cell_lengths[0])
             out.setncattr("Ly", cell_lengths[1])
             out.setncattr("Lz", cell_lengths[2])
-            out.setncattr("Version", version)
-
-            vx_all_var = out.createVariable('Fluid_Vx', 'f4', ('Nf'))
-            vy_all_var = out.createVariable('Fluid_Vy', 'f4', ('Nf'))
-            vz_all_var = out.createVariable('Fluid_Vz', 'f4', ('Nf'))
 
             vx_lte_var = out.createVariable('Fluid_lte_Vx', 'f4', ('Nf'))
             vy_lte_var = out.createVariable('Fluid_lte_Vy', 'f4', ('Nf'))
@@ -369,7 +333,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             mflowrate_stable = out.createVariable('mflow_rate_stable', 'f4', ('time'))
             voronoi_volumes = out.createVariable('Voronoi_volumes', 'f4', ('time'))
             voronoi_volumes_new = out.createVariable('Voronoi_volumes_new', 'f4', ('time'))
-            fluid_vol_var = out.createVariable('Fluid_Vol', 'f4', ('time'))
             je_x_var =  out.createVariable('JeX', 'f4', ('time'))
             je_y_var =  out.createVariable('JeY', 'f4', ('time'))
             je_z_var =  out.createVariable('JeZ', 'f4', ('time'))
@@ -401,6 +364,10 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             fz_L_var =  out.createVariable('Fz_Lower', 'f4',  ('time', 'x'))
 
             # Fill the arrays with data
+            vx_lte_var[:] = vx_global_avg_lte
+            vy_lte_var[:] = vy_global_avg_lte
+            vz_lte_var[:] = vz_global_avg_lte
+
             time_var[:] = time_array
             gap_height_var[:] = gap_height_global
             gap_height_conv_var[:] = gap_height_conv_global
@@ -412,49 +379,30 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             mflowrate_pump[:] = mflowrate_pump_global
             mflux_stable[:] = mflux_stable_global
             mflowrate_stable[:] = mflowrate_stable_global
-            voronoi_volumes[:] = totVi_global
-            voronoi_volumes_new[:] = mytotVi_global
-
-            fluid_vol_var[:] = fluid_vol_global
-
-            vx_all_var[:] = vx_global_avg
-            vy_all_var[:] = vy_global_avg
-            vz_all_var[:] = vz_global_avg
-
-            vx_lte_var[:] = vx_global_avg_lte
-            vy_lte_var[:] = vy_global_avg_lte
-            vz_lte_var[:] = vz_global_avg_lte
-
-            vx_var[:] = vx_ch_global
-
-            vx_whole_var[:] = vx_ch_whole_global
-
-            den_var[:] = den_ch_global
-            jx_var[:] = jx_ch_global
-            mflowrate_var[:] = mflowrate_ch_global
             je_x_var[:] = je_x_global
             je_y_var[:] = je_y_global
             je_z_var[:] = je_z_global
-            vir_var[:] = vir_ch_global
-            Wxx_var[:] = Wxx_ch_global
-            Wyy_var[:] = Wyy_ch_global
-            Wzz_var[:] = Wzz_ch_global
-            Wxy_var[:] = Wxy_ch_global
-            Wxz_var[:] = Wxz_ch_global
-            Wyz_var[:] = Wyz_ch_global
-            temp_var[:] = temp_global
+            voronoi_volumes[:] = totVi_global
+            voronoi_volumes_del[:] = del_totVi_global
+
+            vx_var[:] = vx_ch_global
+            den_var[:] = den_ch_global
+            density_bulk_var[:] = den_bulk_ch_global
+            jx_var[:] = jx_ch_global
+            mflowrate_var[:] = mflowrate_ch_global
             tempx_var[:] = tempx_global
             tempy_var[:] = tempy_global
             tempz_var[:] = tempz_global
-
-            fx_U_var[:] = surfU_fx_ch_global
-            fy_U_var[:] = surfU_fy_ch_global
-            fz_U_var[:] = surfU_fz_ch_global
-            fx_L_var[:] = surfL_fx_ch_global
-            fy_L_var[:] = surfL_fy_ch_global
-            fz_L_var[:] = surfL_fz_ch_global
+            temp_var[:] = temp_global
+            Wxy_var[:] = Wxy_ch_global
+            Wxz_var[:] = Wxz_ch_global
+            Wyz_var[:] = Wyz_ch_global
+            Wxx_var[:] = Wxx_ch_global
+            Wyy_var[:] = Wyy_ch_global
+            Wzz_var[:] = Wzz_ch_global
+            vir_var[:] = vir_ch_global
+            vx_whole_var[:] = vx_ch_whole_global
             temp_solid_var[:] = temp_solid_global
-            density_bulk_var[:] = den_bulk_ch_global
 
             out.close()
             print('Dataset is closed!')

@@ -12,7 +12,9 @@ where:
     -s   stable start
     -e   stable end
     -p   pump start
-    -x   pump end"
+    -x   pump end
+    -t   tessellate
+    -T   TW_interface"
 
 # Flags ----------------
 # This is a while loop that uses the getopts function and a so-called optstring
@@ -28,7 +30,7 @@ where:
 #This means all flags need a value. If, for example,
 #the d and f flags were not expected to have a value, u:dp:f would be the optstring.
 
-while getopts ":h:i:X:Y:Z:f:s:e:p:x:" option; do
+while getopts ":h:i:X:Y:Z:f:s:e:p:x:t:T:" option; do
   case "$option" in
     h) echo "$usage"
        exit
@@ -51,6 +53,10 @@ while getopts ":h:i:X:Y:Z:f:s:e:p:x:" option; do
     ;;
     x) pump_end="$OPTARG"
     ;;
+    t) tessellate="$OPTARG"
+    ;;
+    T) TW_interface="$OPTARG"
+    ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
        exit 1
@@ -70,7 +76,8 @@ echo "Flags: ${args[@]}" > flags.txt
 # have already been handled from $@
 shift $((OPTIND - 1))
 
-mpirun -np 8 proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid $stable_start $stable_end $pump_start $pump_end
+mpirun -np 8 proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 $fluid \
+                    $stable_start $stable_end $pump_start $pump_end --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_001.nc ]; then
   mv ${infile}_${Nchunks}x${NchunksY}x${NchunksZ}_000.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
