@@ -150,10 +150,10 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
-        #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
+                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', markersize=8, label='Fixed Force'),
         #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', markersize=8, label='Fixed Current'),
