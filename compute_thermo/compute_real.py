@@ -577,10 +577,13 @@ class ExtractFromTraj:
 
             # Temperature in the solid
             temp_full_x_solid = self.mask_invalid_zeros(np.array(self.data_x.variables["Temperature_solid"])[self.skip:])
-            tempS_len = self.remove_first_last(np.mean(temp_full_x_solid, axis=(0,2)))
             temp_full_z_solid = self.mask_invalid_zeros(np.array(self.data_z.variables["Temperature_solid"])[self.skip:])
-            tempS_height = self.remove_first_last(np.mean(temp_full_z_solid, axis=(0,1)))
-            tempS_t = np.mean(temp_full_x_solid, axis=(1,2))
+            if np.mean(temp_full_x_solid, axis=(0,1,2)) != None:
+                tempS_len = self.remove_first_last(np.mean(temp_full_x_solid, axis=(0,2)))
+                tempS_height = self.remove_first_last(np.mean(temp_full_z_solid, axis=(0,1)))
+                tempS_t = np.mean(temp_full_x_solid, axis=(1,2))
+            else:
+                tempS_len, tempS_height, tempS_t= 0, 0, 0
 
             # Inlet and outlet of the pump region
             temp_bulk = np.mean(tempZ[40:-40])
