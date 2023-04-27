@@ -90,25 +90,15 @@ class ExtractFromTraj:
 
         # For the fluid
         sf_real = np.array(self.data.variables["sf"])[self.skip:]
-        sf_x_real = np.array(self.data.variables["sf_x"])[self.skip:]
-        sf_y_real = np.array(self.data.variables["sf_y"])[self.skip:]
-        # For the solid
-        sf_real_solid = np.array(self.data.variables["sf_solid"])[self.skip:]
-        sf_x_real_solid = np.array(self.data.variables["sf_x_solid"])[self.skip:]
-        sf_y_real_solid = np.array(self.data.variables["sf_y_solid"])[self.skip:]
-
         # Structure factor averaged over time for each k
         sf = np.mean(sf_real, axis=0)
         sf_time = np.mean(sf_real, axis=(1,2))
-        sf_x = np.mean(sf_x_real, axis=0)
-        sf_y = np.mean(sf_y_real, axis=0)
 
+        # For the solid
+        sf_real_solid = np.array(self.data.variables["sf_solid"])[self.skip:]
         sf_solid = np.mean(sf_real_solid, axis=0)
-        sf_x_solid = np.mean(sf_x_real_solid, axis=0)
-        sf_y_solid = np.mean(sf_y_real_solid, axis=0)
 
-        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_x':sf_x, 'sf_y':sf_y, 'sf_time':sf_time,
-                'sf_solid':sf_solid, 'sf_x_solid':sf_x_solid, 'sf_y_solid':sf_y_solid}
+        return {'kx':kx, 'ky':ky, 'sf':sf, 'sf_time':sf_time, 'sf_solid':sf_solid}
 
 
     def ISF(self):

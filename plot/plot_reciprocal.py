@@ -17,6 +17,8 @@ from plot_settings import Initialize, Modify
 from matplotlib.ticker import ScalarFormatter
 import numpy.ma as ma
 import scipy.stats as stats
+import matplotlib.ticker as plticker
+
 
 # Uncomment to change Matplotlib backend
 # mpl.use('TkAgg')
@@ -137,18 +139,19 @@ class PlotGeneral:
         """
         data = dataset(self.skip, self.datasets[0], self.mf, self.pumpsize)
 
-        kx = data.sf()['kx']
+        loc = plticker.MultipleLocator(base=1.0) # this locator puts ticks at regular intervals
+        self.ax.xaxis.set_major_locator(loc)
+        self.ax.yaxis.set_major_locator(loc)
+
+        kx = data.sf()['kx'][:-19]
         ky = data.sf()['ky']
         # k = data.sf()['k']
 
-        sfx = data.sf()['sf_x']
-        sfy = data.sf()['sf_y']
         sf_time = data.sf()['sf_time']
         if fluid == 1:
             sf = data.sf()['sf']
         else:
             sf = data.sf()['sf_solid']
-        # sf_solid = data.sf()['sf_solid']
 
         if self.config['heat']:
             # self.ax.set_ylim(bottom=0, top=ky.max())
@@ -177,25 +180,25 @@ class PlotGeneral:
             # self.fig.colorbar(surf, shrink=0.5, aspect=5)
             self.ax.view_init(35,60) #(90,0)
 
-        else:
-            a = input('x or y or r or t:')
-            ax = self.axes_array[0]
-            if a=='x':
-                ax.set_xlabel('$k_x (\AA^{-1})$')
-                ax.set_ylabel('$S(K_x)$')
-                ax.plot(kx, sfx)
-                Modify(kx, self.fig, self.axes_array, self.configfile)
-            elif a=='y':
-                ax.set_xlabel('$k_y (\AA^{-1})$')
-                ax.set_ylabel('$S(K_y)$')
-                ax.plot(ky, sfy)
-                Modify(ky, self.fig, self.axes_array, self.configfile)
-            elif a=='t':
-                ax.set_xlabel('$t (fs)$')
-                ax.set_ylabel('$S(K)$')
-                ax.plot(self.time[self.skip:], sf_time, ls= '-', marker=' ', alpha=opacity,
-                           label=input('Label:'))
-                Modify(self.time[self.skip:], self.fig, self.axes_array, self.configfile)
+        # else:
+        #     a = input('x or y or r or t:')
+        #     ax = self.axes_array[0]
+        #     if a=='x':
+        #         ax.set_xlabel('$k_x (\AA^{-1})$')
+        #         ax.set_ylabel('$S(K_x)$')
+        #         ax.plot(kx, sfx)
+        #         Modify(kx, self.fig, self.axes_array, self.configfile)
+        #     elif a=='y':
+        #         ax.set_xlabel('$k_y (\AA^{-1})$')
+        #         ax.set_ylabel('$S(K_y)$')
+        #         ax.plot(ky, sfy)
+        #         Modify(ky, self.fig, self.axes_array, self.configfile)
+        #     elif a=='t':
+        #         ax.set_xlabel('$t (fs)$')
+        #         ax.set_ylabel('$S(K)$')
+        #         ax.plot(self.time[self.skip:], sf_time, ls= '-', marker=' ', alpha=opacity,
+        #                    label=input('Label:'))
+        #         Modify(self.time[self.skip:], self.fig, self.axes_array, self.configfile)
 
     def isf(self):
         """

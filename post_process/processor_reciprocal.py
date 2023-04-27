@@ -26,8 +26,6 @@ fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
 
-t0 = timer.time()
-
 class TrajtoGrid:
     """
     Molecular domain decomposition into spatial bins
@@ -143,14 +141,20 @@ class TrajtoGrid:
         fluid_idx, solid_idx, solid_start, Nf, Nm = self.get_indices()
         Lx, Ly, Lz = self.get_dimensions()
 
+        stepX, stepY = 1, np.int(self.nx/self.ny)
+
         # Discrete Wavevectors
-        nx = np.linspace(1, self.nx, self.nx, endpoint=True)
-        ny = np.linspace(1, self.ny, self.ny, endpoint=True)
+        nx = np.arange(1, self.nx+1, stepX) #np.linspace(1, self.nx, self.nx, endpoint=True)
+        ny = np.arange(1, self.nx+1, stepY)
+        # ny = np.linspace(1, self.ny, self.ny, endpoint=True)
         nz = np.linspace(1, self.nz, self.nz, endpoint=True)
 
         # Wavevectors
         kx = 2. * np.pi * nx / Lx
-        ky = 2. * np.pi * ny / Ly
+        ky = 2. * np.pi * ny / Lx
+
+        if len(ky) > self.ny:
+            ky = ky[:self.ny-len(ky)]
 
         # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
         # i.e. it is a snapshot of the system at this timestep.
@@ -164,6 +168,9 @@ class TrajtoGrid:
         fluid_xcoords, fluid_ycoords, fluid_zcoords = coords[:, fluid_idx, 0], \
                                                       coords[:, fluid_idx, 1], \
                                                       coords[:, fluid_idx, 2]
+
+        # print(coords[:, fluid_idx, 0:2].shape)
+
         # Shape: (time, Ns)
         solid_xcoords, solid_ycoords, solid_zcoords = coords[:, solid_start:, 0], \
                                                       coords[:, solid_start:, 1], \
@@ -306,20 +313,30 @@ class TrajtoGrid:
 
         # initialize buffers to store the count 'N' and 'data_ch' of each chunk
         rho_k = np.zeros([self.chunksize, len(kx), len(ky)] , dtype=np.complex64)
+        rho_k_s = np.zeros_like(rho_k)
         sf = np.zeros_like(rho_k)
         sf_solid = np.zeros_like(rho_k)
 
         # Structure factor
         for i in range(len(kx)):
-            if rank==0: print(i)
             for k in range(len(ky)):
                 # Fourier components of the density
-                rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i] * fluid_xcoords * mask_layer +
-                                    ky[k] * fluid_ycoords * mask_layer)))
-                sf[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i] * fluid_xcoords * mask_layer +
-                                    ky[k] * fluid_ycoords * mask_layer)), axis=1)))**2 / N_layer_mask
-                sf_solid[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i] * solid_xcoords * mask_layer_solid +
-                                    ky[k] * solid_ycoords * mask_layer_solid)), axis=1)))**2 / N_layer_mask_solid
+                # rho_k[:, i, k] = np.sum( np.exp(1.j * (kx[i] * fluid_xcoords * mask_layer +
+                #                     ky[k] * fluid_ycoords * mask_layer)))
+                # sf[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i] * fluid_xcoords * mask_layer +
+                #                     ky[k] * fluid_ycoords * mask_layer)), axis=1)))**2 / N_layer_mask
+                # sf_solid[:, i, k] =  np.abs((np.sum( np.exp(1.j * (kx[i] * solid_xcoords * mask_layer_solid +
+                #                     ky[k] * solid_ycoords * mask_layer_solid)), axis=1)))**2 / N_layer_mask_solid
+
+                rho_k[:, i, k] = np.sum(np.exp(-1.j * (kx[i] * fluid_xcoords * mask_layer \
+                                                     + ky[k] * fluid_ycoords * mask_layer)), axis=1)
+
+                rho_k_s[:, i, k] = np.sum(np.exp(-1.j * (kx[i] * solid_xcoords * mask_layer_solid \
+                                                        + ky[k] * solid_ycoords * mask_layer_solid)), axis=1)
+
+                sf[:, i, k] =  np.abs(rho_k[:, i, k] * np.conj(rho_k[:, i, k])) / N_layer_mask
+                sf_solid[:, i, k] =  np.abs(rho_k_s[:, i, k] * np.conj(rho_k_s[:, i, k])) / N_layer_mask_solid
+
 
         return {'cell_lengths': cell_lengths_updated,
                 'kx': kx,
