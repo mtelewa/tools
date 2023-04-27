@@ -130,9 +130,6 @@ class ExtractFromTraj:
             self.vol = np.array(self.data_x.variables["Fluid_Vol"])[self.skip:] * 1e-3      # nm^3
 
 
-    # Thermodynamic properties-----------------------------------------------
-    # -----------------------------------------------------------------------
-
     def mask_invalid_zeros(self, array):
         """
         Mask zeros and nans generated from post-processing script in bins with no atoms on fine grids
@@ -161,6 +158,9 @@ class ExtractFromTraj:
             array[0], array[-1] = np.nan, np.nan
 
         return array
+
+    # Thermodynamic properties-----------------------------------------------
+    # -----------------------------------------------------------------------
 
     def velocity(self):
         """
