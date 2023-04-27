@@ -400,29 +400,29 @@ class PlotFromGrid:
 
             # Fluid temperature - x component
             if any('tempX' in var for var in variables):
-                temp = data.temp()
+                tempX = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = temp['tempX_full_x'], temp['tempX_len']
-                if self.dimension=='H': arr, y = temp['tempX_full_z'], temp['tempX_height']
-                if self.dimension=='T': arr, y = None, temp['tempX_t']
+                if self.dimension=='L': arr, y = tempX['tempX_full_x'], tempX['tempX_len']
+                if self.dimension=='H': arr, y = tempX['tempX_full_z'], tempX['tempX_height']
+                if self.dimension=='T': arr, y = None, tempX['tempX_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - y component
             if any('tempY' in var for var in variables):
-                temp = data.temp()
+                tempY_t = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = temp['tempY_full_x'], temp['tempY_len']
-                if self.dimension=='H': arr, y = temp['tempY_full_z'], temp['tempY_height']
-                if self.dimension=='T': arr, y = None, temp['tempY_t']
+                if self.dimension=='L': arr, y = tempY['tempY_full_x'], tempY['tempY_len']
+                if self.dimension=='H': arr, y = tempY['tempY_full_z'], tempY['tempY_height']
+                if self.dimension=='T': arr, y = None, tempY['tempY_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - z component
             if any('tempZ' in var for var in variables):
-                temp = data.temp()
+                tempZ = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
-                if self.dimension=='L': arr, y = temp['tempZ_full_x'], temp['tempZ_len']
-                if self.dimension=='H': arr, y = temp['tempZ_full_z'], temp['tempZ_height']
-                if self.dimension=='T': arr, y = None, temp['tempZ_t']
+                if self.dimension=='L': arr, y = tempZ['tempZ_full_x'], tempZ['tempZ_len']
+                if self.dimension=='H': arr, y = tempZ['tempZ_full_z'], tempZ['tempZ_height']
+                if self.dimension=='T': arr, y = None, tempZ['tempZ_t']
                 self.plot_data(self.axes_array[n], x, y)
 
             # Fluid temperature - Scalar
@@ -462,16 +462,16 @@ class PlotFromGrid:
 
             # Solid temperature - Scalar
             if any('tempS' in var for var in variables):
-                temp = data.temp()
+                tempS = data.temp()
                 self.axes_array[n].set_ylabel(labels[6])
                 try:
-                    if self.dimension=='L': arr, y = temp['temp_full_x_solid'], temp['tempS_len']
-                    if self.dimension=='H': arr, y = temp['temp_full_z_solid'], temp['tempS_height']
-                    if self.dimension=='T': arr, y = None, temp['tempS_t']
+                    if self.dimension=='L': arr, y = tempS['temp_full_x_solid'], tempS['tempS_len']
+                    if self.dimension=='H': arr, y = tempS['temp_full_z_solid'], tempS['tempS_height']
+                    if self.dimension=='T': arr, y = None, tempS['tempS_t']
                 except KeyError:
                     pass
-                if np.mean(temp['tempS_len'])>1:     # Don't plot data where the solid temp. is zero (for example TF system)
-                    self.plot_data(self.axes_array[n], x, y)
+                # if np.mean(tempS['tempS_len'])>1:     # Don't plot data where the solid temp. is zero (for example TF system)
+                self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
         if self.config['plot_inset']:
