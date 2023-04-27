@@ -102,7 +102,8 @@ def fit(x,y,order):
         Fitting parameters for the velocity profile
     """
     # Fitting coefficients
-    coeffs_fit = np.polyfit(x, y, order)     #returns the polynomial coefficients
+    y = np.ma.masked_invalid(y)
+    coeffs_fit = np.ma.polyfit(x, y, order)     #returns the polynomial coefficients
     # construct the polynomial
     polynom = np.poly1d(coeffs_fit)
 
