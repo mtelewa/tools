@@ -48,7 +48,7 @@ def make_grid(infile, Nx, Nz, slice_size, mf, A_per_molecule, fluid, stable_star
     slice1, slice2 = 1, slice_size+1
 
     if rank == 0:
-        print('Total simualtion time: {} {}'.format(np.int(total_sim_time), Time.units))
+        print('Total simulation time: {} {}'.format(np.int(total_sim_time), Time.units))
         print('======> The dataset will be sliced to %g slices!! <======' %Nslices)
 
     t0 = timer.time()

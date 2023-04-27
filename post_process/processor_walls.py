@@ -358,7 +358,7 @@ class TrajtoGrid:
             surfL_fx, surfL_fy, surfL_fz = 0, 0, 0
 
         # ---------------------------------------------------------------------------------
-        # Regions within the fluid: arrays of shape (time,), (Nf,) and (time, Nf) -------------------------------------
+        # Regions within the fluid: arrays of shape (time,), (Nf,) and (time, Nf) ---------
         # ---------------------------------------------------------------------------------
 
         # Pump -----------------------------------------------------------------
@@ -589,7 +589,7 @@ class TrajtoGrid:
                 Nzero_stable = np.less(N_stable_mask[:, i, k], 1)
                 N_stable_mask[Nzero_stable, i, k] = 1
 
-        # SurfU partition-----------------------------------
+        # SurfU partition--------------------------------------------
                 maskxU = utils.region(surfU_xcoords, surfU_xcoords,
                                         xx[i, 0, 0], xx[i+1, 0, 0])['mask']
                 N_Upper_mask[:, i] = np.sum(maskxU, axis=1)
