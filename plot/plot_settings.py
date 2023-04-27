@@ -76,7 +76,7 @@ class Initialize:
         # Heat map
         try:
             if self.config['heat']:
-                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
+                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(5.3,5.3))
         except KeyError:
             pass
 
