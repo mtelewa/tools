@@ -90,7 +90,7 @@ fi
 
 cd $(pwd)
 
-mpirun --bind-to core --map-by core -report-bindings proc_nc_3d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 \
+mpirun --bind-to core --map-by core -report-bindings proc_4d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 \
               $fluid $stable_start $stable_end $pump_start $pump_end --tessellate $tessellate --TW_interface $TW_interface
 
 if [ ! -f ${infile}_${NchunksX}x1_001.nc ]; then
