@@ -114,7 +114,7 @@ if __name__ == "__main__":
         logging.error("No Files Found! Make sure the dataset is processed")
         quit()
 
-    pg = plot_from_3d_grid.PlotFromGrid(args.skip, dim, datasets_nc, mf, args.config, pumpsize)
+    pg = plot_from_4d_grid.PlotFromGrid(args.skip, dim, datasets_nc, mf, args.config, pumpsize)
     pg.extract_plot(args.variables)
     for ax in pg.axes_array:
         ax.set_rasterized(True)
