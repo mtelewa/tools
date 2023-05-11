@@ -37,13 +37,13 @@ class Initialize:
 
         # One plot per figure
         if nrows==1 and ncols==1:
-            fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)#, figsize=(7.8,6.8)) #,figsize=(4.6, 4.1))
+            fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)#, figsize=(6.4, 3.2))#, figsize=(7.8,6.8)) #,figsize=(4.6, 4.1))
             axes_array = np.array(ax).reshape(-1)
 
         # Multiple subplots
         if nrows > 1 or ncols > 1:
             if nrows>1:
-                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(7,7))
+                fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharex=True, figsize=(6.4, 5.2))#figsize=(7,7))
                 fig.subplots_adjust(hspace=0.05)         # Adjust space between axes
             if ncols>1:
                 fig, ax = plt.subplots(nrows=nrows, ncols=ncols, sharey=True, figsize=(8,7))
@@ -77,6 +77,13 @@ class Initialize:
         try:
             if self.config['heat']:
                 fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(5.3,5.3))
+        except KeyError:
+            pass
+
+        # Animation
+        try:
+            if self.config['anim']:
+                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True)
         except KeyError:
             pass
 
@@ -150,10 +157,11 @@ class Modify:
         handles, labels = axis.get_legend_handles_labels()
         #Additional elements
         # TODO: Generalize
-        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quartic fit')]
+        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
+                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Quartic fit')]
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
-        legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
-                           Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
+        #legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
+        #                   Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', markersize=8, label='Fixed Force'),
         #                    Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='v', markersize=8, label='Fixed Current'),
@@ -168,7 +176,8 @@ class Modify:
         # Import legend items from the elements specified
         elif self.config['legend_elements']=='e':
             if self.config['legend_loc'] == 1:
-                axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.5), columnspacing=1, ncol=3)#loc=(0.,0.45))
+                axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.8), columnspacing=1, ncol=1)
+                # axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.5), columnspacing=1, ncol=3)#loc=(0.,0.45))
             if isinstance(self.config['legend_loc'], str):
                 axis.legend(handles=legend_elements, frameon=False, loc=self.config['legend_loc'])
             if self.config['legend_loc'] is None:
@@ -176,8 +185,8 @@ class Modify:
         # Import legend items from the handles
         elif self.config['legend_elements']=='h':
             if self.config['legend_loc'] == 1:
-                # axis.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.12), ncol=4)
-                axis.legend(frameon=False, loc='upper right')
+                axis.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.12), ncol=4)
+                # axis.legend(frameon=False, loc='upper right')
             else:
                 axis.legend(frameon=False)
 
