@@ -106,13 +106,13 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         init = pnc.TrajtoGrid(data, start, end, Nx, Ny, Nz, mf, A_per_molecule, fluid, tessellate, TW_interface)
 
         # Get the data
-        cell_lengths, gap_heights, bulkStartZ_time, bulkEndZ_time, com, Nf, Nm, totVi, del_totVi, \
+        cell_lengths, gap_height, bulkStartZ_time, bulkEndZ_time, com, Nf, Nm, totVi, del_totVi, \
         je_x, je_y, je_z, fluxes, fluid_vx_avg_lte, fluid_vy_avg_lte, fluid_vz_avg_lte, \
         vx_ch_whole, den_ch, jx_ch, mflowrate_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch, \
         Wxy_ch, Wxz_ch, Wyz_ch, Wxx_ch, Wyy_ch, Wzz_ch, vir_ch, den_bulk_ch, vx_ch, \
         surfU_fx_ch, surfU_fy_ch, surfU_fz_ch, surfL_fx_ch, surfL_fy_ch, surfL_fz_ch,\
         temp_ch_solid = itemgetter('cell_lengths',
-                                  'gap_heights',
+                                  'gap_height',
                                   'bulkStartZ_time',
                                   'bulkEndZ_time',
                                   'com',
@@ -175,8 +175,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             # Dimensions: (time,)  ---------------------------------------------
             # Gap Heights
             gap_height_global = np.zeros(time, dtype=np.float32)
-            gap_height_conv_global = np.zeros_like(gap_height_global)
-            gap_height_div_global = np.zeros_like(gap_height_global)
             bulkStartZ_time_global = np.zeros_like(gap_height_global)
             bulkEndZ_time_global = np.zeros_like(gap_height_global)
             # Center of Mass
@@ -234,8 +232,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
 
         else:
             gap_height_global = None
-            gap_height_conv_global = None
-            gap_height_div_global = None
             bulkStartZ_time_global = None
             bulkEndZ_time_global = None
             com_global = None
@@ -279,9 +275,7 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         # Collective Communication ---------------------------------------------
         # ----------------------------------------------------------------------
 
-        comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_height, recvbuf=(gap_height_global, sendcounts_time), root=0)
         comm.Gatherv(sendbuf=bulkStartZ_time, recvbuf=(bulkStartZ_time_global, sendcounts_time), root=0)
         comm.Gatherv(sendbuf=bulkEndZ_time, recvbuf=(bulkEndZ_time_global, sendcounts_time), root=0)
         comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
@@ -349,8 +343,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
 
             time_var = out.createVariable('Time', 'f4', ('time'))
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
-            gap_height_conv_var =  out.createVariable('Height_conv', 'f4', ('time'))
-            gap_height_div_var =  out.createVariable('Height_div', 'f4', ('time'))
             bulkStartZ_time_var = out.createVariable('Bulk_Start', 'f4', ('time'))
             bulkEndZ_time_var = out.createVariable('Bulk_End', 'f4', ('time'))
             com_var =  out.createVariable('COM', 'f4', ('time'))
@@ -397,8 +389,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
 
             time_var[:] = time_array
             gap_height_var[:] = gap_height_global
-            gap_height_conv_var[:] = gap_height_conv_global
-            gap_height_div_var[:] = gap_height_div_global
             bulkStartZ_time_var[:] = bulkStartZ_time_global
             bulkEndZ_time_var[:] = bulkEndZ_time_global
             com_var[:] = com_global
