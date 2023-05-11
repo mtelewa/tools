@@ -116,6 +116,7 @@ if __name__ == "__main__":
     if 'press-profile' in args.filename and 'virial' in args.variables: ptxt.virial()
     if 'virialChunkX' in args.filename and 'virial' in args.variables: ptxt.virial()
     if 'temp' in args.filename: ptxt.temp()
+    if 'vx' in args.filename: ptxt.vx()
     if 'radii' in args.variables: ptxt.radii()
     if 'radius' in args.variables:
         method = 'static'
