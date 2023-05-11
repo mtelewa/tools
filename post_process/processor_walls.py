@@ -27,6 +27,7 @@ fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
 
+
 class TrajtoGrid:
     """
     Molecular domain decomposition into spatial bins
@@ -151,19 +152,17 @@ class TrajtoGrid:
         Lx, Ly, Lz = self.get_dimensions()
 
         # Position, velocity, virial (Wi) array dimensions: (time, Natoms, dimension)
-        try:
-            coords_data = self.data.variables["f_position"]
-        except KeyError:
-            coords_data = self.data.variables["coordinates"]
-        try:
-            vels_data = self.data.variables["f_velocity"]
-        except KeyError:
-            vels_data = self.data.variables["velocities"]
         # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
         # i.e. it is a snapshot of the system at this timestep.
         # The averaged quantities are the moving average of a few previous timesteps
-        coords_data_unavgd = self.data.variables["coordinates"]   # Used for ACF calculation
-        vels_data_unavgd = self.data.variables["velocities"]     # Used for temp. calculation
+
+        coords_data = self.data.variables["coordinates"]
+        try:
+            vels_data = self.data.variables["f_velocity"]     # averaged velocities
+        except KeyError:
+            vels_data = self.data.variables["velocities"]     # unaveraged velocities used for temp. calculation
+
+        vels_data_unavgd = self.data.variables["velocities"]
 
         # Fluid Virial Pressure ------------------------------------------------
         virial_data = self.data.variables["f_Wi_avg"]
@@ -176,10 +175,10 @@ class TrajtoGrid:
         mass = np.zeros_like(type_array)
 
         types = np.array(type_array[0, :]).astype(np.float32)
-        if np.max(types)==2: mass_map = {1: 39.948, 2: 196.96}
-        if np.max(types)==3: mass_map = {1: 15.03462, 2: 14.02667, 3: 196.96}
-        if np.max(types)==4 and self.fluid=='pentane': {1: 15.03462, 2: 14.02667, 3: 196.96, 4: 196.96}
-        if np.max(types)==4 and self.fluid=='squalane': {1: 13.019, 2: 14.02667, 3: 15.03462, 4: 196.96}
+        if np.max(types)==2: mass_map = {1: 39.948, 2: 196.96}  # argon and gold
+        if np.max(types)==3: mass_map = {1: 15.03462, 2: 14.02667, 3: 196.96}   # CH3, CH2 and gold
+        if np.max(types)==4 and self.fluid=='pentane': {1: 15.03462, 2: 14.02667, 3: 196.96, 4: 196.96} # CH3, CH2 and wetting and non-wetting gold
+        if np.max(types)==4 and self.fluid=='squalane': {1: 13.019, 2: 14.02667, 3: 15.03462, 4: 196.96}  # CH, CH2, CH3 and gold
 
         for i in range(type_array.shape[0]):
             for j in range(type_array.shape[1]):
@@ -195,36 +194,28 @@ class TrajtoGrid:
 
         # Cartesian Coordinates ------------------------------------------------
         coords = np.array(coords_data[self.start:self.end]).astype(np.float32)
+
         # Shape: (time, Nf)
-        fluid_xcoords,fluid_ycoords,fluid_zcoords = coords[:, fluid_idx, 0], \
-                                                    coords[:, fluid_idx, 1], \
-                                                    coords[:, fluid_idx, 2]
+        fluid_xcoords, fluid_ycoords, fluid_zcoords = coords[:, fluid_idx, 0], \
+                                                      coords[:, fluid_idx, 1], \
+                                                      coords[:, fluid_idx, 2]
+
         # Shape: (time, Ns)
         solid_xcoords, solid_ycoords, solid_zcoords = coords[:, solid_start:, 0], \
                                                       coords[:, solid_start:, 1], \
                                                       coords[:, solid_start:, 2]
 
-        # Define fluid region,  shape: (time,)
+        # Fluid min and max z-coordinates in each timestep,  shape: (time,)
         fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
                                  utils.extrema(fluid_zcoords)['local_max']
 
-        # TODO: Need to define the diverged and converged regions properly
-        # Narrow range because of outliers in the fluid coordinates
-        beginConvergeX, endConvergeX, beginDivergeX, endDivergeX = 0.1, 0.2, 0.7, 0.8
-        fluid_zcoords_conv = utils.region(fluid_zcoords, fluid_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        fluid_begin_conv = utils.cnonzero_min(fluid_zcoords_conv)['local_min']
-        fluid_end_conv = utils.extrema(fluid_zcoords_conv)['local_max']
-
-        fluid_zcoords_div = utils.region(fluid_zcoords, fluid_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        fluid_begin_div = utils.cnonzero_min(fluid_zcoords_div)['local_min']
-        fluid_end_div = utils.extrema(fluid_zcoords_div)['local_max']
-
+        # Average of the timesteps in this time slice for the avg. height
         # Shape: int
-        avg_fluid_begin_div = np.mean(comm.allgather(np.mean(fluid_begin_div)))
-        avg_fluid_end_div = np.mean(comm.allgather(np.mean(fluid_end_div)))
+        avg_fluid_begin, avg_fluid_end = np.mean(comm.allgather(np.mean(fluid_begin))), \
+                                         np.mean(comm.allgather(np.mean(fluid_end)))
 
         # Define the upper surface and lower surface regions
-        # To avoid problems with logical-and later
+        # To avoid problems with logical-and boolean
         solid_xcoords[solid_xcoords==0] = 1e-5
         surfU = np.ma.masked_greater(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
         surfL = np.ma.masked_less(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
@@ -240,7 +231,7 @@ class TrajtoGrid:
         # Check if surfU and surfL are not equal
         N_surfU, N_surfL = len(surfU_indices), len(surfL_indices)
         if N_surfU != N_surfL and rank == 0:
-            logger.warning("No. of surfU atoms != No. of surfL atoms")
+            logger.warning(f'No. of surfU atoms {N_surfU} != No. of surfL atoms {N_surfL}')
 
         # Shape: (time,)
         surfU_begin, surfL_end = utils.cnonzero_min(surfU_zcoords)['local_min'], \
@@ -251,29 +242,26 @@ class TrajtoGrid:
 
         # Average of the timesteps in this time slice for the avg. height
         # Shape: int
+        avg_surfU_begin, avg_surfL_end = np.mean(comm.allgather(np.mean(surfU_begin))), \
+                                         np.mean(comm.allgather(np.mean(surfL_end)))
         avg_surfU_end, avg_surfL_begin = np.mean(comm.allgather(np.mean(surfU_end))), \
                                          np.mean(comm.allgather(np.mean(surfL_begin)))
-
-        # The converged and diverged regions surfU and surfL: conv and div
-        surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
-        surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        surfU_begin_div = utils.cnonzero_min(surfU_zcoords_div)['local_min']
-
-        avg_surfU_begin_div = np.mean(comm.allgather(np.mean(surfU_begin_div)))
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
+                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
+                                0.667 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
         avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
-        # Positions
+
+        if rank == 0:
+            logger.info(f'Number of vibraing atoms in the upper surface: {len(surfU_vib_indices)}')
+
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
 
@@ -281,52 +269,32 @@ class TrajtoGrid:
         mass_solid = mass[:, solid_start:]
         mass_surfU_vib = mass_solid[:, surfU_vib_indices]
 
-        surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
-        surfL_zcoords_div = utils.region(surfL_zcoords, surfL_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
-
-        avg_surfL_end_div = np.mean(comm.allgather(np.mean(surfL_end_div)))
-
         # Gap heights and COM (in Z-direction) at each timestep
         # Shape: (time,)
         gap_height = (fluid_end - fluid_begin + surfU_begin - surfL_end) / 2.
-        gap_height_conv = (fluid_end_conv - fluid_begin_conv + surfU_begin_conv - surfL_end_conv) / 2.
-        gap_height_div = (fluid_end_div - fluid_begin_div + surfU_begin_div - surfL_end_div) / 2.
-        gap_heights = [gap_height, gap_height_conv, gap_height_div]
-        comZ = (surfU_begin - surfL_end) / 2.
-
+        comZ = (surfU_end + surfL_begin) / 2.
         # Shape: int
         avg_gap_height = np.mean(comm.allgather(np.mean(gap_height)))
-        avg_gap_height_conv = np.mean(comm.allgather(np.mean(gap_height_conv)))
-        avg_gap_height_div = np.mean(comm.allgather(np.mean(gap_height_div)))
 
-        # Update the box domain dimensions
+        # Update the entire domain dimensions
         Lz = avg_surfU_end - avg_surfL_begin
         cell_lengths_updated = [Lx, Ly, Lz]
+        domain_min = [0, 0, avg_surfL_begin]
 
-        # Fluid minimum positions for the grid
-        fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
-                     utils.extrema(fluid_ycoords)['global_min'],
-                     (avg_surfL_end_div + avg_fluid_begin_div) /2.]
-
-        fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
-                     utils.extrema(fluid_ycoords)['global_max'],
-                     (avg_surfU_begin_div + avg_fluid_end_div) /2.]
         # Fluid domain dimensions
-        fluid_lengths = [fluid_max[0]- fluid_min[0], fluid_max[1]- fluid_min[1], avg_gap_height_div]   #[Lx, Ly, avg_gap_height_div]
+        fluid_lengths = [Lx, Ly, (avg_fluid_end + avg_surfU_begin) / 2. - (avg_fluid_begin + avg_surfL_end) / 2.]
+        fluid_domain_min = [0, 0, (avg_fluid_begin + avg_surfL_end) / 2.]
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
+        # Unaveraged velocities
+        vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
 
         # Velocity of each atom
         # Shape: (time, Nf)
         fluid_vx, fluid_vy, fluid_vz = vels[:, fluid_idx, 0], \
                                        vels[:, fluid_idx, 1], \
                                        vels[:, fluid_idx, 2]
-
-        # Unaveraged velocities
-        vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
 
         fluid_vx_t, fluid_vy_t, fluid_vz_t = vels_t[:, fluid_idx, 0], \
                                              vels_t[:, fluid_idx, 1], \
@@ -367,7 +335,7 @@ class TrajtoGrid:
         pump_length, pump_region, pump_xcoords, pump_vol, pump_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_xcoords, fluid_xcoords, pumpStartX, pumpEndX,
-                                    ylength=Ly, length=avg_gap_height_conv))
+                                    ylength=Ly, length=avg_gap_height))
 
         # Mass flux (g/m2.ns) and flow rate (g/ns) in the pump region
         vels_pump = fluid_vx * pump_region / self.A_per_molecule        # (time, Nf)
@@ -378,15 +346,15 @@ class TrajtoGrid:
                         (self.mf/sci.N_A)) / (pump_length * sci.angstrom)
 
         # Bulk -----------------------------------------------------------------
-        bulkStartZ, bulkEndZ = (0.4 * Lz) + 1, (0.6 * Lz) + 1     # Boffset is 1 Angstrom
+        bulkStartZ, bulkEndZ = (0.4 * Lz) + avg_surfL_begin , (0.6 * Lz) + avg_surfL_begin
         # Shapes: float, Boolean (time, Nf), (time, Nf), (time,), (time,)
         bulk_height, bulk_region, bulk_zcoords, bulk_vol, bulk_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_zcoords, fluid_zcoords, bulkStartZ, bulkEndZ,
                                             ylength=Ly, length=Lx))
         # Shape: (time,)
-        bulkStartZ_time = 0.4 * (surfU_end - surfL_begin) + 1
-        bulkEndZ_time = 0.6 * (surfU_end - surfL_begin) + 1
+        bulkStartZ_time = 0.4 * (surfU_end - surfL_begin) + surfL_begin
+        bulkEndZ_time = 0.6 * (surfU_end - surfL_begin) + surfL_begin
 
         # Voronoi tesellation volume, performed during simulation (Å^3)
         try:
@@ -421,7 +389,7 @@ class TrajtoGrid:
         stable_length, stable_region, stable_xcoords, stable_vol, stable_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
             (utils.region(fluid_xcoords, fluid_xcoords, stableStartX, stableEndX,
-                                            ylength=Ly, length=avg_gap_height_div))
+                                            ylength=Ly, length=avg_gap_height))
 
         # Mass flux (g/m2.ns) and flow rate (g/ns) in the stable region
         vels_stable = fluid_vx * stable_region / self.A_per_molecule
@@ -458,7 +426,9 @@ class TrajtoGrid:
 
         # A cube in the center of the fluid (5x5x5 Å^3) ------------------------
         # To measure velocity distribution and test for Local thermodynamic equilibrium (LTE)
-        xcom, ycom, zcom = cell_lengths_updated[0]/2, cell_lengths_updated[1]/2, cell_lengths_updated[2]/2
+        xcom, ycom, zcom = (cell_lengths_updated[0] + domain_min[0]) / 2., \
+                           (cell_lengths_updated[1] + domain_min[1]) / 2., \
+                           (cell_lengths_updated[2] + domain_min[2]) / 2.
         maskx_lte = utils.region(fluid_xcoords, fluid_xcoords, xcom-5, xcom+5)['mask']
         masky_lte = utils.region(fluid_ycoords, fluid_ycoords, ycom-5, ycom+5)['mask']
         maskz_lte = utils.region(fluid_zcoords, fluid_zcoords, zcom-5, zcom+5)['mask']
@@ -492,12 +462,12 @@ class TrajtoGrid:
 
         # Whole cell -----------------------------------------------------------
         # The minimum position has to be added to have equal Number of solid atoms in each chunk
-        bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i] + fluid_min[i]
+        bounds = [np.arange(dim[i] + 1) / dim[i] * cell_lengths_updated[i] + domain_min[i]
                         for i in range(3)]
         xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
 
         # Fluid ----------------------------------------------------------------
-        bounds_fluid = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_min[i]
+        bounds_fluid = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_domain_min[i]
                         for i in range(3)]
         xx_fluid, yy_fluid, zz_fluid, vol_fluid = utils.bounds(bounds_fluid[0],
                                                   bounds_fluid[1], bounds_fluid[2])
@@ -512,7 +482,7 @@ class TrajtoGrid:
         stableRangeX = np.arange(dim[0] + 1) / dim[0] * stable_length + stableStartX
         bounds_stable = [stableRangeX, bounds_fluid[1], bounds_fluid[2]]
         xx_stable, yy_stable, zz_stable, vol_stable_cell = utils.bounds(bounds_stable[0],
-                                                            bounds_stable[1], bounds_stable[2])
+                                                    bounds_stable[1], bounds_stable[2])
 
         # ----------------------------------------------------------------------
         # Cell Partition: arrays of shape (time, Nx, Nz) and (time, Nx)---------
@@ -562,10 +532,14 @@ class TrajtoGrid:
 
                 # Count particles in the fluid cell
                 N_fluid_mask[:, i, k] = np.sum(mask_fluid, axis=1)
-                # Avoid having zero particles in the cell
+                # Avoid having zero particles in the cell (avoid division by zero)
                 N_fluid_mask_non_zero[:, i, k] = N_fluid_mask[:, i, k]
                 Nzero_fluid = np.less(N_fluid_mask_non_zero[:, i, k], 1)
                 N_fluid_mask_non_zero[Nzero_fluid, i, k] = 1
+
+                # a = N_fluid_mask[:,i,k]
+                # if rank==0:
+                #     print(a[0])
 
         # Bulk partition-----------------------------------
                 maskx_bulk = utils.region(fluid_xcoords, fluid_xcoords,
@@ -657,8 +631,6 @@ class TrajtoGrid:
                 # if rank ==0:
                 #     print(np.ma.masked_invalid(np.mean(temp_ch[:, i, k], axis=0)))
                 #     print(N_fluid_mask[:, i, k])
-                #     print(np.sum(peculiar_v**2 , axis=1))
-                #     print(3 * N_fluid_mask_non_zero[:, i, k] / self.A_per_molecule - 3)
 
                 # Virial off-diagonal components (atm)
                 try:
@@ -709,7 +681,7 @@ class TrajtoGrid:
                                         ((3 * N_Upper_vib_mask[:, i, k] - 3) * sci.k)  # Kelvin
 
         return {'cell_lengths': cell_lengths_updated,
-                'gap_heights': gap_heights,
+                'gap_height': gap_height,
                 'bulkStartZ_time': bulkStartZ_time,
                 'bulkEndZ_time': bulkEndZ_time,
                 'com': comZ,
