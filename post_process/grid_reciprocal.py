@@ -78,9 +78,9 @@ def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_s
 
         # Get the data
         cell_lengths, kx, ky, kz, \
-        gap_heights, com, sf, sf_solid, rho_k, Nf, Nm = itemgetter('cell_lengths',
+        gap_height, com, sf, sf_solid, rho_k, Nf, Nm = itemgetter('cell_lengths',
                                                                   'kx', 'ky', 'kz',
-                                                                  'gap_heights',
+                                                                  'gap_height',
                                                                   'com',
                                                                   'sf',
                                                                   'sf_solid',
@@ -98,10 +98,8 @@ def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_s
             print('Sampled time: {} {}'.format(np.int(time_array[-1]), Time.units))
 
             # Dimensions: (time,)
-            # Gap Heights
+            # Gap Height
             gap_height_global = np.zeros(time, dtype=np.float32)
-            gap_height_conv_global = np.zeros_like(gap_height_global)
-            gap_height_div_global = np.zeros_like(gap_height_global)
             # Center of Mass
             com_global = np.zeros_like(gap_height_global)
 
@@ -114,16 +112,12 @@ def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_s
 
         else:
             gap_height_global = None
-            gap_height_conv_global = None
-            gap_height_div_global = None
             com_global = None
             sf_global = None
             sf_solid_global = None
             rho_k_global = None
 
-        comm.Gatherv(sendbuf=gap_heights[0], recvbuf=(gap_height_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[1], recvbuf=(gap_height_conv_global, sendcounts_time), root=0)
-        comm.Gatherv(sendbuf=gap_heights[2], recvbuf=(gap_height_div_global, sendcounts_time), root=0)
+        comm.Gatherv(sendbuf=gap_height, recvbuf=(gap_height_global, sendcounts_time), root=0)
         comm.Gatherv(sendbuf=com, recvbuf=(com_global, sendcounts_time), root=0)
         comm.Gatherv(sendbuf=sf, recvbuf=(sf_global, sendcounts_chunk_fluid_layer_3d), root=0)
         comm.Gatherv(sendbuf=sf_solid, recvbuf=(sf_solid_global, sendcounts_chunk_solid_layer_3d), root=0)
@@ -148,8 +142,6 @@ def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_s
 
             time_var = out.createVariable('Time', 'f4', ('time'))
             gap_height_var =  out.createVariable('Height', 'f4', ('time'))
-            gap_height_conv_var =  out.createVariable('Height_conv', 'f4', ('time'))
-            gap_height_div_var =  out.createVariable('Height_div', 'f4', ('time'))
             com_var =  out.createVariable('COM', 'f4', ('time'))
 
             # Reciprocal lattice wave vectors
@@ -163,8 +155,6 @@ def make_grid(infile, nx, ny, nz, slice_size, mf, A_per_molecule, fluid, fluid_s
             # Fill the arrays with data
             time_var[:] = time_array
             gap_height_var[:] = gap_height_global
-            gap_height_conv_var[:] = gap_height_conv_global
-            gap_height_div_var[:] = gap_height_div_global
             com_var[:] = com_global
 
             kx_var[:] = kx

@@ -160,16 +160,14 @@ class TrajtoGrid:
         # i.e. it is a snapshot of the system at this timestep.
         # As opposed to averaged quantities which are the average of a few previous timesteps
         # Shape: (time, idx, dimesnion)
-        coords_data_unavgd = self.data.variables["coordinates"]   # Used for ACF calculation
+        coords_data = self.data.variables["coordinates"]
 
         # Cartesian Coordinates ---------------------------------------------
-        coords = np.array(coords_data_unavgd[self.start:self.end]).astype(np.float32)
+        coords = np.array(coords_data[self.start:self.end]).astype(np.float32)
         # Shape: (time, Nf)
         fluid_xcoords, fluid_ycoords, fluid_zcoords = coords[:, fluid_idx, 0], \
                                                       coords[:, fluid_idx, 1], \
                                                       coords[:, fluid_idx, 2]
-
-        # print(coords[:, fluid_idx, 0:2].shape)
 
         # Shape: (time, Ns)
         solid_xcoords, solid_ycoords, solid_zcoords = coords[:, solid_start:, 0], \
@@ -179,17 +177,6 @@ class TrajtoGrid:
         # Instanteneous extrema (array Needed for the gap height at each timestep)
         fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
                                  utils.extrema(fluid_zcoords)['local_max']
-
-        # TODO: Need to define the diverged and converged regions properly
-        # Narrow range because of outliers in the fluid coordinates
-        beginConvergeX, endConvergeX, beginDivergeX, endDivergeX = 0.1, 0.2, 0.7, 0.8
-        fluid_zcoords_conv = utils.region(fluid_zcoords, fluid_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        fluid_begin_conv = utils.cnonzero_min(fluid_zcoords_conv)['local_min']
-        fluid_end_conv = utils.extrema(fluid_zcoords_conv)['local_max']
-
-        fluid_zcoords_div = utils.region(fluid_zcoords, fluid_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        fluid_begin_div = utils.cnonzero_min(fluid_zcoords_div)['local_min']
-        fluid_end_div = utils.extrema(fluid_zcoords_div)['local_max']
 
         # Shape: int
         avg_fluid_begin_div = np.mean(comm.allgather(np.mean(fluid_begin_div)))
@@ -223,69 +210,47 @@ class TrajtoGrid:
 
         # Average of the timesteps in this time slice for the avg. height
         # Shape: int
+        avg_surfU_begin, avg_surfL_end = np.mean(comm.allgather(np.mean(surfU_begin))), \
+                                         np.mean(comm.allgather(np.mean(surfL_end)))
         avg_surfU_end, avg_surfL_begin = np.mean(comm.allgather(np.mean(surfU_end))), \
                                          np.mean(comm.allgather(np.mean(surfL_begin)))
-
-        # The converged and diverged regions surfU and surfL: conv and div
-        surfU_zcoords_conv = utils.region(surfU_zcoords, surfU_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        surfU_begin_conv = utils.cnonzero_min(surfU_zcoords_conv)['local_min']
-        surfU_zcoords_div = utils.region(surfU_zcoords, surfU_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        surfU_begin_div = utils.cnonzero_min(surfU_zcoords_div)['local_min']
-
-        avg_surfU_begin_div = np.mean(comm.allgather(np.mean(surfU_begin_div)))
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] - 1
+                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.667 * utils.extrema(surfL_zcoords)['local_max'] - 1
+                                0.667 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
         avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
-        # Positions
+
+        if rank == 0:
+            logger.info(f'Number of vibraing atoms in the upper surface: {len(surfU_vib_indices)}')
+
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
-
-        surfL_zcoords_conv = utils.region(surfL_zcoords, surfL_xcoords, beginConvergeX*Lx, endConvergeX*Lx)['data']
-        surfL_end_conv = utils.extrema(surfL_zcoords_conv)['local_max']
-        surfL_zcoords_div = utils.region(surfL_zcoords, surfL_xcoords, beginDivergeX*Lx, endDivergeX*Lx)['data']
-        surfL_end_div = utils.extrema(surfL_zcoords_div)['local_max']
-
-        avg_surfL_end_div = np.mean(comm.allgather(np.mean(surfL_end_div)))
 
         # Gap heights and COM (in Z-direction) at each timestep
         # Shape: (time,)
         gap_height = (fluid_end - fluid_begin + surfU_begin - surfL_end) / 2.
-        gap_height_conv = (fluid_end_conv - fluid_begin_conv + surfU_begin_conv - surfL_end_conv) / 2.
-        gap_height_div = (fluid_end_div - fluid_begin_div + surfU_begin_div - surfL_end_div) / 2.
-        gap_heights = [gap_height, gap_height_conv, gap_height_div]
-        comZ = (surfU_begin - surfL_end) / 2.
-
+        comZ = (surfU_end + surfL_begin) / 2.
         # Shape: int
         avg_gap_height = np.mean(comm.allgather(np.mean(gap_height)))
-        avg_gap_height_conv = np.mean(comm.allgather(np.mean(gap_height_conv)))
-        avg_gap_height_div = np.mean(comm.allgather(np.mean(gap_height_div)))
 
         # Update the box domain dimensions
         Lz = avg_surfU_end - avg_surfL_begin
         cell_lengths_updated = [Lx, Ly, Lz]
+        domain_min = [0, 0, avg_surfL_begin]
 
-        # Fluid minimum positions for the grid
-        fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
-                     utils.extrema(fluid_ycoords)['global_min'],
-                     (avg_surfL_end_div + avg_fluid_begin_div) /2.]
-
-        fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
-                     utils.extrema(fluid_ycoords)['global_max'],
-                     (avg_surfU_begin_div + avg_fluid_end_div) /2.]
         # Fluid domain dimensions
-        fluid_lengths = [fluid_max[0]- fluid_min[0], fluid_max[1]- fluid_min[1], avg_gap_height_div]
+        fluid_lengths = [Lx, Ly, (avg_fluid_end + avg_surfU_begin) / 2. - (avg_fluid_begin + avg_surfL_end) / 2.]
+        fluid_domain_min = [0, 0, (avg_fluid_begin + avg_surfL_end) / 2.]
 
         # Wave vectors in the z-direction
-        kz = 2. * np.pi * nz / avg_gap_height_div
+        kz = 2. * np.pi * nz / avg_gap_height
 
         #-------------------------------------------------------------------------
         # The Grid -------------------------------------------------------------
@@ -342,7 +307,7 @@ class TrajtoGrid:
                 'kx': kx,
                 'ky': ky,
                 'kz': kz,
-                'gap_heights': gap_heights,
+                'gap_height': gap_height,
                 'com': comZ,
                 'rho_k': rho_k,
                 'sf': sf,
