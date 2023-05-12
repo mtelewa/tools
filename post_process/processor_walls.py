@@ -250,7 +250,7 @@ class TrajtoGrid:
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + 2 * avg_surfL_begin
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
                                 0.833 * utils.extrema(surfL_zcoords)['local_max'] + 2 * avg_surfL_begin
@@ -260,7 +260,7 @@ class TrajtoGrid:
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
 
         if rank == 0:
-            logger.info(f'Number of vibraing atoms in the upper surface: {len(surfU_vib_indices)}')
+            logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)}')
 
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
