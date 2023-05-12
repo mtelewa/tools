@@ -179,8 +179,8 @@ class TrajtoGrid:
                                  utils.extrema(fluid_zcoords)['local_max']
 
         # Shape: int
-        avg_fluid_begin_div = np.mean(comm.allgather(np.mean(fluid_begin_div)))
-        avg_fluid_end_div = np.mean(comm.allgather(np.mean(fluid_end_div)))
+        avg_fluid_begin = np.mean(comm.allgather(np.mean(fluid_begin)))
+        avg_fluid_end = np.mean(comm.allgather(np.mean(fluid_end)))
 
         # Define the upper surface and lower surface regions
         # To avoid problems with logical-and later
