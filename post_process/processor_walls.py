@@ -253,7 +253,7 @@ class TrajtoGrid:
                                 0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.83 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+                                0.833 * utils.extrema(surfL_zcoords)['local_max'] + 2 * avg_surfL_begin
         avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
