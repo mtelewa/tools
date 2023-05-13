@@ -10,9 +10,10 @@ import yaml
 import funcs
 import matplotlib as mpl
 import sample_quality as sq
-from compute_thermo_4d import ExtractFromTraj as dataset
+from compute_4d import ExtractFromTraj as dataset
 from plot_settings import Initialize, Modify
 from scipy.integrate import trapezoid
+import matplotlib.animation as animation
 
 # Logger Settings
 logging.basicConfig(level=logging.INFO)
@@ -152,6 +153,7 @@ class PlotFromGrid:
             # Virial Pressure - Scalar
             if any('temp' in var for var in variables): array_to_plot = data.temp()
 
+            full_array = array_to_plot['data']
             if self.dimension=='LH': Z = array_to_plot['data_xz']
             if self.dimension=='LW': Z = array_to_plot['data_xy']
             if self.dimension=='LT': Z = array_to_plot['data_xt']
@@ -178,6 +180,54 @@ class PlotFromGrid:
                 im = plt.imshow(Z.T, cmap='viridis', interpolation='lanczos',
                     extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower')
                 cbar = self.ax.figure.colorbar(im, ax=self.ax)
+
+            if self.config['anim']:
+                first_frame, last_frame, interval, fps = 7695, 9800, 30, 2 #30
+                frames_list = np.arange(first_frame, last_frame, interval)
+                print(f'No. of frames: {len(frames_list)} in the animation')
+
+                #ArtistAnimation -----------------------------------------------
+                ims = []
+                for i in frames_list:
+                    print(f'Rendering frame number: {i}')
+                    print(f'Time={i*50/16666:.1f} ns')
+                    im = self.ax.imshow(full_array[i,:,:,0].T, cmap='viridis', interpolation='lanczos',
+                            extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower', animated=True)
+
+                    if i == first_frame:
+                        self.ax.imshow(full_array[i,:,:,0].T, cmap='viridis', interpolation='lanczos',
+                            extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower', animated=True)  # show an initial one first
+                    ims.append([im])
+
+                anim = animation.ArtistAnimation(plt.gcf(), ims, interval=1000, blit=True)
+
+                # FuncAnimation ------------------------------------------------
+                # # plt.pcolormesh(X, Y, full_array[0,:,:,0].T, cmap='viridis')
+                # im = plt.imshow(full_array[first_frame,:,:,0].T, cmap='viridis', interpolation='lanczos',
+                #     extent=[X.min(), X.max(), Y.min(), Y.max()], aspect='auto', origin='lower')
+                #
+                # def init():
+                #     plt.title('Time=0')
+                #     im.set_data(full_array[first_frame,:,:,0].T)
+                #     return [im]
+                #
+                # def animate(frame_number):
+                #     # plt.pcolormesh(X, Y, full_array[frame_number,:,:,0].T, cmap='viridis')
+                #     print(f'Rendering frame number: {frame_number}')
+                #     print(f'Time={i*50/16666:.1f} ns')
+                #     plt.title(f'Time={i*50/16666:.1f} ns')
+                #     im.set_array(full_array[frame_number,:,:,0].T)
+                #     return [im]
+                #
+                # anim = animation.FuncAnimation(plt.gcf(), animate, init_func=init, interval=1000, frames=frames_list)
+
+                # plt.draw()
+                plt.tight_layout()
+                # saving to mp4 using ffmpeg writer
+                writervideo = animation.FFMpegWriter(fps=fps, codec='mpeg2video', bitrate=2000)
+                anim.save('bubble.mp4', writer=writervideo)
+                plt.close()
+
 
             # # Mass flux - x component
             # if any('jx' in var for var in variables):
