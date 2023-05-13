@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, logging
+import warnings
 import numpy as np
 import scipy.constants as sci
 import time as timer
@@ -26,6 +27,10 @@ size = comm.Get_size()
 fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
+
+
+# For the spatial bins with 1 or zero atoms. These are masked later in computing properties.
+warnings.simplefilter('ignore', category=RuntimeWarning)
 
 
 class TrajtoGrid:
@@ -249,18 +254,18 @@ class TrajtoGrid:
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] - avg_surfL_begin
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.5 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.833 * utils.extrema(surfL_zcoords)['local_max'] - avg_surfL_begin
-        avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.833 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
+        # avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
-        surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
+        surfU_vib = np.ma.masked_less(surfU_zcoords, surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
 
         if rank == 0:
-            logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)} in the temperature calculation')
+            logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)}')
 
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
@@ -343,7 +348,7 @@ class TrajtoGrid:
         mflux_pump = (np.sum(vels_pump, axis=1) * (sci.angstrom/fs_to_ns) * \
                      (self.mf/sci.N_A)) / (pump_vol * (sci.angstrom)**3)
         mflowrate_pump = (np.sum(vels_pump, axis=1) * (sci.angstrom/fs_to_ns) * \
-                        (self.mf/sci.N_A)) / (pump_length * sci.angstrom)
+                     (self.mf/sci.N_A)) / (pump_length * sci.angstrom)
 
         # Bulk -----------------------------------------------------------------
         bulkStartZ, bulkEndZ = (0.4 * Lz) + avg_surfL_begin , (0.6 * Lz) + avg_surfL_begin
@@ -537,10 +542,6 @@ class TrajtoGrid:
                 Nzero_fluid = np.less(N_fluid_mask_non_zero[:, i, k], 1)
                 N_fluid_mask_non_zero[Nzero_fluid, i, k] = 1
 
-                # a = N_fluid_mask[:,i,k]
-                # if rank==0:
-                #     print(a[0])
-
         # Bulk partition-----------------------------------
                 maskx_bulk = utils.region(fluid_xcoords, fluid_xcoords,
                                         xx_bulk[i, 0, k], xx_bulk[i+1, 0, k])['mask']
@@ -548,7 +549,6 @@ class TrajtoGrid:
                                         zz_bulk[i, 0, k], zz_bulk[i, 0, k+1])['mask']
                 mask_bulk = np.logical_and(maskx_bulk, maskz_bulk)
 
-                # Count particles in the bulk cell
                 N_bulk_mask[:, i, k] = np.sum(mask_bulk, axis=1)
 
         # Stable partition--------------------------------------
@@ -558,7 +558,6 @@ class TrajtoGrid:
                                     zz_stable[i, 0, k], zz_stable[i, 0, k+1])['mask']
                 mask_stable = np.logical_and(maskx_stable, maskz_stable)
 
-                # Count particles in the stable cell
                 N_stable_mask[:, i, k] = np.sum(mask_stable, axis=1)
                 Nzero_stable = np.less(N_stable_mask[:, i, k], 1)
                 N_stable_mask[Nzero_stable, i, k] = 1
@@ -626,8 +625,7 @@ class TrajtoGrid:
                                     ((3 * N_fluid_mask[:, i, k] - 3) * sci.k)
 
                 # if rank ==0:
-                #     print(np.ma.masked_invalid(np.mean(temp_ch[:, i, k], axis=0)))
-                #     print(N_fluid_mask[:, i, k])
+                #     print(N_fluid_mask[:, i, k])      # This is the source of the suppressed warning
 
                 # Virial off-diagonal components (atm)
                 try:
@@ -675,7 +673,7 @@ class TrajtoGrid:
                 # Shape: (time, Nx)
                 temp_ch_solid[:, i] =  np.sum(mass_surfU_vib * sci.gram / sci.N_A * \
                                         peculiar_v_surfU_vib**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
-                                        ((3 * N_Upper_vib_mask[:, i] - 3) * sci.k)  # Kelvin
+                                        ((3 * N_Upper_vib_mask[:, i] - 3) * sci.k)
 
         return {'cell_lengths': cell_lengths_updated,
                 'gap_height': gap_height,
