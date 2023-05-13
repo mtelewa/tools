@@ -78,7 +78,7 @@ class manipulate_ds:
         # Copy the files to the post-proc dataset and remove them from the simulation dataset
         for root, dirs, files in os.walk(self.sim_out_uri):
             for i in files:
-                if 'x' in i or 'vs' in i or 'sub' in i:
+                if 'x' in i or 'vs' in i:
                     dds.put_item(os.path.join(self.sim_out_uri,i), i)
                     os.remove(os.path.join(self.sim_out_uri,i))
 
