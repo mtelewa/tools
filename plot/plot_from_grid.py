@@ -22,6 +22,8 @@ logger.setLevel(logging.INFO)
 # Import golbal plot configuration
 # plt.style.use('imtek')
 plt.style.use('thesis')
+# plt.style.use('thesis-3sub')
+
 # Specify the path to the font file
 font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
 # Register the font with Matplotlib
@@ -97,12 +99,13 @@ class PlotFromGrid:
             if input('Plot time-average?') == 'y':
                 ax.axhline(y=np.mean(y))
 
-    def plot_fit(self, ax, x, y):
+    def plot_fit(self, ax, x, y, a):
         """
         Plots the data fit
         """
-        fit_data = funcs.fit(x ,y, self.config[f'fit'])['fit_data']
+        fit_data = funcs.fit(x ,y, a)['fit_data']#self.config[f'fit'])['fit_data']
         ax.plot(x, fit_data, lw=1.5)
+
 
     def plot_inset(self, xdata, xpos=0.64, ypos=0.23, w=0.23, h=0.17):
         """
@@ -182,7 +185,7 @@ class PlotFromGrid:
                 self.plot_data(self.axes_array[n], x, y)
                 # Fitting the data
                 if self.config[f'fit']:
-                    self.plot_fit(self.axes_array[n], x, y)
+                    self.plot_fit(self.axes_array[n], x, y, 2)
                 if self.config['extrapolate']:
                     slip_length = data.slip_length()
                     x_extrapolate = slip_length['xdata_left']
@@ -204,6 +207,10 @@ class PlotFromGrid:
                         self.plot_data(self.axes_array[n], x, y)
                         if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y) #self.axes_array[n].plot(x[y!=0][1:-1], fit_data, 'k-',  lw=1.5)
                         n+=1
+
+                # fit_data = funcs.fit(x ,y, self.config[f'fit'])['fit_data']
+                # np.savetxt('vx-height.txt', np.c_[x/np.max(x), y, fit_data],  delimiter=' ',\
+                #                 header='Height (nm)              Vx (m/s)            Fit')
 
             # Gap height
             if any('gapheight' in var for var in variables):
@@ -257,13 +264,8 @@ class PlotFromGrid:
                 if self.dimension=='L':
                     arr, y = virial['vir_full_x'], virial['vir_X']
                     # Save the pressure data to a txt file (to compare with the continuum)
-                    ymin, ymax = np.argmin(y)-1, np.argmax(y)-1
-                    # Include the part before the pump
-                    xval = x[ymax:] - x[ymax]
-                    # np.savetxt('press-profile-MD.txt', np.c_[xval, y[ymax:]],  delimiter=' ',\
-                    #                                 header='Length (nm)              Pressure (MPa)')
-                    np.savetxt('press-profile-MD-full.txt', np.c_[x, y],  delimiter=' ',\
-                                    header='Length (nm)              Pressure (MPa)')
+                    # np.savetxt('press-profile-MD-full.txt', np.c_[x, y],  delimiter=' ',\
+                    #                 header='Length (nm)              Pressure (MPa)')
                 if self.dimension=='H':
                     try:
                         x = data.bulk_height_array  # simulation with walls
@@ -274,7 +276,7 @@ class PlotFromGrid:
 
                 if self.config['err_fill']:
                     self.plot_data(self.axes_array[n], x, y)
-                    self.plot_uncertainty(self.axes_array[n], x, y, virial['vir_full_x'])
+                    self.plot_uncertainty(self.axes_array[n], x, y, virial['vir_full_x'], plt.gca().lines[-1].get_color())
                 if self.config['err_caps']:
                     self.plot_uncertainty(self.axes_array[n], x, y, virial['vir_full_x'])
                 else:
@@ -289,7 +291,7 @@ class PlotFromGrid:
                 if self.dimension=='L': arr, y = density['den_full_x'], density['den_X']
                 if self.dimension=='H': arr, y = density['den_full_z'], density['den_Z']
                 if self.dimension=='T': arr, y = None, densty['den_t']
-                # self.axes_array[n].plot(np.roll(y[y!=0][1:-1],85), x[y!=0][1:-1], color=colors[i])
+                # self.axes_array[n].plot(np.roll(y,85), x, color=colors[i])
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
 
@@ -366,8 +368,8 @@ class PlotFromGrid:
                     err =  data.sigwall()['sigzz_err']
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.config['err_fill']:
-                    lo =  data.sigwall()['sigzz_lo'][1:-1]
-                    hi =  data.sigwall()['sigzz_hi'][1:-1]
+                    lo =  data.sigwall()['sigzz_lo']
+                    hi =  data.sigwall()['sigzz_hi']
                     self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.nrows>1: n+=1
@@ -389,8 +391,8 @@ class PlotFromGrid:
                     self.plot_uncertainty(self.axes_array[n], x, y, err)
                 if self.config['err_fill']:
                     # if self.dimension=='L': # Error in eachchunk
-                    lo =  data.sigwall()['sigxz_lo'][1:-1]
-                    hi =  data.sigwall()['sigxz_hi'][1:-1]
+                    lo =  data.sigwall()['sigxz_lo']
+                    hi =  data.sigwall()['sigxz_hi']
                     # else:   # Error in timeseries
                     #     lo =  data.sigwall()['sigxz_lo_t']
                     #     hi =  data.sigwall()['sigxz_hi_t']
@@ -434,7 +436,7 @@ class PlotFromGrid:
                 if self.dimension=='T': arr, y = None, temp['temp_t']
                 if self.config['broken_axis'] is None and self.config['err_caps'] is None: self.plot_data(self.axes_array[n], x, y)
                 # Fitting the data
-                if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y)
+                if self.config[f'fit']: self.plot_fit(self.axes_array[n], x, y, 4)
                 if self.config['err_fill']:
                     # self.plot_data(self.axes_array[n], x, y)
                     self.plot_uncertainty(self.axes_array[n], x, y,
@@ -454,10 +456,8 @@ class PlotFromGrid:
                             self.axes_array[n].plot(x, y)
                             n+=1
 
-                # np.savetxt('temp-height.txt', np.c_[x, y],  delimiter=' ',\
-                #                 header='Length (nm)              Temperature (K))')
-                # fit_data = funcs.fit(x[y!=0][2:-2] ,y[y!=0][2:-2], self.config[f'fit'])['fit_data']
-                # np.savetxt('temp-height.txt', np.c_[x[y!=0][2:-2]/np.max(x[y!=0][2:-2]), y[y!=0][2:-2], fit_data],  delimiter=' ',\
+                # fit_data = funcs.fit(x ,y, self.config[f'fit'])['fit_data']
+                # np.savetxt('temp-height.txt', np.c_[x/np.max(x), y, fit_data],  delimiter=' ',\
                 #                 header='Height (nm)              Temperature (K)            Fit')
 
             # Solid temperature - Scalar
@@ -466,7 +466,6 @@ class PlotFromGrid:
                 self.axes_array[n].set_ylabel(labels[6])
                 try:
                     if self.dimension=='L': arr, y = tempS['temp_full_x_solid'], tempS['tempS_len']
-                    if self.dimension=='H': arr, y = tempS['temp_full_z_solid'], tempS['tempS_height']
                     if self.dimension=='T': arr, y = None, tempS['tempS_t']
                 except KeyError:
                     pass
@@ -480,9 +479,9 @@ class PlotFromGrid:
             data0 = dataset(self.skip, self.datasets_x[0], self.datasets_z[0], self.mf, self.pumpsize)
             data4 = dataset(self.skip, self.datasets_x[4], self.datasets_z[4], self.mf, self.pumpsize)
 
-            inset_ax = self.plot_inset(data0.length_array[1:-1])
-            inset_ax.plot(data0.length_array[1:-1], data0.virial()['vir_X'][1:-1], color='tab:blue')
-            inset_ax.plot(data4.length_array[1:-1], data4.virial()['vir_X'][1:-1], color='tab:orange')
+            inset_ax = self.plot_inset(data0.length_array)
+            inset_ax.plot(data0.length_array, data0.virial()['vir_X'], color='tab:blue')
+            inset_ax.plot(data4.length_array, data4.virial()['vir_X'], color='tab:orange')
             # inset_ax.plot(data4.length_array[1:-1], data4.sigwall()['sigzz_X'][1:-1], ls='--', color='k')
 
             self.plot_uncertainty(inset_ax, data0.length_array, data0.virial()['vir_X'],
