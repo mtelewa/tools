@@ -250,17 +250,17 @@ class TrajtoGrid:
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+                                0.5 * utils.extrema(surfL_zcoords)['local_max'] - avg_surfL_begin
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.833 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+                                0.833 * utils.extrema(surfL_zcoords)['local_max'] - avg_surfL_begin
         avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
 
         if rank == 0:
-            logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)}')
+            logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)} in the temperature calculation')
 
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
@@ -277,7 +277,7 @@ class TrajtoGrid:
         avg_gap_height = np.mean(comm.allgather(np.mean(gap_height)))
 
         # Update the entire domain dimensions
-        Lz = avg_surfU_end - avg_surfL_begin
+        Lz = utils.extrema(surfU_zcoords)['global_max'] - avg_surfL_begin
         cell_lengths_updated = [Lx, Ly, Lz]
         domain_min = [0, 0, avg_surfL_begin]
 
@@ -492,7 +492,6 @@ class TrajtoGrid:
         N_fluid_mask_non_zero = np.zeros_like(N_fluid_mask)
         N_bulk_mask = np.zeros_like(N_fluid_mask)
         N_stable_mask = np.zeros_like(N_fluid_mask)
-        N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
         vx_ch =  np.zeros_like(N_fluid_mask)
         vx_ch_whole = np.zeros_like(N_fluid_mask)
         vir_ch = np.zeros_like(N_fluid_mask)
@@ -509,10 +508,10 @@ class TrajtoGrid:
         tempx_ch = np.zeros_like(N_fluid_mask)
         tempy_ch = np.zeros_like(N_fluid_mask)
         tempz_ch = np.zeros_like(N_fluid_mask)
-        temp_ch_solid = np.zeros_like(N_fluid_mask)
 
         N_Upper_mask = np.zeros([self.chunksize, self.Nx], dtype=np.float32)
         N_Lower_mask = np.zeros_like(N_Upper_mask)
+        N_Upper_vib_mask = np.zeros_like(N_Upper_mask)
         surfU_fx_ch = np.zeros_like(N_Lower_mask)
         surfU_fy_ch = np.zeros_like(surfU_fx_ch)
         surfU_fz_ch = np.zeros_like(surfU_fx_ch)
@@ -520,6 +519,7 @@ class TrajtoGrid:
         surfL_fy_ch = np.zeros_like(surfU_fx_ch)
         surfL_fz_ch = np.zeros_like(surfU_fx_ch)
         den_bulk_ch = np.zeros_like(surfU_fx_ch)
+        temp_ch_solid = np.zeros_like(surfU_fx_ch)
 
         for i in range(self.Nx):
             for k in range(self.Nz):
@@ -571,10 +571,7 @@ class TrajtoGrid:
         # SurfU Vibrating partition-----------------------------------
                 maskxU_vib = utils.region(surfU_vib_xcoords, surfU_vib_xcoords,
                                         xx[i, 0, 0], xx[i+1, 0, 0])['mask']
-                N_Upper_vib_mask[:, i, k] = np.sum(maskxU_vib, axis=1)
-                # To avoid warning with flat rigid walls
-                Nzero_vib = np.less(N_Upper_vib_mask[:, i, k], 1)
-                N_Upper_vib_mask[Nzero_vib, i, k] = 1
+                N_Upper_vib_mask[:, i] = np.sum(maskxU_vib, axis=1)
 
         # SurfL partition-----------------------------------
                 maskxL = utils.region(surfL_xcoords, surfL_xcoords,
@@ -665,20 +662,20 @@ class TrajtoGrid:
                 # Upper surface ------------------------------------------------
                 # Temperature (K)
                 # Shape: (time,)
-                uCOM_surfU_vib = np.sum(surfU_vx_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
-                vCOM_surfU_vib = np.sum(surfU_vy_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
-                wCOM_surfU_vib = np.sum(surfU_vz_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, k])
-                # Shape: (Ns, time)
+                uCOM_surfU_vib = np.sum(surfU_vx_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
+                vCOM_surfU_vib = np.sum(surfU_vy_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
+                wCOM_surfU_vib = np.sum(surfU_vz_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i])
+                # Shape: (NsurfU, time)
                 peculiar_vx_surfU = np.transpose(surfU_vx_vib) - uCOM_surfU_vib
                 peculiar_vy_surfU = np.transpose(surfU_vy_vib) - vCOM_surfU_vib
                 peculiar_vz_surfU = np.transpose(surfU_vz_vib) - wCOM_surfU_vib
                 peculiar_v_surfU_vib = np.sqrt(peculiar_vx_surfU**2 + peculiar_vy_surfU**2 + peculiar_vz_surfU**2)
-                # Shape: (time, Ns)
+                # Shape: (time, NsurfU)
                 peculiar_v_surfU_vib = np.transpose(peculiar_v_surfU_vib) * maskxU_vib
-
-                temp_ch_solid[:, i, k] =  np.sum(mass_surfU_vib * sci.gram / sci.N_A * \
+                # Shape: (time, Nx)
+                temp_ch_solid[:, i] =  np.sum(mass_surfU_vib * sci.gram / sci.N_A * \
                                         peculiar_v_surfU_vib**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
-                                        ((3 * N_Upper_vib_mask[:, i, k] - 3) * sci.k)  # Kelvin
+                                        ((3 * N_Upper_vib_mask[:, i] - 3) * sci.k)  # Kelvin
 
         return {'cell_lengths': cell_lengths_updated,
                 'gap_height': gap_height,
