@@ -9,7 +9,7 @@ from operator import itemgetter
 from plot_settings import Initialize, Modify
 from scipy.integrate import odeint
 import scipy.constants as sci
-import compute_thermo_3d as ct
+import compute_real as ct
 import yaml
 import funcs
 import netCDF4
@@ -347,8 +347,8 @@ class PlotFromTxt:
         Extracts data from 'temp-height.txt' and plots it.
         Uses the Modify class from 'plot_settings' module.
         """
-        # self.axes_array[0].set_xlabel('$h/h_0$')
-        self.axes_array[0].set_xlabel('Height (nm)')
+        self.axes_array[0].set_xlabel('Gap height $h/h_0$')
+        # self.axes_array[0].set_xlabel('Height (nm)')
         self.axes_array[0].set_ylabel('Temperature (K)')
 
         for idx, val in enumerate(self.txts):
@@ -356,11 +356,11 @@ class PlotFromTxt:
             data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
 
             xdata = data[:,0]           # dimensionless length
-            ydata = data[:,1]           # K
-            # yfit = data[:,2]
+            ydata = np.ma.masked_where(data[:,1] == 0, data[:,1])           # K
+            yfit = data[:,2]
 
             self.plot_data(self.axes_array[n], xdata, ydata)
-            # self.plot_data(self.axes_array[n], xdata, yfit)
+            self.plot_data(self.axes_array[n], xdata, yfit)
 
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
@@ -368,6 +368,35 @@ class PlotFromTxt:
             logging.error('No data on the x-axis, check the quanity to plot!')
 
         return self.fig
+
+
+    def vx(self):
+        """
+        Extracts data from 'vx-height.txt' and plots it.
+        Uses the Modify class from 'plot_settings' module.
+        """
+        self.axes_array[0].set_xlabel('Gap height $h/h_0$')
+        self.axes_array[0].set_ylabel('Velocity $u$ (m/s)')
+
+        for idx, val in enumerate(self.txts):
+            n=0    # subplot
+            data = np.loadtxt(self.txts[idx], skiprows=self.skip, dtype=float)
+
+            xdata = data[:,0]           # dimensionless length
+            ydata = np.ma.masked_where(data[:,1] == 0, data[:,1])           # K
+            yfit = data[:,2]
+
+            self.plot_data(self.axes_array[n], xdata, ydata)
+            self.plot_data(self.axes_array[n], xdata, yfit)
+
+        try:
+            Modify(xdata, self.fig, self.axes_array, self.configfile)
+        except UnboundLocalError:
+            logging.error('No data on the x-axis, check the quanity to plot!')
+
+        return self.fig
+
+
 
 
     def radius(self, R0, V0, pl, datasets, start, stop, dt, method):
