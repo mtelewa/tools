@@ -79,20 +79,20 @@ class ExtractFromTraj:
         self.Nz = self.data.dimensions['z'].size
 
         # Gap heights (time,) in nm
-        self.h = np.array(self.data_x.variables["Height"])[self.skip:] / 10
+        self.h = np.array(self.data.variables["Height"])[self.skip:] / 10
         if len(self.h) == 0:
             raise ValueError('The array is empty! Reduce the skipped timesteps.')
         # Average gap height
         self.avg_gap_height = np.mean(self.h)
-        self.h_conv = np.array(self.data_x.variables["Height_conv"])[self.skip:] / 10
-        self.h_div = np.array(self.data_x.variables["Height_div"])[self.skip:] / 10
+        # self.h_conv = np.array(self.data.variables["Height_conv"])[self.skip:] / 10
+        # self.h_div = np.array(self.data.variables["Height_div"])[self.skip:] / 10
         # Bulk height (time,)
-        bulkStart = np.array(self.data_x.variables["Bulk_Start"])[self.skip:] / 10
-        bulkEnd = np.array(self.data_x.variables["Bulk_End"])[self.skip:] / 10
+        bulkStart = np.array(self.data.variables["Bulk_Start"])[self.skip:] / 10
+        bulkEnd = np.array(self.data.variables["Bulk_End"])[self.skip:] / 10
         # Time-average
         avg_bulkStart, avg_bulkEnd = np.mean(bulkStart), np.mean(bulkEnd)
         # Center of Mass (time,)
-        com = np.array(self.data_x.variables["COM"])[self.skip:] / 10
+        com = np.array(self.data.variables["COM"])[self.skip:] / 10
 
         # The length array
         dx = self.Lx/ self.Nx
@@ -100,6 +100,7 @@ class ExtractFromTraj:
 
         # The width array
         dy = self.Ly/ self.Ny
+        self.width_array = np.arange(dy/2.0, self.Ly, dy)
 
         # The total gap height array
         dz = self.avg_gap_height / self.Nz
@@ -262,16 +263,16 @@ class ExtractFromTraj:
         den_t : arr (time,), BULK density time-series
         """
 
-        data = self.mask_invalid_zeros(np.array(self.data.variables["Density_Bulk"])[self.skip:]) / (sci.N_A * ang_to_cm**3)
+        data = np.array(self.data.variables["Density_Bulk"])[self.skip:] / (sci.N_A * ang_to_cm**3)
 
-        data_xz = self.remove_first_last(np.mean(data, axis=(0,2)))
-        data_xy = self.remove_first_last(np.mean(data, axis=(0,3)))
-        data_xt = self.remove_first_last(np.mean(data, axis=(2,3)))
-        data_yz = self.remove_first_last(np.mean(data, axis=(0,1)))
-        data_yt = self.remove_first_last(np.mean(data, axis=(1,3)))
-        data_zt = self.remove_first_last(np.mean(data, axis=(1,2)))
+        data_xz = np.mean(data, axis=(0,2))
+        data_xy = np.mean(data, axis=(0,3))
+        data_xt = np.mean(data, axis=(2,3))
+        data_yz = np.mean(data, axis=(0,1))
+        data_yt = np.mean(data, axis=(1,3))
+        data_zt = np.mean(data, axis=(1,2))
 
-        return {'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
+        return {'data':data, 'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
                 'data_yz':data_yz, 'data_yt':data_yt, 'data_zt':data_zt}
 
 
@@ -293,9 +294,9 @@ class ExtractFromTraj:
         """
 
         # Diagonal components
-        Wxx_full = self.mask_invalid_zeros(np.array(self.data.variables["Wxx"])[self.skip:]) * sci.atm * pa_to_Mpa
-        Wyy_full = self.mask_invalid_zeros(np.array(self.data.variables["Wyy"])[self.skip:]) * sci.atm * pa_to_Mpa
-        Wzz_full = self.mask_invalid_zeros(np.array(self.data.variables["Wzz"])[self.skip:]) * sci.atm * pa_to_Mpa
+        Wxx_full = np.array(self.data.variables["Wxx"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wyy_full = np.array(self.data.variables["Wyy"])[self.skip:] * sci.atm * pa_to_Mpa
+        Wzz_full = np.array(self.data.variables["Wzz"])[self.skip:] * sci.atm * pa_to_Mpa
 
         if np.isclose(np.mean(Wxx_full, axis=(0,1,2,3)), np.mean(Wyy_full, axis=(0,1,2,3)), rtol=0.1, atol=0.0): # Incompressible flow
             print('Virial computed from the three components')
@@ -304,21 +305,21 @@ class ExtractFromTraj:
             print('Virial computed from the y-component')
             data = - Wyy_full
 
-        data_xz = self.remove_first_last(np.mean(data, axis=(0,2)))
-        data_xy = self.remove_first_last(np.mean(data, axis=(0,3)))
-        data_xt = self.remove_first_last(np.mean(data, axis=(2,3)))
-        data_yz = self.remove_first_last(np.mean(data, axis=(0,1)))
-        data_yt = self.remove_first_last(np.mean(data, axis=(1,3)))
-        data_zt = self.remove_first_last(np.mean(data, axis=(1,2)))
+        data_xz = np.mean(data, axis=(0,2))
+        data_xy = np.mean(data, axis=(0,3))
+        data_xt = np.mean(data, axis=(2,3))
+        data_yz = np.mean(data, axis=(0,1))
+        data_yt = np.mean(data, axis=(1,3))
+        data_zt = np.mean(data, axis=(1,2))
 
         if self.avg_gap_height == 0:
-            data = self.mask_invalid_zeros(np.array(self.data.variables["Virial"])[self.skip:]) * sci.atm * pa_to_Mpa
-            data_xz = self.remove_first_last(np.mean(data, axis=(0,2))) / (self.vol*1e3)
-            data_xy = self.remove_first_last(np.mean(data, axis=(0,3))) / (self.vol*1e3)
-            data_xt = self.remove_first_last(np.mean(data, axis=(2,3))) / (self.vol*1e3)
-            data_yz = self.remove_first_last(np.mean(data, axis=(0,1))) / (self.vol*1e3)
-            data_yt = self.remove_first_last(np.mean(data, axis=(1,3))) / (self.vol*1e3)
-            data_zt = self.remove_first_last(np.mean(data, axis=(1,2))) / (self.vol*1e3)
+            data = np.array(self.data.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
+            data_xz = np.mean(data, axis=(0,2)) / (self.vol*1e3)
+            data_xy = np.mean(data, axis=(0,3)) / (self.vol*1e3)
+            data_xt = np.mean(data, axis=(2,3)) / (self.vol*1e3)
+            data_yz = np.mean(data, axis=(0,1)) / (self.vol*1e3)
+            data_yt = np.mean(data, axis=(1,3)) / (self.vol*1e3)
+            data_zt = np.mean(data, axis=(1,2)) / (self.vol*1e3)
 
         return {'data':data, 'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
                 'data_yz':data_yz, 'data_yt':data_yt, 'data_zt':data_zt}
@@ -340,12 +341,12 @@ class ExtractFromTraj:
 
         data = self.mask_invalid_zeros(np.array(self.data.variables["Temperature"])[self.skip:])
 
-        data_xz = self.remove_first_last(np.mean(data, axis=(0,2)))
-        data_xy = self.remove_first_last(np.mean(data, axis=(0,3)))
-        data_xt = self.remove_first_last(np.mean(data, axis=(2,3)))
-        data_yz = self.remove_first_last(np.mean(data, axis=(0,1)))
-        data_yt = self.remove_first_last(np.mean(data, axis=(1,3)))
-        data_zt = self.remove_first_last(np.mean(data, axis=(1,2)))
+        data_xz = np.mean(data, axis=(0,2))
+        data_xy = np.mean(data, axis=(0,3))
+        data_xt = np.mean(data, axis=(2,3))
+        data_yz = np.mean(data, axis=(0,1))
+        data_yt = np.mean(data, axis=(1,3))
+        data_zt = np.mean(data, axis=(1,2))
 
         return {'data_xz':data_xz, 'data_xy':data_xy, 'data_xt':data_xt,
                 'data_yz':data_yz, 'data_yt':data_yt, 'data_zt':data_zt}
