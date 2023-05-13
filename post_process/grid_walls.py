@@ -152,8 +152,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
         sendcounts_chunk_solid = np.array(comm.gather(surfU_fx_ch.size, root=0))
-        sendcounts_chunk_vib = np.array(comm.gather(temp_ch_solid.size, root=0))
-        sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
         fluid_vx_avg_lte = np.array(comm.gather(fluid_vx_avg_lte, root=0))
         fluid_vy_avg_lte = np.array(comm.gather(fluid_vy_avg_lte, root=0))
@@ -216,8 +214,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wzz_ch_global = np.zeros_like(vx_ch_whole_global)
             # Velocity  -- stable
             vx_ch_global = np.zeros_like(vx_ch_whole_global)
-            # Temperature -- solid
-            temp_solid_global = np.zeros_like(vx_ch_whole_global)
 
             # Dimensions: (time, Nx)
             # Surface Forces -- walls
@@ -229,6 +225,8 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             surfL_fz_ch_global = np.zeros_like(surfU_fx_ch_global)
             # Density -- bulk
             den_bulk_ch_global = np.zeros_like(surfU_fx_ch_global)
+            # Temperature -- solid
+            temp_solid_global = np.zeros_like(surfU_fx_ch_global)
 
         else:
             gap_height_global = None
@@ -261,7 +259,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wyy_ch_global = None
             Wzz_ch_global = None
             vx_ch_global = None
-            temp_solid_global = None
 
             surfU_fx_ch_global = None
             surfU_fy_ch_global = None
@@ -270,6 +267,7 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             surfL_fy_ch_global = None
             surfL_fz_ch_global = None
             den_bulk_ch_global = None
+            temp_solid_global = None
 
         # ----------------------------------------------------------------------
         # Collective Communication ---------------------------------------------
@@ -305,7 +303,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         comm.Gatherv(sendbuf=np.ma.masked_invalid(Wyy_ch), recvbuf=(Wyy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(Wzz_ch), recvbuf=(Wzz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(vx_ch), recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=np.ma.masked_invalid(temp_ch_solid), recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
 
         comm.Gatherv(sendbuf=surfU_fx_ch, recvbuf=(surfU_fx_ch_global, sendcounts_chunk_solid), root=0)
         comm.Gatherv(sendbuf=surfU_fy_ch, recvbuf=(surfU_fy_ch_global, sendcounts_chunk_solid), root=0)
@@ -313,7 +310,8 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         comm.Gatherv(sendbuf=surfL_fx_ch, recvbuf=(surfL_fx_ch_global, sendcounts_chunk_solid), root=0)
         comm.Gatherv(sendbuf=surfL_fy_ch, recvbuf=(surfL_fy_ch_global, sendcounts_chunk_solid), root=0)
         comm.Gatherv(sendbuf=surfL_fz_ch, recvbuf=(surfL_fz_ch_global, sendcounts_chunk_solid), root=0)
-        comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
+        comm.Gatherv(sendbuf=temp_ch_solid, recvbuf=(temp_solid_global, sendcounts_chunk_solid), root=0)
+        comm.Gatherv(sendbuf=den_bulk_ch, recvbuf=(den_bulk_ch_global, sendcounts_chunk_solid), root=0)
 
         # ----------------------------------------------------------------------
         # Write to netCDF file -------------------------------------------------
@@ -372,7 +370,7 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wzz_var = out.createVariable('Wzz', 'f4', ('time', 'x', 'z'))
             vir_var = out.createVariable('Virial', 'f4', ('time', 'x', 'z'))
             vx_whole_var = out.createVariable('Vx_whole', 'f4', ('time', 'x', 'z'))
-            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x', 'z'))
+            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
             fy_U_var =  out.createVariable('Fy_Upper', 'f4',  ('time', 'x'))
