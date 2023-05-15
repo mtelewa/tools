@@ -199,7 +199,7 @@ class TrajtoGrid:
         # Check if surfU and surfL are not equal
         N_surfU, N_surfL = len(surfU_indices), len(surfL_indices)
         if N_surfU != N_surfL and rank == 0:
-            logger.warning("No. of surfU atoms != No. of surfL atoms")
+            logger.warning(f'No. of surfU atoms {N_surfU} != No. of surfL atoms {N_surfL}')
 
         # Shape: (time,)
         surfU_begin, surfL_end = utils.cnonzero_min(surfU_zcoords)['local_min'], \
@@ -217,11 +217,11 @@ class TrajtoGrid:
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.5 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.83 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.167 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
         avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
@@ -241,7 +241,7 @@ class TrajtoGrid:
         avg_gap_height = np.mean(comm.allgather(np.mean(gap_height)))
 
         # Update the box domain dimensions
-        Lz = avg_surfU_end - avg_surfL_begin
+        Lz = utils.extrema(surfU_zcoords)['global_max'] - avg_surfL_begin
         cell_lengths_updated = [Lx, Ly, Lz]
         domain_min = [0, 0, avg_surfL_begin]
 
