@@ -28,10 +28,8 @@ fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
 
-
 # For the spatial bins with 1 or zero atoms. These are masked later in computing properties.
 warnings.simplefilter('ignore', category=RuntimeWarning)
-
 
 class TrajtoGrid:
     """
@@ -258,8 +256,7 @@ class TrajtoGrid:
                                 0.5 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
             surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
-                                0.833 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
-        # avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
+                                0.167 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
 
         surfU_vib = np.ma.masked_less(surfU_zcoords, surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
