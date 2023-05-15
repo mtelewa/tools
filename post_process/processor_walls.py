@@ -262,15 +262,10 @@ class TrajtoGrid:
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
 
         if rank == 0:
-            print(surfU_vib_end)
             logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)}')
 
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
         solid_zcoords[:,surfU_vib_indices]
-
-        print(utils.extrema(surfU_vib_zcoords)['global_min'])
-        print(utils.extrema(surfU_vib_zcoords)['global_max'])
-
 
         # Atomic mass of the upper vibrating region, Shape: (time, NsurfU_vib)
         mass_solid = mass[:, solid_start:]
