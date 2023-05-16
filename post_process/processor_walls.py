@@ -265,7 +265,7 @@ class TrajtoGrid:
             logger.info(f'Number of vibrating atoms in the upper surface: {len(surfU_vib_indices)}')
 
         surfU_vib_xcoords, surfU_vib_zcoords = solid_xcoords[:,surfU_vib_indices], \
-        solid_zcoords[:,surfU_vib_indices]
+                                               solid_zcoords[:,surfU_vib_indices]
 
         # Atomic mass of the upper vibrating region, Shape: (time, NsurfU_vib)
         mass_solid = mass[:, solid_start:]
