@@ -111,7 +111,7 @@ if __name__ == "__main__":
                     datasets_z.append(os.path.join(root, i))
 
     if not datasets_x:
-        logging.error("No Files Found! Make sure the dataset is processed")
+        logging.error("No Files Found! Make sure the dataset is processed and the dataset name is correct.")
         quit()
 
     if args.config:
