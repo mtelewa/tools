@@ -1,0 +1,118 @@
+#!/bin/bash
+#MSUB -l nodes=4:ppn=20
+#MSUB -q
+#MSUB -l walltime=2:00:00
+#MSUB -v MPIRUN_OPTIONS="--bind-to core --map-by core -report-bindings"
+#MSUB -o
+#MSUB -l pmem=6GB
+#MSUB -v EXECUTABLE=./lmp
+#MSUB -N vs30pbt
+#MSUB -m a
+#MSUB -M mohamed.hassan@kit.edu
+
+#export KMP_AFFINITY=compact,1,0
+
+module load system/modules/deprecated
+module use /work/ws/nemo/fr_lp1029-IMTEK_SIMULATION-0/modulefiles
+module load mpi/openmpi/3.1-gnu-7.3
+module load netcdf4-python/1.5.0
+
+printenv
+
+## check if $SCRIPT_FLAGS is "set"
+if [ -n "${SCRIPT_FLAGS}" ] ; then
+   ## but if positional parameters are already present
+   ## we are going to ignore $SCRIPT_FLAGS
+   if [ -z "${*}"  ] ; then
+      set -- ${SCRIPT_FLAGS}
+   fi
+fi
+
+while getopts ":h:i:N:f:s:e:p:x:c:l:d:g:y:t:T:" option; do
+  case "$option" in
+    h) echo "$usage"
+       exit
+       ;;
+    i) infile="$OPTARG"
+    ;;
+    N) Nchunks="$OPTARG"
+    ;;
+    f) fluid="$OPTARG"
+    ;;
+    s) stable_start="$OPTARG"
+    ;;
+    e) stable_end="$OPTARG"
+    ;;    
+    p) pump_start="$OPTARG"
+    ;;
+    x) pump_end="$OPTARG"
+    ;;
+    c) begin_converge="$OPTARG"
+    ;;
+    l) end_converge="$OPTARG"
+    ;;
+    d) begin_diverge="$OPTARG"
+    ;;
+    g) end_diverge="$OPTARG"
+    ;;
+    y) Ny="$OPTARG"
+    ;;
+    t) tessellate="$OPTARG"
+    ;;
+    T) TW_interface="$OPTARG"
+    ;;
+    :) printf "missing argument for -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+   \?) printf "illegal option: -%s\n" "$OPTARG" >&2
+       echo "$usage" >&2
+       exit 1
+       ;;
+  esac
+done
+
+args=("$@")
+echo ${args[@]} > ${MOAB_SUBMITDIR}/flags.txt
+
+# call the shift command at the end of the processing loop to remove options that
+# have already been handled from $@
+shift $((OPTIND - 1))
+
+# Default value for Ny is 1
+if [ -n "$Ny" ]; then
+  Ny="$Ny"
+else
+  Ny=1
+fi
+
+# Default value for tessellate is 0
+if [ -n "$tessellate" ]; then
+  tessellate=1
+else
+  tessellate=0
+fi
+
+# Default value for TW_interface is 1
+if [ -n "$TW_interface" ]; then
+  TW_interface=0
+else
+  TW_interface=1
+fi
+
+cd ${MOAB_SUBMITDIR}
+
+mpirun -np 8 proc_conv_div_walls.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
+          $pump_start $pump_end $begin_converge $end_converge \
+          $begin_diverge $end_diverge --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
+mpirun -np 8 proc_conv_div_walls.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
+          $pump_start $pump_end $begin_converge $end_converge \
+          $begin_diverge $end_diverge --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
+
+if [ ! -f ${infile}_${Nchunks}x1_001.nc ]; then
+  mv ${infile}_${Nchunks}x1_000.nc ${infile}_${Nchunks}x1.nc
+  mv ${infile}_1x${Nchunks}_000.nc ${infile}_1x${Nchunks}.nc
+else
+  cdo mergetime ${infile}_${Nchunks}x1_*.nc ${infile}_${Nchunks}x1.nc ; rm ${infile}_${Nchunks}x1_*
+  cdo mergetime ${infile}_1x${Nchunks}_*.nc ${infile}_1x${Nchunks}.nc ; rm ${infile}_1x${Nchunks}_*
+fi
