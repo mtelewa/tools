@@ -4,7 +4,7 @@
 import sys, os
 import argparse
 import numpy as np
-import compute_thermo as ct
+import compute_real as ct
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -164,7 +164,7 @@ if __name__ == "__main__":
             print(f"Thermal Conductivity = {np.mean(get.conductivity_IK()['conductivity_z'])} W/mK")
         if 'viscosity_nemd' in args.qtty:
             params = get.viscosity_nemd()
-            print(f"Bulk Viscosity is {params['eta']:.4f} mPa.s at Bulk Shear rate {params['shear_rate']:e} s^-1")
+            print(f"Viscosity is {params['eta']:.4f} mPa.s at Shear rate {params['shear_rate']:e} s^-1")
             print(f"Sliding velocity {np.mean(get.h)*1e-9*params['shear_rate']:.2f} m/s")
         if 'correlate' in args.qtty:
             get.uncertainty_pDiff(pump_size=0.1)
