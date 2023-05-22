@@ -686,14 +686,6 @@ class PlotGeneral:
                 ds_isochores.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
             if 'isotherm' in val:
                 ds_isotherms.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
-            if 'gautschi' in val and '1fs' in val:
-                ds_gau_1fs.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
-            if 'gautschi' in val and '4fs' in val:
-                ds_gau_4fs.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
-            if 'verlet' in val and '1fs' in val:
-                ds_ver_1fs.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
-            if 'verlet' in val and '4fs' in val:
-                ds_ver_4fs.append(dataset(self.skip, self.datasets_x[idx], self.datasets_z[idx], self.mf, pumpsize=0))
 
         for i in ds_nemd:
             # print(np.mean(i.density()['den_t']))
@@ -709,8 +701,6 @@ class PlotGeneral:
             if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den, press, maxfev=8000)
                 coeffs_temp = curve_fit(funcs.power, temp, press, maxfev=8000)
-                print(coeffs_den[0])
-                print(coeffs_temp[0])
                 print(f'Polytropic index (k) is {-coeffs_den[0][1]}')
                 print(f'Polytropic index (k) is {coeffs_temp[0][1]/(1-coeffs_temp[0][1])}')
                 self.axes_array[0].plot(den, funcs.power(den, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
@@ -718,48 +708,31 @@ class PlotGeneral:
 
         # Isotherms -----------------
         for i in ds_isotherms:
-            den_isotherms.append(np.mean(i.density()['den_t']))
+            print(len(i.density()['den_t'][:1000]))
+            den_isotherms.append(np.mean(i.density()['den_t'][:1000]))
             press_isotherms.append(np.mean(i.virial()['vir_t']))
 
         den_isotherms, press_isotherms = np.asarray(den_isotherms), np.asarray(press_isotherms)
 
-        # for i in ds_gau_1fs:
-        #     den_isotherms_gau_1fs.append(np.mean(i.density()['den_t']))
-        #     press_isotherms_gau_1fs.append(np.mean(i.virial()['vir_t']))
-        # for i in ds_gau_4fs:
-        #     den_isotherms_gau_4fs.append(np.mean(i.density()['den_t']))
-        #     press_isotherms_gau_4fs.append(np.mean(i.virial()['vir_t']))
-        # for i in ds_ver_1fs:
-        #     den_isotherms_ver_1fs.append(np.mean(i.density()['den_t']))
-        #     press_isotherms_ver_1fs.append(np.mean(i.virial()['vir_t']))
-        # for i in ds_ver_4fs:
-        #     den_isotherms_ver_4fs.append(np.mean(i.density()['den_t']))
-        #     press_isotherms_ver_4fs.append(np.mean(i.virial()['vir_t']))
-
         if ds_isotherms:
+            self.axes_array[0].plot(den_isotherms, press_isotherms)
+
+            # Fit to cubic EOS
+            coeffs_den_cubic = curve_fit(funcs.cubic, den_isotherms, press_isotherms, maxfev=8000)
+            coeffs_den_units = curve_fit(funcs.cubic, den_isotherms*1000, press_isotherms*1e6, maxfev=8000) # with the SI units
+            print(f'Coefficients of the cubic EOS for n-pentane are {coeffs_den_units[0][0], coeffs_den_units[0][1], coeffs_den_units[0][2], coeffs_den_units[0][3]}')
+            self.axes_array[0].plot(den_isotherms, funcs.cubic(den_isotherms, coeffs_den_cubic[0][0],
+             coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]))
+
+            # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
+            exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
+            exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
+            self.axes_array[0].plot(exp_density, exp_press)
+
             if self.config['log']:
                 den_isotherms /= np.max(den_isotherms)
                 press_isotherms /= np.max(press_isotherms)
 
-            # if ds_gau_1fs: self.axes_array[0].plot(den_isotherms_gau_1fs, press_isotherms_gau_1fs)
-            # if ds_gau_4fs: self.axes_array[0].plot(den_isotherms_gau_4fs, press_isotherms_gau_4fs)
-            # if ds_ver_1fs: self.axes_array[0].plot(den_isotherms_ver_1fs, press_isotherms_ver_1fs)
-            # if ds_ver_4fs: self.axes_array[0].plot(den_isotherms_ver_4fs, press_isotherms_ver_4fs)
-
-            self.axes_array[0].plot(den_isotherms, press_isotherms)
-
-            # # Fit to cubic EOS
-            # coeffs_den_cubic = curve_fit(funcs.cubic, den_isotherms*1000, press_isotherms*1e6, maxfev=8000)
-            # print(f'Coefficients of the cubic EOS for n-pentane are {coeffs_den_cubic[0][0], coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]}')
-            # self.axes_array[0].plot(den_isotherms, funcs.cubic(den_isotherms, coeffs_den_cubic[0][0],
-            #  coeffs_den_cubic[0][1], coeffs_den_cubic[0][2], coeffs_den_cubic[0][3]))
-            #
-            # # Experimental data (K. Liu et al. / J. of Supercritical Fluids 55 (2010) 701–711)
-            # exp_density = [0.630, 0.653, 0.672, 0.686, 0.714, 0.739, 0.750]
-            # exp_press = [28.9, 55.3, 84.1, 110.2, 171.0, 239.5, 275.5]
-            # self.axes_array[0].plot(exp_density, exp_press)
-
-            if self.config['log']:
                 coeffs_den = curve_fit(funcs.power, den_isotherms, press_isotherms, maxfev=8000)
                 print(f'Adiabatic exponent (gamma) is {coeffs_den[0][1]}')
                 self.axes_array[0].plot(den_isotherms, funcs.power(den_isotherms, coeffs_den[0][0], coeffs_den[0][1], coeffs_den[0][2]))
@@ -768,19 +741,20 @@ class PlotGeneral:
         for i in ds_isochores:
             temp_list.append(np.mean(i.temp()['temp_t']))
             press_isochores.append(np.mean(i.virial()['vir_t']))
-        temp_lst, press_isochores = np.asarray(temp_list), np.asarray(press_isochores)
+
+        temp_lit, press_isochores = np.asarray(temp_list), np.asarray(press_isochores)
 
         if ds_isochores:
+            self.axes_array[0].plot(temp_list, press_isochores)
+            if len(self.axes_array)>1: self.axes_array[1].plot(temp_list, press_isochores)
+
             if self.config['log']:
                 temp_list /= np.max(temp_list)
                 press_isochores /= np.max(press_isochores)
 
-            self.axes_array[1].plot(temp_list, press_isochores)
-
-            if self.config['log']:
                 coeffs_temp = curve_fit(funcs.power, temp_list, press_isochores, maxfev=8000)
                 print(f'Adiabatic exponent (gamma) is {coeffs_temp[0][1]}')
-                self.axes_array[1].plot(temp_list, funcs.power(temp_list, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
+                if len(self.axes_array)>1: self.axes_array[1].plot(temp_list, funcs.power(temp_list, coeffs_temp[0][0], coeffs_temp[0][1], coeffs_temp[0][2]))
 
         if ds_nemd: Modify(press, self.fig, self.axes_array, self.configfile)
         elif ds_isotherms: Modify(press_isotherms, self.fig, self.axes_array, self.configfile)
