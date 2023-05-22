@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, logging
+import warnings
 import numpy as np
 import scipy.constants as sci
 import time as timer
@@ -27,10 +28,13 @@ fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
 
-t0 = timer.time()
+# For the spatial bins with 1 or zero atoms. These are masked later in computing properties.
+warnings.simplefilter('ignore', category=RuntimeWarning)
 
 class TrajtoGrid:
-
+    """
+    Molecular domain decomposition into spatial bins
+    """
     def __init__(self, data, start, end, Nx, Ny, Nz, mf, A_per_molecule, fluid, tessellate, TW_interface):
         """
         Parameters:
@@ -85,7 +89,7 @@ class TrajtoGrid:
         type = self.data.variables["type"]
         types = np.array(type[0, :]).astype(np.float32)
 
-        fluid_idx, solid_idx = [],[]
+        fluid_idx, solid_idx = [],[]    # Should be of shapes: (Nf,) and (Ns,)
 
         # Lennard-Jones
         if np.max(types)==2:
@@ -152,14 +156,14 @@ class TrajtoGrid:
         # Position, velocity, virial (Wi) array dimensions: (time, Natoms, dimension)
         # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
         # i.e. it is a snapshot of the system at this timestep.
-        # As opposed to averaged quantities which are the average of a few previous timesteps
+        # The averaged quantities which are the average of a few previous timesteps
         coords_data = self.data.variables["coordinates"]
         try:
-            vels_data = self.data.variables["f_velocity"]
+            vels_data = self.data.variables["f_velocity"]    # averaged velocities
         except KeyError:
-            vels_data = self.data.variables["velocities"]
+            vels_data = self.data.variables["velocities"]    # unaveraged velocities used for temp. calculation
 
-        vels_data_unavgd = self.data.variables["velocities"]     # Used for temp. calculation
+        vels_data_unavgd = self.data.variables["velocities"]
 
         # Fluid Virial Pressure ------------------------------------------------
         virial_data = self.data.variables["f_Wi_avg"]
@@ -192,7 +196,8 @@ class TrajtoGrid:
         # Cartesian Coordinates ---------------------------------------------
         coords = np.array(coords_data[self.start:self.end]).astype(np.float32)
 
-        fluid_xcoords,fluid_ycoords,fluid_zcoords = coords[:, fluid_idx, 0], \
+        # Shape: (time, Nf)
+        fluid_xcoords, fluid_ycoords, fluid_zcoords = coords[:, fluid_idx, 0], \
                                                     coords[:, fluid_idx, 1], \
                                                     coords[:, fluid_idx, 2]
 
@@ -201,7 +206,7 @@ class TrajtoGrid:
                                                       coords[:, solid_start:, 1], \
                                                       coords[:, solid_start:, 2]
 
-        # Define fluid region,  shape: (time,)
+        # Fluid min and max z-coordinates in each timestep,  shape: (time,)
         fluid_begin, fluid_end = utils.extrema(fluid_zcoords)['local_min'], \
                                  utils.extrema(fluid_zcoords)['local_max']
 
@@ -211,7 +216,7 @@ class TrajtoGrid:
                                          np.mean(comm.allgather(np.mean(fluid_end)))
 
         # Define the upper surface and lower surface regions
-        # To avoid problems with logical-and later
+        # To avoid problems with logical-and boolean
         solid_xcoords[solid_xcoords==0] = 1e-5
         surfU = np.ma.masked_greater(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
         surfL = np.ma.masked_less(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
@@ -245,14 +250,13 @@ class TrajtoGrid:
 
         # For vibrating walls
         if self.TW_interface == 1: # Thermostat is applied on the walls directly at the interface (half of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.5 * utils.extrema(surfL_zcoords)['local_max'] + avg_surfL_begin
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.5 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
         else: # Thermostat is applied on the walls away from the interface (2/3 of the wall is vibrating)
-            surfU_vib_end = utils.cnonzero_min(surfU_zcoords)['local_min'] + \
-                                0.833 * utils.extrema(surfL_zcoords)['local_max'] + 2 * avg_surfL_begin
-        avg_surfU_vib_end = np.mean(comm.allgather(np.mean(surfU_vib_end)))
+            surfU_vib_end = utils.extrema(surfU_zcoords)['global_max'] - \
+                                0.167 * (utils.extrema(surfL_zcoords)['global_max'] - avg_surfL_begin)
 
-        surfU_vib = np.ma.masked_less(surfU_zcoords, avg_surfU_vib_end)
+        surfU_vib = np.ma.masked_less(surfU_zcoords, surfU_vib_end)
         surfU_vib_indices = np.where(surfU_vib[0].mask)[0]
 
         if rank == 0:
@@ -272,8 +276,8 @@ class TrajtoGrid:
         # Shape: int
         avg_gap_height = np.mean(comm.allgather(np.mean(gap_height)))
 
-        # Update the box domain dimensions
-        Lz = avg_surfU_end - avg_surfL_begin
+        # Update the entire domain dimensions
+        Lz = utils.extrema(surfU_zcoords)['global_max'] - avg_surfL_begin
         cell_lengths_updated = [Lx, Ly, Lz]
         domain_min = [0, 0, avg_surfL_begin]
 
@@ -283,6 +287,8 @@ class TrajtoGrid:
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
+        # Unaveraged velocities
+        vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
 
         # Velocity of each atom
         # Shape: (time, Nf)
@@ -290,8 +296,6 @@ class TrajtoGrid:
                                        vels[:, fluid_idx, 1], \
                                        vels[:, fluid_idx, 2]
 
-        # Unaveraged velocities
-        vels_t = np.array(vels_data_unavgd[self.start:self.end]).astype(np.float32)
 
         fluid_vx_t, fluid_vy_t, fluid_vz_t = vels_t[:, fluid_idx, 0], \
                                              vels_t[:, fluid_idx, 1], \
@@ -315,7 +319,7 @@ class TrajtoGrid:
                                     ylength=Ly, length=avg_gap_height))
 
         # Bulk -----------------------------------------------------------------
-        bulkStartZ, bulkEndZ = (0.4 * Lz) + surfL_begin, (0.6 * Lz) + surfL_begin     # Boffset is 1 Angstrom
+        bulkStartZ, bulkEndZ = (0.4 * Lz) + avg_surfL_begin, (0.6 * Lz) + avg_surfL_begin     # Boffset is 1 Angstrom
         # Shapes: float, Boolean (time, Nf), (time, Nf), (time,), (time,)
         bulk_height, bulk_region, bulk_zcoords, bulk_vol, bulk_N = \
             itemgetter('interval', 'mask', 'data', 'vol', 'count')\
@@ -397,7 +401,6 @@ class TrajtoGrid:
         N_fluid_mask_non_zero = np.zeros_like(N_fluid_mask)
         N_stable_mask = np.zeros_like(N_fluid_mask)
         N_bulk_mask = np.zeros_like(N_fluid_mask)
-        N_Upper_vib_mask = np.zeros_like(N_fluid_mask)
         vx_ch = np.zeros_like(N_fluid_mask)
         vx_ch_whole = np.zeros_like(vx_ch)
         vir_ch = np.zeros_like(vx_ch)
@@ -465,21 +468,6 @@ class TrajtoGrid:
                     N_stable_mask[:, i, j, k] = np.sum(mask_stable, axis=1)
                     Nzero_stable = np.less(N_stable_mask[:, i, j, k], 1)
                     N_stable_mask[Nzero_stable, i, j, k] = 1
-
-            # Vibrating atoms
-                    maskxU_vib = utils.region(surfU_vib_xcoords, surfU_vib_xcoords,
-                                            xx[i, j, k], xx[i+1, j, k])['mask']
-                    maskyU_vib = utils.region(surfU_vib_ycoords, surfU_vib_ycoords,
-                                            yy[i, j, k], yy[i, j+1, k])['mask']
-                    maskzU_vib = utils.region(surfU_vib_zcoords, surfU_vib_zcoords,
-                                            zz[i, j, k], zz[i, j, k+1])['mask']
-                    maskxyU_vib = np.logical_and(maskxU_vib, maskyU_vib)
-                    maskU_vib = np.logical_and(maskxyU_vib, maskzU_vib)
-
-                    N_Upper_vib_mask[:, i, j, k] = np.sum(maskU_vib, axis=1)
-                    # To avoid warning with flat rigid walls
-                    Nzero_vib = np.less(N_Upper_vib_mask[:, i, j, k], 1)
-                    N_Upper_vib_mask[Nzero_vib, i, j, k] = 1
 
         # -----------------------------------------------------
         # Thermodynamic properties ----------------------------
@@ -549,24 +537,6 @@ class TrajtoGrid:
                     # Velocities in the stable region (Å/fs)
                     vx_ch[:, i, j, k] = np.sum(fluid_vx * mask_stable, axis=1) / N_stable_mask[:, i, j, k]
 
-                    # Upper surface ------------------------------------------------
-                    # Temperature (K)
-                    # Shape: (time,)
-                    uCOM_surfU_vib = np.sum(surfU_vx_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, j, k])
-                    vCOM_surfU_vib = np.sum(surfU_vy_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, j, k])
-                    wCOM_surfU_vib = np.sum(surfU_vz_vib * maskxU_vib, axis=1) / (N_Upper_vib_mask[:, i, j, k])
-                    # Shape: (Ns, time)
-                    peculiar_vx_surfU = np.transpose(surfU_vx_vib) - uCOM_surfU_vib
-                    peculiar_vy_surfU = np.transpose(surfU_vy_vib) - vCOM_surfU_vib
-                    peculiar_vz_surfU = np.transpose(surfU_vz_vib) - wCOM_surfU_vib
-                    peculiar_v_surfU_vib = np.sqrt(peculiar_vx_surfU**2 + peculiar_vy_surfU**2 + peculiar_vz_surfU**2)
-                    # Shape: (time, Ns)
-                    peculiar_v_surfU_vib = np.transpose(peculiar_v_surfU_vib) * maskxU_vib
-
-                    temp_ch_solid[:, i, j, k] =  np.sum(mass_surfU_vib * sci.gram / sci.N_A * \
-                                            peculiar_v_surfU_vib**2 * A_per_fs_to_m_per_s**2 , axis=1) / \
-                                            ((3 * N_Upper_vib_mask[:, i, j, k] - 3) * sci.k)  # Kelvin
-
 
         return {'cell_lengths': cell_lengths_updated,
                 'gap_height': gap_height,
@@ -593,5 +563,4 @@ class TrajtoGrid:
                 'Wzz_ch': Wzz_ch,
                 'vir_ch': vir_ch,
                 'den_bulk_ch':den_bulk_ch,
-                'vx_ch': vx_ch,
-                'temp_ch_solid': temp_ch_solid}
+                'vx_ch': vx_ch}

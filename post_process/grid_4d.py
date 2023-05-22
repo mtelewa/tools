@@ -107,8 +107,8 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         # Get the data
         cell_lengths, gap_height, bulkStartZ_time, bulkEndZ_time, com, Nf, Nm, totVi, del_totVi, \
         vx_ch_whole, den_ch, jx_ch, mflowrate_ch, tempx_ch, tempy_ch, tempz_ch, temp_ch, \
-        Wxy_ch, Wxz_ch, Wyz_ch, Wxx_ch, Wyy_ch, Wzz_ch, vir_ch, den_bulk_ch, vx_ch, \
-        temp_ch_solid = itemgetter('cell_lengths',
+        Wxy_ch, Wxz_ch, Wyz_ch, Wxx_ch, Wyy_ch, Wzz_ch, vir_ch, \
+        den_bulk_ch, vx_ch = itemgetter('cell_lengths',
                                   'gap_height',
                                   'bulkStartZ_time',
                                   'bulkEndZ_time',
@@ -132,15 +132,12 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
                                   'Wzz_ch',
                                   'vir_ch',
                                   'den_bulk_ch',
-                                  'vx_ch',
-                                  'temp_ch_solid')(init.get_chunks(stable_start,
+                                  'vx_ch')(init.get_chunks(stable_start,
                                     stable_end, pump_start, pump_end))
 
         # Number of elements in the send buffer
         sendcounts_time = np.array(comm.gather(chunksize, root=0))
         sendcounts_chunk_fluid = np.array(comm.gather(vx_ch.size, root=0))
-        sendcounts_chunk_vib = np.array(comm.gather(temp_ch_solid.size, root=0))
-        sendcounts_chunk_bulk = np.array(comm.gather(den_bulk_ch.size, root=0))
 
         if rank == 0:
 
@@ -186,8 +183,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wzz_ch_global = np.zeros_like(vx_ch_whole_global)
             # Velocity  -- stable
             vx_ch_global = np.zeros_like(vx_ch_whole_global)
-            # Temperature -- solid
-            temp_solid_global = np.zeros_like(vx_ch_whole_global)
 
         else:
             gap_height_global = None
@@ -214,7 +209,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wyy_ch_global = None
             Wzz_ch_global = None
             vx_ch_global = None
-            temp_solid_global = None
 
         # ----------------------------------------------------------------------
         # Collective Communication ---------------------------------------------
@@ -229,7 +223,7 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
 
         comm.Gatherv(sendbuf=np.ma.masked_invalid(vx_ch_whole), recvbuf=(vx_ch_whole_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(den_ch), recvbuf=(den_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=np.ma.masked_invalid(den_bulk_ch), recvbuf=(den_bulk_ch_global, sendcounts_chunk_bulk), root=0)
+        comm.Gatherv(sendbuf=np.ma.masked_invalid(den_bulk_ch), recvbuf=(den_bulk_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(jx_ch), recvbuf=(jx_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(mflowrate_ch), recvbuf=(mflowrate_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(tempx_ch), recvbuf=(tempx_global, sendcounts_chunk_fluid), root=0)
@@ -244,7 +238,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
         comm.Gatherv(sendbuf=np.ma.masked_invalid(Wyy_ch), recvbuf=(Wyy_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(Wzz_ch), recvbuf=(Wzz_ch_global, sendcounts_chunk_fluid), root=0)
         comm.Gatherv(sendbuf=np.ma.masked_invalid(vx_ch), recvbuf=(vx_ch_global, sendcounts_chunk_fluid), root=0)
-        comm.Gatherv(sendbuf=np.ma.masked_invalid(temp_ch_solid), recvbuf=(temp_solid_global, sendcounts_chunk_vib), root=0)
 
         # ----------------------------------------------------------------------
         # Write to netCDF file -------------------------------------------------
@@ -294,7 +287,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             tempx_var =  out.createVariable('TemperatureX', 'f4', ('time', 'x', 'y', 'z'))
             tempy_var =  out.createVariable('TemperatureY', 'f4', ('time', 'x', 'y', 'z'))
             tempz_var =  out.createVariable('TemperatureZ', 'f4', ('time', 'x', 'y', 'z'))
-            temp_solid_var = out.createVariable('Temperature_solid', 'f4', ('time', 'x', 'y', 'z'))
 
             fx_U_var =  out.createVariable('Fx_Upper', 'f4',  ('time', 'x'))
             fy_U_var =  out.createVariable('Fy_Upper', 'f4',  ('time', 'x'))
@@ -329,7 +321,6 @@ def make_grid(infile, Nx, Ny, Nz, slice_size, mf, A_per_molecule, fluid, stable_
             Wzz_var[:] = Wzz_ch_global
             vir_var[:] = vir_ch_global
             vx_whole_var[:] = vx_ch_whole_global
-            temp_solid_var[:] = temp_solid_global
 
             out.close()
             print('Dataset is closed!')
