@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys, logging
+import warnings
 import numpy as np
 import scipy.constants as sci
 import time as timer
@@ -26,6 +27,9 @@ size = comm.Get_size()
 fs_to_ns = 1e-6
 A_per_fs_to_m_per_s = 1e5
 atmA3_to_kcal = 0.02388*1e-27
+
+# For the spatial bins with 1 or zero atoms. These are masked later in computing properties.
+warnings.simplefilter('ignore', category=RuntimeWarning)
 
 class TrajtoGrid:
     """
@@ -116,19 +120,17 @@ class TrajtoGrid:
         cell_lengths_array = [Lx, Ly, Lz]
 
         # Position, velocity, virial (Wi) array dimensions: (time, Natoms, dimension)
-        try:
-            coords_data = self.data.variables["f_position"]
-        except KeyError:
-            coords_data = self.data.variables["coordinates"]
-        try:
-            vels_data = self.data.variables["f_velocity"]
-        except KeyError:
-            vels_data = self.data.variables["velocities"]
         # The unaveraged quantity is that which is dumped by LAMMPS every N timesteps
         # i.e. it is a snapshot of the system at this timestep.
         # The averaged quantities are the moving average of a few previous timesteps
-        coords_data_unavgd = self.data.variables["coordinates"]   # Used for ACF calculation
-        vels_data_unavgd = self.data.variables["velocities"]     # Used for temp. calculation
+
+        coords_data = self.data.variables["coordinates"]
+        try:
+            vels_data = self.data.variables["f_velocity"]    # averaged velocities
+        except KeyError:
+            vels_data = self.data.variables["velocities"]    # unaveraged velocities used for temp. calculation
+
+        vels_data_unavgd = self.data.variables["velocities"]
 
         # Fluid Virial Pressure ------------------------------------------------
         try:
@@ -144,8 +146,8 @@ class TrajtoGrid:
         mass = np.zeros_like(type_array)
         # TODO: Assign masses for AA
         types = np.array(type_array[0, :]).astype(np.float32)
-        if np.max(types)==1: mass_map = {1: 39.948}
-        if np.max(types)==2: mass_map = {1: 15.03462, 2:14.02667}   # UA
+        if np.max(types)==1: mass_map = {1: 39.948}  # argon
+        if np.max(types)==2: mass_map = {1: 15.03462, 2:14.02667}   # CH2, CH3  UA
 
         for i in range(type_array.shape[0]):
             for j in range(type_array.shape[1]):
@@ -218,25 +220,11 @@ class TrajtoGrid:
         else:
             del_totVi = np.zeros([self.chunksize], dtype=np.float32)
 
-        # Unaveraged positions
-        coords_unavgd = np.array(coords_data_unavgd[self.start:self.end]).astype(np.float32)
-
-        fluid_xcoords_unavgd, fluid_ycoords_unavgd, fluid_zcoords_unavgd = coords_unavgd[:, fluid_idx, 0], \
-                                                                           coords_unavgd[:, fluid_idx, 1], \
-                                                                           coords_unavgd[:, fluid_idx, 2]
-
-        # For box volume that changes with time (i.e. NPT ensemble)
-        # Shape: (time,)
-        fluid_min = [utils.extrema(fluid_xcoords)['global_min'],
-                     utils.extrema(fluid_ycoords)['global_min'],
-                     utils.extrema(fluid_zcoords)['global_min']]
-
-        fluid_max = [utils.extrema(fluid_xcoords)['global_max'],
-                     utils.extrema(fluid_ycoords)['global_max'],
-                     utils.extrema(fluid_zcoords)['global_max']]
-
+        # Shape: (Lx,Ly,Lz)
+        cell_origin = self.data.variables["cell_origin"]
+        fluid_min = np.array(cell_origin[0, :]).astype(np.float32)
         # Fluid domain dimensions
-        fluid_lengths = [fluid_max[0]- fluid_min[0], fluid_max[1]- fluid_min[1], fluid_max[2]- fluid_min[2]]
+        fluid_lengths = np.array(cell_lengths[0, :]).astype(np.float32)
 
         # Velocities -----------------------------------------------------------
         vels = np.array(vels_data[self.start:self.end]).astype(np.float32)
@@ -266,7 +254,6 @@ class TrajtoGrid:
         # Bounds should change for example in NPT simulations
         # (NEEDED especially when the Box volume changes e.g. NPT)
         bounds = [np.arange(dim[i] + 1) / dim[i] * fluid_lengths[i] + fluid_min[i] for i in range(3)]
-
         xx, yy, zz, vol_cell = utils.bounds(bounds[0], bounds[1], bounds[2])
 
         # ----------------------------------------------------------------------
