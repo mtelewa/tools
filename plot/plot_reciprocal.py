@@ -162,7 +162,7 @@ class PlotGeneral:
 
             plt.imshow(sf.T, cmap='viridis', interpolation='lanczos',
                 extent=[kx.min(), kx.max(), ky.min(), ky.max()], aspect='equal', origin='lower')
-            # plt.colorbar()
+            plt.colorbar()
 
         elif self.config['3d']:
             self.ax.set_xlabel('$k_x \, (\AA^{-1})$')
