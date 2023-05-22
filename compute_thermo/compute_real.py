@@ -179,6 +179,13 @@ class ExtractFromTraj:
         vx_chunkZ = np.mean(vx_full_z, axis=(0,1))
         vx_t = np.mean(vx_full_x, axis=(1,2))
 
+        # First and last 2 chunks have large uncertainties
+        if np.ma.count_masked(vx_chunkZ)!=0:
+            first_non_masked = np.ma.flatnotmasked_edges(vx_chunkZ)[0]
+            last_non_masked = np.ma.flatnotmasked_edges(vx_chunkZ)[1]
+            vx_chunkZ[first_non_masked], vx_chunkZ[first_non_masked+1], \
+            vx_chunkZ[last_non_masked], vx_chunkZ[last_non_masked-1] = np.nan, np.nan, np.nan, np.nan
+
         try: # For the 5-regions grid
             vx_R1_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R1"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
             vx_R2_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Vx_R2"])[self.skip:]) * Angstromperfs_to_mpers  # m/s
@@ -228,8 +235,8 @@ class ExtractFromTraj:
             den_t = np.mean(density_Bulk, axis=1)
         else:   # Bulk
             Nm = len(self.data_x.dimensions["Nf"]) / self.A_per_molecule     # No. of fluid molecules
-            mass = Nm * (self.mf/sci.N_A)
-            den_t = mass / (self.vol * nm_to_cm**3)
+            mass = Nm * (self.mf/sci.N_A)       # g
+            den_t = mass / (self.vol * nm_to_cm**3)     # g/cm3
 
         return {'den_X': den_X, 'den_Z': den_Z, 'den_t': den_t,
                 'den_full_x':density_Bulk, 'den_full_z':den_full_z}
@@ -376,40 +383,58 @@ class ExtractFromTraj:
         Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
         Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
 
-        # If in LAMMPS we can switch off the flow direction to compute the virial
-        # and used only the y-direction (perp. to flow perp. to loading), then
-        # we conisder only that direction in the virial calculation.
-        print(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)))
-        if np.isclose(np.mean(Wxx_full_x, axis=(0,1,2)), np.mean(Wyy_full_x, axis=(0,1,2)), rtol=0.1, atol=0.0): # Incompressible flow
-            print('Virial computed from the three components')
-            vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
-            vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-        else:  # Compressible flow
-            print('Virial computed from the y-component')
-            vir_full_x = - Wyy_full_x
-            vir_full_z = - Wyy_full_z
+        if self.avg_gap_height != 0:
+            # If in LAMMPS we can switch off the flow direction to compute the virial
+            # and used only the y-direction (perp. to flow perp. to loading), then
+            # we conisder only that direction in the virial calculation.
+            if self.pumpsize == 0: # Equilibrium and Shear-driven (TODO: should be only equilibrium)
+                print('Virial computed from the three components')
+                vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+                vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+            else:  # Pressure-driven fluid
+                print('Virial computed from the y-component')
+                vir_full_x = - Wyy_full_x
+                vir_full_z = - Wyy_full_z
 
-        vir_t = np.mean(vir_full_x, axis=(1,2))
+            vir_chunkX = np.mean(vir_full_x, axis=(0,2))
+            vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+            vir_t = np.mean(vir_full_x, axis=(1,2))
 
         if self.avg_gap_height == 0:
-            vir_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Virial"])[self.skip:]) * sci.atm * pa_to_Mpa
-            vir_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Virial"])[self.skip:]) * sci.atm * pa_to_Mpa
-            vir_t = np.sum(vir_full_x, axis=(1,2)) / (self.vol*1e3)
+            # Averaging along time and height
+            Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            # Averaging along time and length
+            Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
 
             Wxx_t = np.sum(Wxx_full_z, axis=(1,2)) / (self.vol*1e3)
             Wyy_t = np.sum(Wyy_full_z, axis=(1,2)) / (self.vol*1e3)
             Wzz_t = np.sum(Wzz_full_z, axis=(1,2)) / (self.vol*1e3)
 
-        vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-        vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
+            vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
+            vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
+
+            vir_chunkX = np.mean(vir_full_x, axis=(0,2)) / (np.mean(self.vol)*1e3 / self.Nx)
+            vir_chunkZ = np.mean(vir_full_z, axis=(0,1)) / (np.mean(self.vol)*1e3 / self.Nz)
+            vir_t = -(Wxx_t + Wyy_t + Wzz_t) / 3.
+
         vir_fluctuations = sq.get_err(vir_full_x)['var']
 
         # pressure gradient ---------------------------------------
         pd_length = self.Lx - self.pumpsize * self.Lx      # nm
         # Virial pressure at the inlet and the outlet of the pump
-        out_chunk, in_chunk = np.argmax(vir_chunkX[1:-1]), np.argmin(vir_chunkX[1:-1])
+        out_chunk, in_chunk = np.argmax(vir_chunkX), np.argmin(vir_chunkX)
         # timeseries of the output and input chunks
-        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk+1]), np.mean(vir_full_x[:, in_chunk+1])
+        vir_out, vir_in = np.mean(vir_full_x[:, out_chunk]), np.mean(vir_full_x[:, in_chunk])
         # Pressure Difference  between inlet and outlet
         pDiff = vir_out - vir_in
         # Pressure gradient in the simulation domain
@@ -417,6 +442,11 @@ class ExtractFromTraj:
             pGrad = - pDiff / pd_length       # MPa/nm
         else:
             pGrad = 0
+
+        # Remove first and last chuunks
+        first_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[0]
+        last_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[1]
+        vir_chunkX[first_non_masked], vir_chunkX[last_non_masked] = np.nan, np.nan
 
         return {'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
                 'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
@@ -550,11 +580,12 @@ class ExtractFromTraj:
 
         temp_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Temperature"])[self.skip:])
         tempZ = np.mean(temp_full_z, axis=(0,1))
-        # First and last chunk have large uncertainties
+        # First and last 2 chunks have large uncertainties
         if np.ma.count_masked(tempZ)!=0:
             first_non_masked = np.ma.flatnotmasked_edges(tempZ)[0]
             last_non_masked = np.ma.flatnotmasked_edges(tempZ)[1]
-            tempZ[first_non_masked], tempZ[last_non_masked] = np.nan, np.nan
+            tempZ[first_non_masked], tempZ[first_non_masked+1], \
+            tempZ[last_non_masked], tempZ[last_non_masked-1] = np.nan, np.nan, np.nan, np.nan
 
         # print(np.isnan(temp_full_z).any())
 
