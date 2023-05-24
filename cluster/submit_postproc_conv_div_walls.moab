@@ -102,10 +102,10 @@ fi
 
 cd ${MOAB_SUBMITDIR}
 
-mpirun -np 8 proc_conv_div_walls.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
+mpirun --bind-to core --map-by core -report-bindings proc_conv_div_walls.py $infile.nc $Nchunks 1 1000 $fluid $stable_start $stable_end \
           $pump_start $pump_end $begin_converge $end_converge \
           $begin_diverge $end_diverge --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
-mpirun -np 8 proc_conv_div_walls.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
+mpirun --bind-to core --map-by core -report-bindings proc_conv_div_walls.py $infile.nc 1 $Nchunks 1000 $fluid $stable_start $stable_end \
           $pump_start $pump_end $begin_converge $end_converge \
           $begin_diverge $end_diverge --Ny $Ny --tessellate $tessellate --TW_interface $TW_interface
 
