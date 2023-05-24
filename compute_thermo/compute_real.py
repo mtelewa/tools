@@ -337,14 +337,6 @@ class ExtractFromTraj:
         W<ab>_t : arr (time,), ab virial tensor component time-series
 
         """
-        # vir_full_x = np.array(self.data_x.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-        # vir_full_z = np.array(self.data_z.variables["Virial"])[self.skip:] * sci.atm * pa_to_Mpa
-        # vir_t = np.mean(vir_full_x, axis=(1,2))
-        # vir_chunkX = np.mean(vir_full_x, axis=(0,2))
-        # vir_chunkZ = np.mean(vir_full_z, axis=(0,1))
-        #
-        # return {'vir_X': vir_chunkX, 'vir_Z': vir_chunkZ,
-        #         'vir_t': vir_t, 'vir_full_x': vir_full_x, 'vir_full_z': vir_full_z}
 
         # Diagonal components (bulk)
         Wxx_full_x = self.mask_invalid_zeros(np.array(self.data_x.variables["Wxx"])[self.skip:]) * sci.atm * pa_to_Mpa
@@ -361,37 +353,34 @@ class ExtractFromTraj:
         Wxz_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wxz"])[self.skip:]) * sci.atm * pa_to_Mpa
         Wyz_full_z = self.mask_invalid_zeros(np.array(self.data_z.variables["Wyz"])[self.skip:]) * sci.atm * pa_to_Mpa
 
-        # Averaging along time and height
-        Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
-        Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
-        Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
-        Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
-        Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
-        Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
-        # Averaging along time and length
-        Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
-        Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
-        Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
-        Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
-        Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
-        Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
-        # Averaging along length and height
-        Wxx_t = np.mean(Wxx_full_z, axis=(1,2))
-        Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
-        Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
-        Wxy_t = np.mean(Wxy_full_z, axis=(1,2))
-        Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
-        Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
-
         if self.avg_gap_height != 0:
-            # If in LAMMPS we can switch off the flow direction to compute the virial
-            # and used only the y-direction (perp. to flow perp. to loading), then
-            # we conisder only that direction in the virial calculation.
-            if self.pumpsize == 0: # Equilibrium and Shear-driven (TODO: should be only equilibrium)
+            # Averaging along time and height
+            Wxx_chunkX = np.mean(Wxx_full_x, axis=(0,2))
+            Wyy_chunkX = np.mean(Wyy_full_x, axis=(0,2))
+            Wzz_chunkX = np.mean(Wzz_full_x, axis=(0,2))
+            Wxy_chunkX = np.mean(Wxy_full_x, axis=(0,2))
+            Wxz_chunkX = np.mean(Wxz_full_x, axis=(0,2))
+            Wyz_chunkX = np.mean(Wyz_full_x, axis=(0,2))
+            # Averaging along time and length
+            Wxx_chunkZ = np.mean(Wxx_full_z, axis=(0,1))
+            Wyy_chunkZ = np.mean(Wyy_full_z, axis=(0,1))
+            Wzz_chunkZ = np.mean(Wzz_full_z, axis=(0,1))
+            Wxy_chunkZ = np.mean(Wxy_full_z, axis=(0,1))
+            Wxz_chunkZ = np.mean(Wxz_full_z, axis=(0,1))
+            Wyz_chunkZ = np.mean(Wyz_full_z, axis=(0,1))
+            # Averaging along length and height
+            Wxx_t = np.mean(Wxx_full_z, axis=(1,2))
+            Wyy_t = np.mean(Wyy_full_z, axis=(1,2))
+            Wzz_t = np.mean(Wzz_full_z, axis=(1,2))
+            Wxy_t = np.mean(Wxy_full_z, axis=(1,2))
+            Wxz_t = np.mean(Wxz_full_z, axis=(1,2))
+            Wyz_t = np.mean(Wyz_full_z, axis=(1,2))
+
+            if self.pumpsize == 0: # Compute virial pressure from the three diagonal components
                 print('Virial computed from the three components')
                 vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
                 vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
-            else:  # Pressure-driven fluid
+            else:  # Compute virial pressure from the y-component (perp. to wall-perp. to flow direction)
                 print('Virial computed from the y-component')
                 vir_full_x = - Wyy_full_x
                 vir_full_z = - Wyy_full_z
@@ -419,6 +408,9 @@ class ExtractFromTraj:
             Wxx_t = np.sum(Wxx_full_z, axis=(1,2)) / (self.vol*1e3)
             Wyy_t = np.sum(Wyy_full_z, axis=(1,2)) / (self.vol*1e3)
             Wzz_t = np.sum(Wzz_full_z, axis=(1,2)) / (self.vol*1e3)
+            Wxy_t = np.sum(Wxy_full_z, axis=(1,2)) / (self.vol*1e3)
+            Wxz_t = np.sum(Wxz_full_z, axis=(1,2)) / (self.vol*1e3)
+            Wyz_t = np.sum(Wyz_full_z, axis=(1,2)) / (self.vol*1e3)
 
             vir_full_x = -(Wxx_full_x + Wyy_full_x + Wzz_full_x) / 3.
             vir_full_z = -(Wxx_full_z + Wyy_full_z + Wzz_full_z) / 3.
@@ -443,10 +435,10 @@ class ExtractFromTraj:
         else:
             pGrad = 0
 
-        # Remove first and last chuunks
-        first_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[0]
-        last_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[1]
-        vir_chunkX[first_non_masked], vir_chunkX[last_non_masked] = np.nan, np.nan
+        # # Remove first and last chuunks
+        # first_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[0]
+        # last_non_masked = np.ma.flatnotmasked_edges(vir_chunkX)[1]
+        # vir_chunkX[first_non_masked], vir_chunkX[last_non_masked] = np.nan, np.nan
 
         return {'Wxx_X': Wxx_chunkX , 'Wxx_Z': Wxx_chunkZ, 'Wxx_t': Wxx_t,
                 'Wxx_full_x': Wxx_full_x, 'Wxx_full_z': Wxx_full_z,
@@ -811,22 +803,22 @@ class ExtractFromTraj:
         """
 
         # Remove the first and last chunk along the gap height (high uncertainty)
-        height = self.height_array[1:-1]
-        velocity = self.velocity()['vx_Z'][1:-1]
-        velocity_full = self.velocity()['vx_full_z'][:,:,1:-1]
+        height = self.height_array
+        velocity = np.ma.masked_invalid(self.velocity()['vx_Z'])
+        velocity_full = self.velocity()['vx_full_z']
 
         # sd
         if self.pumpsize==0:
-            coeffs_fit = np.polyfit(height, velocity, 1)
+            coeffs_fit = np.ma.polyfit(height, velocity, 1)
             sigxz_avg = np.mean(self.sigwall()['sigxz_t']) * 1e9      # mPa
             shear_rate = coeffs_fit[0] * 1e9        # s^-1
             eta = sigxz_avg / shear_rate
 
-            coeffs_fit_lo = np.polyfit(height, sq.get_err(velocity_full)['lo'], 1)
+            coeffs_fit_lo = np.ma.polyfit(height, sq.get_err(velocity_full)['lo'], 1)
             shear_rate_lo = coeffs_fit_lo[0] * 1e9
             eta_lo = sigxz_avg / shear_rate_lo
 
-            coeffs_fit_hi = np.polyfit(height, sq.get_err(velocity_full)['hi'], 1)
+            coeffs_fit_hi = np.ma.polyfit(height, sq.get_err(velocity_full)['hi'], 1)
             shear_rate_hi = coeffs_fit_hi[0] * 1e9
             eta_hi = sigxz_avg / shear_rate_hi
 
@@ -838,15 +830,16 @@ class ExtractFromTraj:
 
             # Shear rate at the walls
             x=0
-            coeffs_fit = np.polyfit(height, velocity, 2)
+            coeffs_fit = np.ma.polyfit(height, velocity, 2)
             shear_rate = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
             eta = sigxz_avg / shear_rate                # mPa.s
 
-            coeffs_fit_lo = np.polyfit(height, sq.get_err(velocity_full)['lo'], 2)
+            # TODO: Fix this
+            coeffs_fit_lo = np.ma.polyfit(height, sq.get_err(velocity_full)['lo'], 2)
             shear_rate_lo = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
             eta_lo = sigxz_avg / shear_rate_lo          # mPa.s
 
-            coeffs_fit_hi = np.polyfit(height, sq.get_err(velocity_full)['hi'], 2)
+            coeffs_fit_hi = np.ma.polyfit(height, sq.get_err(velocity_full)['hi'], 2)
             shear_rate_hi = (coeffs_fit[0]* 2 * x - coeffs_fit[0] * self.avg_gap_height) * 1e9
             eta_hi = sigxz_avg / shear_rate_hi          # mPa.s
 
@@ -981,9 +974,8 @@ class ExtractFromTraj:
         """
 
         # Remove the first and last chunk along the gap height (high uncertainty)
-        height = self.height_array[1:-1]
-        velocity = self.velocity()['vx_Z'][1:-1]
-        velocity_full = self.velocity()['vx_full_z'][:,:,1:-1]
+        height = self.height_array
+        velocity = np.ma.masked_invalid(self.velocity()['vx_Z'])
 
         if self.pumpsize==0:
             fit_data = funcs.fit(height, velocity, 1)['fit_data']
