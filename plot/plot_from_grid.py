@@ -290,7 +290,7 @@ class PlotFromGrid:
                 self.axes_array[n].set_ylabel(labels[3])
                 if self.dimension=='L': arr, y = density['den_full_x'], density['den_X']
                 if self.dimension=='H': arr, y = density['den_full_z'], density['den_Z']
-                if self.dimension=='T': arr, y = None, densty['den_t']
+                if self.dimension=='T': arr, y = None, density['den_t']
                 # self.axes_array[n].plot(np.roll(y,85), x, color=colors[i])
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
