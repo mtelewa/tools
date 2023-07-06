@@ -93,7 +93,7 @@ cd $(pwd)
 mpirun --bind-to core --map-by core -report-bindings proc_4d.py $infile.nc $NchunksX $NchunksY $NchunksZ 1000 \
               $fluid $stable_start $stable_end $pump_start $pump_end --tessellate $tessellate --TW_interface $TW_interface
 
-if [ ! -f ${infile}_${NchunksX}x1_001.nc ]; then
+if [ ! -f ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_001.nc ]; then
   mv ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_000.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
 else
   cdo mergetime ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}_*.nc ${infile}_${NchunksX}x${NchunksY}x${NchunksZ}.nc
