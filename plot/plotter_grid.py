@@ -74,7 +74,8 @@ if __name__ == "__main__":
     if args.config:
         import plot_from_grid
     else:
-        import plot_quick
+        logging.error("Insert config file!")
+        quit()
 
     datasets = []
     for key, value in vars(args).items():
