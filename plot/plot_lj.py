@@ -46,9 +46,9 @@ if __name__ == '__main__':
     ax.set_ylabel('Energy $U(r_{ij})$ (Kcal/mol)')
     ax.axhline(y = 0, ls='--', color='k')
 
-    ax.plot(r, u_stick, label='Wetting')
-    ax.plot(r, u_intermed, label='Intermediate')
-    ax.plot(r, u_slip, label='Non-wetting')
+    ax.plot(r, u_stick, label='Wetting', color='tab:blue')
+    ax.plot(r, u_intermed, label='Intermediate', color='tab:green')
+    ax.plot(r, u_slip, label='Non-wetting', color='tab:orange')
 
     ax.set_ylim(top=0.6)
     ax.legend(frameon=False, loc='lower right')
