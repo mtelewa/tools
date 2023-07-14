@@ -220,8 +220,8 @@ class TrajtoGrid:
         # Define the upper surface and lower surface regions
         # To avoid problems with logical-and boolean
         solid_xcoords[solid_xcoords==0] = 1e-5
-        surfU = np.ma.masked_greater(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
-        surfL = np.ma.masked_less(solid_zcoords, utils.extrema(fluid_zcoords)['global_max']/2.)
+        surfU = np.ma.masked_greater(solid_zcoords, utils.extrema(solid_zcoords)['global_max']/2.) #utils.extrema(fluid_zcoords)['global_max']/2.)
+        surfL = np.ma.masked_less(solid_zcoords, utils.extrema(solid_zcoords)['global_max']/2.) #utils.extrema(fluid_zcoords)['global_max']/2.)
         # Indices of the the lower and upper, Shape: (time, Nsurf)
         surfU_indices = np.where(surfU[0].mask)[0]
         surfL_indices = np.where(surfL[0].mask)[0]
