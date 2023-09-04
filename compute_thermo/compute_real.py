@@ -1065,7 +1065,7 @@ class ExtractFromTraj:
         Computes the surface tension (γ) from an equilibrium Liquid/Vapor interface
         The pressure tensor is computed from the "virial" method using IK expression
 
-        Units: N/m
+        Units: mN/m
         """
 
         virxx, viryy, virzz = -self.virial()['Wxx_t'], -self.virial()['Wyy_t'], -self.virial()['Wzz_t']   # MPa
