@@ -76,7 +76,7 @@ class Initialize:
         # Heat map
         try:
             if self.config['heat']:
-                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(5.3,5.3))
+                fig, ax = plt.subplots(nrows=1, ncols=1, sharex=True, figsize=(6.4,5.3))
         except KeyError:
             pass
 
@@ -148,7 +148,10 @@ class Modify:
                 self.plot_broken(axes_array, shared_label=1)
         if self.config['set_ax_height'] is not None: self.set_ax_height(axes_array)
         # if self.config['plot_inset'] is not None: self.plot_inset(axes_array)
-
+        try:
+            if self.config['hline_pos'] is not None: self.plot_hlines(axes_array)
+        except KeyError:
+            pass
 
     def add_legend(self, axis):
         """
@@ -160,7 +163,7 @@ class Modify:
         legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Quadratic fit'),
                            Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Quartic fit')]
         #                    Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Lin. extrapolation')]
-        #legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
+        # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='Fluid'),
         #                   Line2D([0], [0], color='k', lw=2.5, ls='--', marker=' ', label='Wall')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls='-', marker=' ', label='$C\dot{\gamma}^{n}$')]
         # legend_elements = [Line2D([0], [0], color='k', lw=2.5, ls=' ', marker='^', markersize=8, label='Fixed Force'),
@@ -176,7 +179,7 @@ class Modify:
         # Import legend items from the elements specified
         elif self.config['legend_elements']=='e':
             if self.config['legend_loc'] == 1:
-                axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.8), columnspacing=1, ncol=1)
+                axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 0.4), columnspacing=1, ncol=1)
                 # axis.legend(handles=legend_elements, frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.5), columnspacing=1, ncol=3)#loc=(0.,0.45))
             if isinstance(self.config['legend_loc'], str):
                 axis.legend(handles=legend_elements, frameon=False, loc=self.config['legend_loc'])
@@ -188,7 +191,7 @@ class Modify:
                 axis.legend(frameon=False, loc='upper center', bbox_to_anchor=(0.5, 1.12), ncol=4)
                 # axis.legend(frameon=False, loc='upper right')
             else:
-                axis.legend(frameon=False)
+                axis.legend(frameon=False)#, markerscale=2)
 
 
     def label_inline(self, lines):
@@ -237,6 +240,16 @@ class Modify:
         for ax in range(len(axes)):
             axes[ax].axvline(x= pos1*np.max(self.xdata), color='k', marker=' ', linestyle='dotted', lw=1.5)
             axes[ax].axvline(x= pos2*np.max(self.xdata), color='k', marker=' ', linestyle='dotted', lw=1.5)
+
+    def plot_hlines(self, axes):
+        """
+        Plots horizontal lines if the position was given in the config file
+        """
+        # Draw vlines only if the position was given in the  yaml file
+        pos1 = self.config['hline_pos']
+
+        for ax in range(len(axes)):
+            axes[ax].axhline(y= pos1, color='k', marker=' ', linestyle='dashdot', lw=1.5)
 
 
     def plot_broken(self, axes, shared_label=None):

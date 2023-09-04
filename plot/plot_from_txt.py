@@ -24,7 +24,8 @@ logger.setLevel(logging.INFO)
 
 # Import golbal plot configuration
 # plt.style.use('imtek')
-plt.style.use('thesis')
+# plt.style.use('thesis')
+plt.style.use('thesis-3sub')
 # Specify the path to the font file
 font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
 # Register the font with Matplotlib
@@ -154,7 +155,7 @@ class PlotFromTxt:
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
         except UnboundLocalError:
-            logging.error('No data on the x-axis, check the quanity to plot!')
+            pass
 
         return self.fig
 
@@ -218,7 +219,7 @@ class PlotFromTxt:
         self.plot_data(self.axes_array[n], temperature_exp, pressure_exp)
 
         try:
-            Modify(temperature3, self.fig, self.axes_array, self.configfile)
+            Modify(temperature_exp, self.fig, self.axes_array, self.configfile)
         except UnboundLocalError:
             logging.error('No data on the x-axis, check the quanity to plot!')
 
@@ -272,12 +273,12 @@ class PlotFromTxt:
         self.plot_data(self.axes_array[n], xdata, ydata)
 
         # for idx, val in enumerate(self.txts):
-        # data = np.loadtxt(self.txts[1], skiprows=self.skip, dtype=float)
-        #
-        # xdata = np.roll(data[:,0],64)           # nm
-        # ydata = data[:,1]           # MPa
-        #
-        # self.plot_data(self.axes_array[n], xdata, ydata)
+        data2 = np.loadtxt(self.txts[1], skiprows=self.skip, dtype=float)
+
+        xdata2 = np.roll(data2[:,0],64)           # nm
+        ydata2 = data2[:,1]           # MPa
+
+        self.plot_data(self.axes_array[n], xdata2, ydata2)
 
         try:
             Modify(xdata, self.fig, self.axes_array, self.configfile)
@@ -491,8 +492,9 @@ class PlotFromTxt:
 
                 # # Nucleation Rate (CNT)
                 prefac = n * np.sqrt(2 * gamma / (np.pi * m))
-                print(  np.exp( - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pv - pl)**2)))
-                j_cnt = prefac * np.exp( - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pv - pl)**2) )   # cm^3.s^-1
+
+                print(   - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pl - pv)**2))
+                j_cnt = prefac * np.exp( - 16 * np.pi * gamma**3 / (3 * sci.k * temp * (pl - pv)**2) )   # cm^3.s^-1
                 print(f'Nucleation rate CNT: {j_cnt:.2e} cm^-3.s^-1')
 
                 # Nucleation Rate (MD)

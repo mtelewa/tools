@@ -182,6 +182,7 @@ class PlotFromGrid:
                 cbar = self.ax.figure.colorbar(im, ax=self.ax)
 
             if self.config['anim']:
+                print(array_to_plot['data'].shape)
                 first_frame, last_frame, interval, fps = 7695, 9800, 30, 2 #30
                 frames_list = np.arange(first_frame, last_frame, interval)
                 print(f'No. of frames: {len(frames_list)} in the animation')

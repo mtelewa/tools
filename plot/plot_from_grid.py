@@ -21,8 +21,8 @@ logger.setLevel(logging.INFO)
 
 # Import golbal plot configuration
 # plt.style.use('imtek')
-plt.style.use('thesis')
-# plt.style.use('thesis-3sub')
+# plt.style.use('thesis')
+plt.style.use('thesis-3sub')
 
 # Specify the path to the font file
 font_path = '/usr/share/fonts/truetype/LinLibertine_Rah.ttf'
@@ -171,7 +171,7 @@ class PlotFromGrid:
         for i in range(len(datasets)):
             n=0    # subplot
             data = dataset(self.skip, self.datasets_x[i], self.datasets_z[i], self.mf, self.pumpsize)
-            if self.dimension=='L': x = data.length_array   # nm
+            if self.dimension=='L': x = data.length_array#[1:-1]   # nm
             if self.dimension=='H': x = data.height_array      # nm
             if self.dimension=='T': x = self.time[self.skip:] * 1e-6      # ns
 
@@ -237,7 +237,7 @@ class PlotFromGrid:
             if any('jx' in var for var in variables):
                 self.axes_array[n].set_ylabel(labels[4])
                 if self.dimension=='L': arr, y = data.mflux()['jx_full_x'], data.mflux()['jx_X']
-                if self.dimension=='H': arr, y = data.mflux()['jx_fuVirialll_z'], data.mflux()['jx_Z']
+                if self.dimension=='H': arr, y = data.mflux()['jx_full_z'], data.mflux()['jx_Z']
                 if self.dimension=='T': arr, y = None, data.mflux()['jx_t']
                 self.plot_data(self.axes_array[n], x, y)
                 if self.nrows>1: n+=1
@@ -260,7 +260,7 @@ class PlotFromGrid:
             # Virial Pressure - Scalar
             if any('virial' in var for var in variables):
                 virial = data.virial()
-                self.axes_array[n].set_ylabel(labels[7])
+                # self.axes_array[n].set_ylabel(labels[7])
                 if self.dimension=='L':
                     arr, y = virial['vir_full_x'], virial['vir_X']
                     # Save the pressure data to a txt file (to compare with the continuum)
@@ -288,7 +288,7 @@ class PlotFromGrid:
             if any('den' in var for var in variables):
                 density = data.density()
                 self.axes_array[n].set_ylabel(labels[3])
-                if self.dimension=='L': arr, y = density['den_full_x'], density['den_X']
+                if self.dimension=='L': arr, y = density['den_full_x'], density['den_X']#[1:-1]
                 if self.dimension=='H': arr, y = density['den_full_z'], density['den_Z']
                 if self.dimension=='T': arr, y = None, density['den_t']
                 # self.axes_array[n].plot(np.roll(y,85), x, color=colors[i])
