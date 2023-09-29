@@ -170,6 +170,8 @@ class manipulate_ds:
             metadata['Force_fields/Potentials'][3]['dt'] = kwargs['dt']
         if 'method' in kwargs:
             metadata['Method'] = kwargs['method']
+        if 'version' in kwargs:
+            metadata['software_packages'][1]['version'] = kwargs['version']
         if 'thermostat' in kwargs:
             metadata['Thermostat'] = kwargs['thermostat']
         if 'barostat' in kwargs:
